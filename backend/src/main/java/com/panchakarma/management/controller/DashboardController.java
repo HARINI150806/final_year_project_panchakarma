@@ -5,7 +5,6 @@ import com.panchakarma.management.model.UserRole;
 import com.panchakarma.management.repository.UserRepository;
 import com.panchakarma.management.service.DashboardService;
 import java.security.Principal;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -13,11 +12,15 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api")
-@RequiredArgsConstructor
 public class DashboardController {
 
     private final DashboardService dashboardService;
     private final UserRepository userRepository;
+
+    public DashboardController(DashboardService dashboardService, UserRepository userRepository) {
+        this.dashboardService = dashboardService;
+        this.userRepository = userRepository;
+    }
 
     @GetMapping("/dashboard")
     public ResponseEntity<DashboardStatsResponse> getDashboard(Principal principal) {

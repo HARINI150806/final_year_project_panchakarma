@@ -1,7 +1,6 @@
 package com.panchakarma.management.config;
 
 import com.panchakarma.management.security.JwtAuthenticationFilter;
-import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -25,7 +24,6 @@ import java.util.List;
 
 @Configuration
 @EnableMethodSecurity
-@RequiredArgsConstructor
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -33,6 +31,11 @@ public class SecurityConfig {
 
     @Value("${cors.allowed-origins}")
     private String allowedOrigins;
+
+    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter, UserDetailsService userDetailsService) {
+        this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+        this.userDetailsService = userDetailsService;
+    }
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {

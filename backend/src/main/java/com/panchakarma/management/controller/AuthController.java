@@ -5,7 +5,6 @@ import com.panchakarma.management.dto.LoginRequest;
 import com.panchakarma.management.dto.RegisterRequest;
 import com.panchakarma.management.service.AuthService;
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -19,10 +18,13 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api")
-@RequiredArgsConstructor
 public class AuthController {
 
     private final AuthService authService;
+
+    public AuthController(AuthService authService) {
+        this.authService = authService;
+    }
 
     @GetMapping("/health")
     public Map<String, String> health() {
