@@ -7,7 +7,7 @@ import { getDefaultRoute } from '../auth';
 
 const labelClass = 'mb-2 block text-sm font-semibold tracking-wide text-forest/85';
 const iconInputClass =
-  'w-full rounded-[1.35rem] border border-[#ddcdb3] bg-[#fffdf9] px-12 py-3.5 text-forest shadow-[inset_0_1px_0_rgba(255,255,255,0.82)] outline-none transition placeholder:text-forest/35 focus:border-sage focus:bg-white focus:ring-4 focus:ring-sage/10';
+  'w-full rounded-[1.2rem] border border-[#ddcdb3] bg-[#fffdf9] px-12 py-3 text-forest shadow-[inset_0_1px_0_rgba(255,255,255,0.82)] outline-none transition placeholder:text-forest/35 focus:border-sage focus:bg-white focus:ring-4 focus:ring-sage/10';
 
 export default function LoginPage({ onLogin }) {
   const navigate = useNavigate();
@@ -23,8 +23,13 @@ export default function LoginPage({ onLogin }) {
     try {
       const { data } = await api.post('/auth/login', formData);
       onLogin(data);
-      navigate(getDefaultRoute(data.role), { replace: true });
+      if (data.role === 'PATIENT' && !data.profileCompleted) {
+        navigate('/complete-profile', { replace: true });
+      } else {
+        navigate(getDefaultRoute(data.role), { replace: true });
+      }
     } catch (requestError) {
+      console.error('Login error:', requestError);
       setError(requestError.response?.data?.message || 'Unable to sign in. Please check your credentials.');
     } finally {
       setLoading(false);
@@ -39,7 +44,7 @@ export default function LoginPage({ onLogin }) {
       footerLink="/register"
       footerLabel="Create an account"
     >
-      <form className="space-y-5" onSubmit={handleSubmit}>
+      <form className="space-y-4" onSubmit={handleSubmit}>
         <div>
           <label className={labelClass}>Email address</label>
           <div className="relative">
@@ -80,7 +85,7 @@ export default function LoginPage({ onLogin }) {
         {error ? <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm leading-6 text-rose-600">{error}</p> : null}
 
         <button
-          className="flex w-full items-center justify-center gap-2 rounded-[1.4rem] bg-[linear-gradient(135deg,#355c39_0%,#5a8553_100%)] px-4 py-3.5 font-semibold text-white shadow-[0_18px_45px_rgba(62,109,67,0.22)] transition hover:translate-y-[-1px] hover:shadow-[0_22px_55px_rgba(62,109,67,0.28)] disabled:cursor-not-allowed disabled:opacity-70"
+          className="flex w-full items-center justify-center gap-2 rounded-[1.2rem] bg-[linear-gradient(135deg,#355c39_0%,#5a8553_100%)] px-4 py-3 font-semibold text-white shadow-[0_18px_45px_rgba(62,109,67,0.22)] transition hover:translate-y-[-1px] hover:shadow-[0_22px_55px_rgba(62,109,67,0.28)] disabled:cursor-not-allowed disabled:opacity-70"
           type="submit"
           disabled={loading}
         >

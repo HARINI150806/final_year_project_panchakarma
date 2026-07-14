@@ -13,48 +13,36 @@ export default function Sidebar({ role, fullName, onLogout }) {
       <div className="noise-grid absolute inset-0 opacity-[0.05]" />
       <div className="relative flex h-full flex-col justify-between gap-6">
       <div>
-        <div className="mb-6 rounded-3xl border border-[#cfe0c2] bg-white/78 p-4 backdrop-blur-sm">
-          <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#cfe0c2] bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-sage">
-            <Sparkles size={14} />
-            Care workspace
+
+        {role === 'PATIENT' ? (
+          <nav className="space-y-2">
+            {items.map((item, index) => {
+              const Icon = iconMap[index % iconMap.length];
+              const isPrimary = index === 0;
+              return (
+                <button
+                  key={item}
+                  className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-medium transition ${
+                    isPrimary
+                      ? 'bg-white text-forest shadow-lg shadow-black/10'
+                      : 'text-forest/76 hover:bg-white/60 hover:text-forest'
+                  }`}
+                  type="button"
+                >
+                  <span className={`rounded-xl p-2 ${isPrimary ? 'bg-[#f6f1e7] text-sage' : 'bg-[#eaf4e3] text-sage'}`}>
+                    <Icon size={16} />
+                  </span>
+                  <span>{item}</span>
+                </button>
+              );
+            })}
+          </nav>
+        ) : (
+          <div className="rounded-2xl bg-white/55 px-4 py-3 text-sm font-medium text-forest/70 backdrop-blur-sm">
+            Therapist actions now live in the header.
           </div>
-          <p className="text-xs uppercase tracking-[0.18em] text-forest/48">Signed in as</p>
-          <h2 className="mt-2 font-display text-xl font-semibold">{fullName}</h2>
-          <p className="mt-1 text-sm text-forest/64">{role}</p>
-        </div>
-
-        <nav className="space-y-2">
-          {items.map((item, index) => {
-            const Icon = iconMap[index % iconMap.length];
-            const isPrimary = index === 0;
-            return (
-              <button
-                key={item}
-                className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-medium transition ${
-                  isPrimary
-                    ? 'bg-white text-forest shadow-lg shadow-black/10'
-                    : 'text-forest/76 hover:bg-white/60 hover:text-forest'
-                }`}
-                type="button"
-              >
-                <span className={`rounded-xl p-2 ${isPrimary ? 'bg-[#f6f1e7] text-sage' : 'bg-[#eaf4e3] text-sage'}`}>
-                  <Icon size={16} />
-                </span>
-                <span>{item}</span>
-              </button>
-            );
-          })}
-        </nav>
+        )}
       </div>
-
-      <button
-        className="flex items-center justify-center gap-2 rounded-2xl border border-[#cfe0c2] bg-white/85 px-4 py-3 text-sm font-semibold text-forest transition hover:bg-white"
-        type="button"
-        onClick={onLogout}
-      >
-        <LogOut size={16} />
-        Logout
-      </button>
       </div>
     </aside>
   );

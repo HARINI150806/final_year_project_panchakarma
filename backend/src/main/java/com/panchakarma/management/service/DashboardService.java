@@ -13,15 +13,9 @@ public class DashboardService {
         List<Map<String, Object>> stats = switch (role) {
             case ADMIN -> List.of(
                     stat("Total Patients", "184", "+12 this month"),
-                    stat("Doctors", "14", "2 available now"),
+                    stat("Care Staff", "14", "2 available now"),
                     stat("Therapists", "21", "18 on duty"),
                     stat("Today's Appointments", "39", "7 pending confirmation")
-            );
-            case DOCTOR -> List.of(
-                    stat("Consultations Today", "12", "3 follow-ups"),
-                    stat("Pending Assessments", "6", "2 urgent"),
-                    stat("Recovery Reviews", "9", "AI insights ready"),
-                    stat("Prescriptions Added", "17", "This week")
             );
             case THERAPIST -> List.of(
                     stat("Assigned Sessions", "8", "2 in progress"),
@@ -46,16 +40,10 @@ public class DashboardService {
 
         List<Map<String, Object>> modules = switch (role) {
             case ADMIN -> List.of(
-                    module("Manage doctors", "Onboard, edit, and assign doctors"),
+                    module("Manage care team", "Onboard, edit, and assign staff"),
                     module("Manage therapists", "Track schedules and availability"),
                     module("Manage therapy rooms", "Allocate rooms automatically"),
                     module("Recovery reports", "View trends and feedback")
-            );
-            case DOCTOR -> List.of(
-                    module("Appointments", "Review consultations and follow-ups"),
-                    module("Dosha assessment", "Assess Vata, Pitta, and Kapha"),
-                    module("Therapy recommendations", "Prescribe Panchakarma plans"),
-                    module("AI prediction", "Review projected recovery status")
             );
             case THERAPIST -> List.of(
                     module("Assigned therapies", "See today's therapy list"),
@@ -64,7 +52,7 @@ public class DashboardService {
                     module("Completion tracking", "Mark sessions completed")
             );
             case PATIENT -> List.of(
-                    module("Book consultation", "Schedule doctor visits"),
+                    module("Book consultation", "Schedule care visits"),
                     module("Book therapy", "Auto-assign therapist and room"),
                     module("Track recovery", "View charts and progress bars"),
                     module("Feedback", "Rate therapies and care quality")

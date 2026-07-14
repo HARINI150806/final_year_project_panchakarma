@@ -17,7 +17,7 @@ Full-stack starter project for an Ayurvedic hospital and Panchakarma treatment c
 - Seeded demo users for all four roles
 
 ## Demo accounts
-
+ abd
 - `admin@panchakarma.com`
 - `doctor@panchakarma.com`
 - `therapist@panchakarma.com`

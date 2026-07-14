@@ -3,7 +3,10 @@ package com.panchakarma.management.service;
 import com.panchakarma.management.dto.AuthResponse;
 import com.panchakarma.management.dto.LoginRequest;
 import com.panchakarma.management.dto.RegisterRequest;
+import com.panchakarma.management.model.Patient;
 import com.panchakarma.management.model.User;
+import com.panchakarma.management.model.UserRole;
+import com.panchakarma.management.repository.PatientRepository;
 import com.panchakarma.management.repository.UserRepository;
 import com.panchakarma.management.security.JwtService;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -15,17 +18,20 @@ import org.springframework.stereotype.Service;
 public class AuthService {
 
     private final UserRepository userRepository;
+    private final PatientRepository patientRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
 
     public AuthService(
             UserRepository userRepository,
+            PatientRepository patientRepository,
             PasswordEncoder passwordEncoder,
             JwtService jwtService,
             AuthenticationManager authenticationManager
     ) {
         this.userRepository = userRepository;
+        this.patientRepository = patientRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.authenticationManager = authenticationManager;
@@ -43,11 +49,22 @@ public class AuthService {
         user.setPassword(passwordEncoder.encode(request.password()));
         user.setGender(request.gender());
         user.setAge(request.age());
-        user.setRole(request.role());
+        user.setRole(UserRole.PATIENT);
 
         User savedUser = userRepository.save(user);
+        createPatientProfile(savedUser);
         String token = jwtService.generateToken(savedUser.getEmail(), savedUser.getRole().name());
-        return new AuthResponse(token, savedUser.getId(), savedUser.getFullName(), savedUser.getEmail(), savedUser.getRole());
+        return new AuthResponse(
+                token,
+                savedUser.getId(),
+                savedUser.getFullName(),
+                savedUser.getEmail(),
+                savedUser.getRole(),
+                savedUser.isDoshaAssessmentCompleted(),
+                savedUser.getDominantDosha(),
+                savedUser.getDoshaAssessmentDate(),
+                false
+        );
     }
 
     public AuthResponse login(LoginRequest request) {
@@ -59,7 +76,39 @@ public class AuthService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("Invalid credentials"));
 
+        boolean isProfileCompleted = false;
+        if (user.getRole() == UserRole.PATIENT) {
+            Patient patient = patientRepository.findByUser(user)
+                    .orElseThrow(() -> new IllegalArgumentException("Patient profile not found"));
+            isProfileCompleted = patient.isProfileCompleted();
+        }
+
         String token = jwtService.generateToken(user.getEmail(), user.getRole().name());
-        return new AuthResponse(token, user.getId(), user.getFullName(), user.getEmail(), user.getRole());
+        return new AuthResponse(
+                token,
+                user.getId(),
+                user.getFullName(),
+                user.getEmail(),
+                user.getRole(),
+                user.isDoshaAssessmentCompleted(),
+                user.getDominantDosha(),
+                user.getDoshaAssessmentDate(),
+                isProfileCompleted
+        );
+    }
+
+    private void createPatientProfile(User user) {
+        Patient patient = new Patient();
+        String fullName = user.getFullName() == null ? "" : user.getFullName().trim();
+        String[] nameParts = fullName.split("\\s+", 2);
+        patient.setFirstName(nameParts.length > 0 ? nameParts[0] : "");
+        patient.setLastName(nameParts.length > 1 ? nameParts[1] : "");
+        patient.setEmail(user.getEmail());
+        patient.setContactNumber(user.getPhone());
+        patient.setGender(user.getGender());
+        patient.setUser(user);
+        patientRepository.save(patient);
+        user.setPatient(patient); // Establish bidirectional link
+        userRepository.save(user); // Save user to update the patient reference
     }
 }

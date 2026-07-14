@@ -1,51 +1,23 @@
 export const roleLabels = {
   ADMIN: 'Admin',
-  DOCTOR: 'Doctor',
   THERAPIST: 'Therapist',
   PATIENT: 'Patient',
 };
 
 export const roleMenus = {
   ADMIN: [
-    'Dashboard',
-    'Manage Doctors',
-    'Manage Therapists',
-    'Manage Patients',
-    'Manage Therapies',
-    'Appointments',
-    'Therapy Rooms',
-    'Recovery Reports',
-    'Feedback & Ratings',
-    'Notifications',
-  ],
-  DOCTOR: [
-    'Appointments',
-    'Medical History',
-    'Consultation',
-    'Dosha Assessment',
-    'Therapy Recommendations',
-    'Recovery Progress',
-    'AI Prediction',
-    'Prescriptions & Notes',
+    'Create Therapist',
   ],
   THERAPIST: [
-    'Assigned Therapies',
-    'Completed Sessions',
-    'Session Details',
-    'Pain / Sleep / Energy',
+    'Manage Sessions',
+    'View Assigned Therapies',
     'Patient History',
   ],
   PATIENT: [
-    'Profile',
-    'Dosha Questionnaire',
-    'Book Consultation',
-    'Book Therapy',
     'Appointment Status',
     'Treatment History',
-    'Recovery Charts',
-    'AI Recovery Prediction',
+    'Recovery Insights',
     'Feedback',
-    'Notifications',
   ],
 };
 
@@ -63,3 +35,62 @@ export const predictions = [
   { label: 'Good', color: 'bg-lime-500', range: '61 - 80%' },
   { label: 'Excellent', color: 'bg-emerald-600', range: '> 80%' },
 ];
+
+export const doshaAssessmentFields = [
+  {
+    key: 'bodyBuild',
+    label: '1. What is your body build?',
+    options: ['Thin and lean', 'Medium and athletic', 'Broad and sturdy'],
+  },
+  {
+    key: 'skinType',
+    label: '2. What is your skin type?',
+    options: ['Dry and rough', 'Warm and sensitive', 'Soft and oily'],
+  },
+  {
+    key: 'appetite',
+    label: '3. How is your appetite?',
+    options: ['Irregular', 'Strong and frequent', 'Moderate and steady'],
+  },
+  {
+    key: 'digestion',
+    label: '4. How is your digestion?',
+    options: ['Gas or bloating', 'Acidity or heartburn', 'Slow digestion'],
+  },
+  {
+    key: 'sleepPattern',
+    label: '5. How do you sleep?',
+    options: ['Light and interrupted', 'Moderate', 'Deep and long'],
+  },
+  {
+    key: 'energyLevel',
+    label: '6. How is your energy level?',
+    options: ['Variable', 'Active and energetic', 'Calm and steady'],
+  },
+  {
+    key: 'stressResponse',
+    label: '7. How do you react to stress?',
+    options: ['Anxious or worried', 'Irritated or angry', 'Calm or withdrawn'],
+  },
+  {
+    key: 'climatePreference',
+    label: '8. Which climate do you prefer?',
+    options: ['Warm', 'Cool', 'Dry or moderate'],
+  },
+  {
+    key: 'walkingStyle',
+    label: '9. How do you usually walk?',
+    options: ['Fast', 'Moderate', 'Slow and steady'],
+  },
+  {
+    key: 'personality',
+    label: '10. How would you describe your personality?',
+    options: ['Creative and enthusiastic', 'Confident and ambitious', 'Calm and patient'],
+  },
+];
+
+export const doshaTherapies = {
+  VATA: ['Abhyanga', 'Basti', 'Shirodhara'],
+  PITTA: ['Shirodhara', 'Virechana'],
+  KAPHA: ['Udvartana', 'Nasya', 'Vamana'],
+};

@@ -6,6 +6,7 @@ import com.panchakarma.management.repository.UserRepository;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 @Configuration
@@ -18,7 +19,7 @@ public class DataInitializer {
     }
 
     @Bean
-    CommandLineRunner seedUsers(UserRepository userRepository) {
+    CommandLineRunner seedUsers(UserRepository userRepository, JdbcTemplate jdbcTemplate) {
         return args -> {
             if (!userRepository.existsByEmail("admin@panchakarma.com")) {
                 userRepository.save(buildUser(
@@ -28,39 +29,6 @@ public class DataInitializer {
                         "Female",
                         35,
                         UserRole.ADMIN
-                ));
-            }
-
-            if (!userRepository.existsByEmail("doctor@panchakarma.com")) {
-                userRepository.save(buildUser(
-                        "Dr. Aryan Sharma",
-                        "doctor@panchakarma.com",
-                        "9876543211",
-                        "Male",
-                        42,
-                        UserRole.DOCTOR
-                ));
-            }
-
-            if (!userRepository.existsByEmail("therapist@panchakarma.com")) {
-                userRepository.save(buildUser(
-                        "Meera Therapist",
-                        "therapist@panchakarma.com",
-                        "9876543212",
-                        "Female",
-                        31,
-                        UserRole.THERAPIST
-                ));
-            }
-
-            if (!userRepository.existsByEmail("patient@panchakarma.com")) {
-                userRepository.save(buildUser(
-                        "Rohan Patient",
-                        "patient@panchakarma.com",
-                        "9876543213",
-                        "Male",
-                        29,
-                        UserRole.PATIENT
                 ));
             }
         };

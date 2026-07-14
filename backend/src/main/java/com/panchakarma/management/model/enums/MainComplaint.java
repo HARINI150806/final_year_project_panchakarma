@@ -1,0 +1,19 @@
+package com.panchakarma.management.model.enums;
+
+public enum MainComplaint {
+    JOINT_PAIN,
+    BACK_PAIN,
+    NECK_PAIN,
+    HEADACHE_MIGRAINE,
+    MUSCLE_PAIN,
+    BODY_STIFFNESS,
+    STRESS_ANXIETY,
+    SLEEP_PROBLEM,
+    DIGESTIVE_PROBLEM,
+    CONSTIPATION,
+    ACIDITY_HEARTBURN,
+    SKIN_PROBLEM,
+    FATIGUE_LOW_ENERGY,
+    RESPIRATORY_PROBLEM,
+    OTHER
+}

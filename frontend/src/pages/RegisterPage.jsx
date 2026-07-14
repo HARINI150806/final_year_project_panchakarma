@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowRight, BadgeCheck, LockKeyhole, Mail, Phone, UserRound, Users } from 'lucide-react';
+import { ArrowRight, LockKeyhole, Mail, Phone, UserRound, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import AuthLayout from '../components/AuthLayout';
@@ -7,9 +7,9 @@ import { getDefaultRoute } from '../auth';
 
 const labelClass = 'mb-2 block text-sm font-semibold tracking-wide text-forest/85';
 const iconInputClass =
-  'w-full rounded-[1.35rem] border border-[#ddcdb3] bg-[#fffdf9] px-12 py-3.5 text-forest shadow-[inset_0_1px_0_rgba(255,255,255,0.82)] outline-none transition placeholder:text-forest/35 focus:border-sage focus:bg-white focus:ring-4 focus:ring-sage/10';
+  'w-full rounded-[1.2rem] border border-[#ddcdb3] bg-[#fffdf9] px-12 py-3 text-forest shadow-[inset_0_1px_0_rgba(255,255,255,0.82)] outline-none transition placeholder:text-forest/35 focus:border-sage focus:bg-white focus:ring-4 focus:ring-sage/10';
 const plainInputClass =
-  'w-full rounded-[1.35rem] border border-[#ddcdb3] bg-[#fffdf9] px-4 py-3.5 text-forest shadow-[inset_0_1px_0_rgba(255,255,255,0.82)] outline-none transition placeholder:text-forest/35 focus:border-sage focus:bg-white focus:ring-4 focus:ring-sage/10';
+  'w-full rounded-[1.2rem] border border-[#ddcdb3] bg-[#fffdf9] px-4 py-3 text-forest shadow-[inset_0_1px_0_rgba(255,255,255,0.82)] outline-none transition placeholder:text-forest/35 focus:border-sage focus:bg-white focus:ring-4 focus:ring-sage/10';
 
 const initialState = {
   fullName: '',
@@ -55,8 +55,8 @@ export default function RegisterPage({ onRegister }) {
       footerLink="/login"
       footerLabel="Sign in"
     >
-      <form className="space-y-5" onSubmit={handleSubmit}>
-        <div className="grid gap-4 md:grid-cols-2">
+      <form className="space-y-4" onSubmit={handleSubmit}>
+        <div className="grid gap-3 md:grid-cols-2">
           <div className="md:col-span-2">
             <label className={labelClass}>Full name</label>
             <div className="relative">
@@ -122,19 +122,7 @@ export default function RegisterPage({ onRegister }) {
 
           <div>
             <label className={labelClass}>Role</label>
-            <div className="relative">
-              <BadgeCheck className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sage/60" size={18} />
-              <select
-                className={iconInputClass}
-                value={formData.role}
-                onChange={(event) => setFormData({ ...formData, role: event.target.value })}
-              >
-                <option value="PATIENT">Patient</option>
-                <option value="THERAPIST">Therapist</option>
-                <option value="DOCTOR">Doctor</option>
-                <option value="ADMIN">Admin</option>
-              </select>
-            </div>
+            <input className={iconInputClass} value="Patient" readOnly aria-readonly="true" />
           </div>
 
           <div>
@@ -173,7 +161,7 @@ export default function RegisterPage({ onRegister }) {
         {error ? <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm leading-6 text-rose-600">{error}</p> : null}
 
         <button
-          className="flex w-full items-center justify-center gap-2 rounded-[1.4rem] bg-[linear-gradient(135deg,#355c39_0%,#5a8553_100%)] px-4 py-3.5 font-semibold text-white shadow-[0_18px_45px_rgba(62,109,67,0.22)] transition hover:translate-y-[-1px] hover:shadow-[0_22px_55px_rgba(62,109,67,0.28)] disabled:cursor-not-allowed disabled:opacity-70"
+          className="flex w-full items-center justify-center gap-2 rounded-[1.2rem] bg-[linear-gradient(135deg,#355c39_0%,#5a8553_100%)] px-4 py-3 font-semibold text-white shadow-[0_18px_45px_rgba(62,109,67,0.22)] transition hover:translate-y-[-1px] hover:shadow-[0_22px_55px_rgba(62,109,67,0.28)] disabled:cursor-not-allowed disabled:opacity-70"
           type="submit"
           disabled={loading}
         >
