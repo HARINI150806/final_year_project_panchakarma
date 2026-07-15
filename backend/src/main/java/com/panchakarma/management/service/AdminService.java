@@ -80,6 +80,10 @@ public class AdminService {
     }
 
     private PatientSummaryResponse toPatientSummary(User user) {
+        String dominantDosha = user.getPatient() != null ? user.getPatient().getDominantDosha() : user.getDominantDosha();
+        boolean assessmentCompleted = user.getPatient() != null
+                ? user.getPatient().isDoshaAssessmentCompleted()
+                : user.isDoshaAssessmentCompleted();
         return new PatientSummaryResponse(
                 user.getId(),
                 user.getFullName(),
@@ -87,8 +91,8 @@ public class AdminService {
                 user.getPhone(),
                 user.getGender(),
                 user.getAge(),
-                user.getDominantDosha(),
-                user.isDoshaAssessmentCompleted(),
+                dominantDosha,
+                assessmentCompleted,
                 user.getCreatedAt()
         );
     }

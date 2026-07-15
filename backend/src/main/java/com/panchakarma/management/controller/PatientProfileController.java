@@ -1,7 +1,9 @@
 package com.panchakarma.management.controller;
 
 import com.panchakarma.management.dto.PatientProfileRequest;
+import com.panchakarma.management.dto.PatientProfileResponse;
 import com.panchakarma.management.exception.ResourceNotFoundException;
+import com.panchakarma.management.service.PatientService;
 import com.panchakarma.management.service.PatientProfileService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -20,6 +22,8 @@ public class PatientProfileController {
     private PatientProfileService patientProfileService;
     @Autowired
     private UserRepository userRepository;
+    @Autowired
+    private PatientService patientService;
 
     // Endpoint for ADMIN/THERAPIST to update any patient's profile
 
@@ -50,7 +54,7 @@ public class PatientProfileController {
 
     // Endpoint for authenticated PATIENT to get their own profile
     @GetMapping
-    public ResponseEntity<Patient> getMyProfile() {
+    public ResponseEntity<PatientProfileResponse> getMyProfile() {
         Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         String username;
         if (principal instanceof org.springframework.security.core.userdetails.UserDetails) {
@@ -66,6 +70,6 @@ public class PatientProfileController {
         if (patient == null) {
             throw new ResourceNotFoundException("Patient profile not found for user: " + username);
         }
-        return ResponseEntity.ok(patient);
+        return ResponseEntity.ok(patientService.getPatientProfile(authenticatedUser.getId()));
     }
 }

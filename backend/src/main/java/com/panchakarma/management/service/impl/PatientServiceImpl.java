@@ -22,13 +22,13 @@ import java.util.List;
 import java.util.Optional;
 
 import com.panchakarma.management.dto.PatientProfileResponse;
+import com.panchakarma.management.dto.PatientProfileResponse.ProfileItemResponse;
 import com.panchakarma.management.model.User;
 import com.panchakarma.management.repository.UserRepository;
 import java.time.LocalDate;
 import java.time.Period;
 import java.util.Collections;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @Service
 public class PatientServiceImpl implements PatientService {
@@ -81,7 +81,8 @@ public class PatientServiceImpl implements PatientService {
 
         if (patient.isDoshaAssessmentCompleted()) {
             log.info("Dosha assessment already completed for patientId: {}. Skipping new assessment.", patientId);
-            return new DoshaAssessmentResponse(patient.getDominantDosha(), "Dosha assessment already completed for this patient.");
+            return buildDoshaResponse(patient, recommendedTherapiesFor(patient.getDominantDosha()),
+                    "Dosha assessment already completed for this patient.");
         }
 
         int vataScore = 0;
@@ -95,67 +96,20 @@ public class PatientServiceImpl implements PatientService {
             patient.setDominantDosha(null);
             patient.setDoshaAssessmentCompleted(false);
             patient.setDoshaAssessmentDate(null);
+            syncAssessmentToUser(patient, request, null, 0, 0, 0, false, null);
             patientRepository.save(patient);
             log.info("Dosha assessment skipped for patientId: {} due to empty assessment data.", patientId);
-            return new DoshaAssessmentResponse(null, "No assessment data provided.");
+            return buildDoshaResponse(patient, Collections.emptyList(), "No assessment data provided.");
         }
 
         for (Map.Entry<String, String> entry : request.getAssessmentData().entrySet()) {
-            String key = entry.getKey().toLowerCase();
-            String value = entry.getValue().toLowerCase();
-
-            switch (key) {
-                case "appetite":
-                    if (value.contains("irregular") || value.contains("variable")) vataScore += 2;
-                    else if (value.contains("strong") || value.contains("frequent")) pittaScore += 2;
-                    else if (value.contains("moderate") || value.contains("steady")) kaphaScore += 2;
-                    break;
-                case "bodybuild":
-                    if (value.contains("slender") || value.contains("thin")) vataScore += 2;
-                    else if (value.contains("medium") || value.contains("athletic")) pittaScore += 2;
-                    else if (value.contains("broad") || value.contains("sturdy")) kaphaScore += 2;
-                    break;
-                case "climatepreference":
-                    if (value.contains("cold") || value.contains("dry")) vataScore += 2;
-                    else if (value.contains("hot") || value.contains("warm")) pittaScore += 2; // Pitta dislikes heat
-                    else if (value.contains("humid") || value.contains("cool")) kaphaScore += 2;
-                    break;
-                case "digestion":
-                    if (value.contains("gas") || value.contains("bloating") || value.contains("irregular")) vataScore += 2;
-                    else if (value.contains("acidity") || value.contains("heartburn") || value.contains("sharp")) pittaScore += 2;
-                    else if (value.contains("slow") || value.contains("heavy")) kaphaScore += 2;
-                    break;
-                case "energylevel":
-                    if (value.contains("variable") || value.contains("fluctuating")) vataScore += 2;
-                    else if (value.contains("active") || value.contains("energetic")) pittaScore += 2;
-                    else if (value.contains("calm") || value.contains("steady")) kaphaScore += 2;
-                    break;
-                case "personality":
-                    if (value.contains("anxious") || value.contains("restless")) vataScore += 2;
-                    else if (value.contains("ambitious") || value.contains("irritable")) pittaScore += 2;
-                    else if (value.contains("calm") || value.contains("patient")) kaphaScore += 2;
-                    break;
-                case "skintype":
-                    if (value.contains("dry") || value.contains("rough")) vataScore += 2;
-                    else if (value.contains("oily") || value.contains("sensitive") || value.contains("warm")) pittaScore += 2;
-                    else if (value.contains("smooth") || value.contains("cool")) kaphaScore += 2;
-                    break;
-                case "sleeppattern":
-                    if (value.contains("light") || value.contains("disturbed")) vataScore += 2;
-                    else if (value.contains("moderate") || value.contains("sound")) pittaScore += 2;
-                    else if (value.contains("deep") || value.contains("long")) kaphaScore += 2;
-                    break;
-                case "stressresponse":
-                    if (value.contains("anxious") || value.contains("worried")) vataScore += 2;
-                    else if (value.contains("irritated") || value.contains("angry")) pittaScore += 2;
-                    else if (value.contains("withdrawn") || value.contains("lethargic")) kaphaScore += 2;
-                    break;
-                case "walkingstyle":
-                    if (value.contains("quick") || value.contains("erratic")) vataScore += 2;
-                    else if (value.contains("purposeful") || value.contains("determined")) pittaScore += 2;
-                    else if (value.contains("slow") || value.contains("steady")) kaphaScore += 2;
-                    break;
-                // Add more cases for other assessment questions as needed
+            String dosha = doshaForAnswer(entry.getKey(), entry.getValue());
+            if ("VATA".equals(dosha)) {
+                vataScore += 1;
+            } else if ("PITTA".equals(dosha)) {
+                pittaScore += 1;
+            } else if ("KAPHA".equals(dosha)) {
+                kaphaScore += 1;
             }
         }
 
@@ -166,15 +120,8 @@ public class PatientServiceImpl implements PatientService {
         if (vataScore == 0 && pittaScore == 0 && kaphaScore == 0) {
             dominantDosha = null; // No dosha determined
             assessmentSuccessful = false;
-        } else if (vataScore > pittaScore && vataScore > kaphaScore) {
-            dominantDosha = "VATA";
-        } else if (pittaScore > vataScore && pittaScore > kaphaScore) {
-            dominantDosha = "PITTA";
-        } else if (kaphaScore > vataScore && kaphaScore > pittaScore) {
-            dominantDosha = "KAPHA";
         } else {
-            // Handle ties or no clear dominant dosha, e.g., by defaulting or more complex rules
-            dominantDosha = "UNKNOWN";
+            dominantDosha = determineDoshaType(vataScore, pittaScore, kaphaScore);
         }
 
         // Update patient entity
@@ -184,10 +131,13 @@ public class PatientServiceImpl implements PatientService {
         patient.setDominantDosha(dominantDosha);
         patient.setDoshaAssessmentCompleted(assessmentSuccessful);
         patient.setDoshaAssessmentDate(assessmentSuccessful ? LocalDate.now() : null);
+        syncAssessmentToUser(patient, request, dominantDosha, vataScore, pittaScore, kaphaScore,
+                assessmentSuccessful, patient.getDoshaAssessmentDate());
         patientRepository.save(patient);
 
         log.info("Dosha assessment completed for patientId: {}. Calculated Dosha: {}", patientId, dominantDosha);
-        return new DoshaAssessmentResponse(dominantDosha, "Dosha assessment completed successfully.");
+        return buildDoshaResponse(patient, recommendedTherapiesFor(dominantDosha),
+                "Dosha assessment completed successfully.");
     }
 
     @Override
@@ -206,76 +156,68 @@ public class PatientServiceImpl implements PatientService {
         }
 
         // Map health conditions, allergies, previous treatments to list of strings
-        List<String> healthConditions;
+        List<ProfileItemResponse> healthConditions;
         if (patient.getHealthConditions() != null) {
             healthConditions = new java.util.ArrayList<>();
             for (HealthCondition condition : patient.getHealthConditions()) {
-                healthConditions.add(condition.getName() + (condition.getSpecification() != null ? " (" + condition.getSpecification() + ")" : ""));
+                healthConditions.add(new ProfileItemResponse(condition.getId(), condition.getName(), condition.getSpecification()));
             }
         } else {
             healthConditions = Collections.emptyList();
         }
 
-        List<String> allergies;
+        List<ProfileItemResponse> allergies;
         if (patient.getAllergies() != null) {
             allergies = new java.util.ArrayList<>();
             for (Allergy allergy : patient.getAllergies()) {
-                allergies.add(allergy.getName() + (allergy.getSpecification() != null ? " (" + allergy.getSpecification() + ")" : ""));
+                allergies.add(new ProfileItemResponse(allergy.getId(), allergy.getName(), allergy.getSpecification()));
             }
         } else {
             allergies = Collections.emptyList();
         }
 
-        List<String> previousTreatments;
+        List<ProfileItemResponse> previousTreatments;
         if (patient.getPreviousTreatments() != null) {
             previousTreatments = new java.util.ArrayList<>();
             for (PreviousTreatment treatment : patient.getPreviousTreatments()) {
-                previousTreatments.add(treatment.getName() + (treatment.getSpecification() != null ? " (" + treatment.getSpecification() + ")" : ""));
+                previousTreatments.add(new ProfileItemResponse(treatment.getId(), treatment.getName(), treatment.getSpecification()));
             }
         } else {
             previousTreatments = Collections.emptyList();
         }
 
-        // Placeholder for recommended therapies - in a real app, this would be dynamic
-        List<String> recommendedTherapies = Collections.emptyList();
-        if (patient.getDominantDosha() != null) {
-            switch (patient.getDominantDosha()) {
-                case "VATA":
-                    recommendedTherapies = List.of("Abhyanga (Oil Massage)", "Swedana (Herbal Steam)", "Basti (Enema)");
-                    break;
-                case "PITTA":
-                    recommendedTherapies = List.of("Virechana (Purgation)", "Shirodhara (Oil Drip)", "Cooling Therapies");
-                    break;
-                case "KAPHA":
-                    recommendedTherapies = List.of("Vamana (Emesis)", "Udvartana (Dry Powder Massage)", "Stimulating Therapies");
-                    break;
-                default:
-                    recommendedTherapies = Collections.emptyList();
-            }
-        }
+        List<String> recommendedTherapies = recommendedTherapiesFor(patient.getDominantDosha());
 
 
         return new PatientProfileResponse(
+                patient.getId(),
                 user.getId(),
+                patient.getFirstName(),
+                patient.getLastName(),
                 user.getFullName(),
                 user.getEmail(),
                 patient.getContactNumber(),
                 user.getRole(),
+                patient.getDateOfBirth(),
                 age,
                 patient.getGender(),
                 patient.getHeight() != null ? patient.getHeight().toString() : null,
                 patient.getWeight() != null ? patient.getWeight().toString() : null,
                 patient.getOccupation(),
-                null, // bodyBuild - not in Patient entity yet
-                null, // skinType - not in Patient entity yet
-                null, // appetite - not in Patient entity yet
-                null, // digestion - not in Patient entity yet
-                null, // sleepPattern - not in Patient entity yet
-                null, // energyLevel - not in Patient entity yet
-                null, // stressResponse - not in Patient entity yet
-                null, // climatePreference - not in Patient entity yet
-                null, // walkingStyle - not in Patient entity yet
-                null, // personality - not in Patient entity yet
+                patient.isProfileCompleted(),
+                healthConditions,
+                allergies,
+                previousTreatments,
+                user.getBodyBuild(),
+                user.getSkinType(),
+                user.getAppetite(),
+                user.getDigestion(),
+                user.getSleepPattern(),
+                user.getEnergyLevel(),
+                user.getStressResponse(),
+                user.getClimatePreference(),
+                user.getWalkingStyle(),
+                user.getPersonality(),
                 patient.getVataScore(),
                 patient.getPittaScore(),
                 patient.getKaphaScore(),
@@ -284,5 +226,223 @@ public class PatientServiceImpl implements PatientService {
                 patient.getDoshaAssessmentDate() != null ? patient.getDoshaAssessmentDate().atStartOfDay() : null,
                 recommendedTherapies
         );
+    }
+
+    private void syncAssessmentToUser(Patient patient, DoshaAssessmentRequest request, String dominantDosha,
+                                      Integer vataScore, Integer pittaScore, Integer kaphaScore,
+                                      boolean assessmentCompleted, LocalDate assessmentDate) {
+        User user = patient.getUser();
+        if (user == null) {
+            return;
+        }
+
+        Map<String, String> data = request.getAssessmentData();
+        user.setBodyBuild(value(data, "bodyBuild"));
+        user.setSkinType(value(data, "skinType"));
+        user.setAppetite(value(data, "appetite"));
+        user.setDigestion(value(data, "digestion"));
+        user.setSleepPattern(value(data, "sleepPattern"));
+        user.setEnergyLevel(value(data, "energyLevel"));
+        user.setStressResponse(value(data, "stressResponse"));
+        user.setClimatePreference(value(data, "climatePreference"));
+        user.setWalkingStyle(value(data, "walkingStyle"));
+        user.setPersonality(value(data, "personality"));
+        user.setVataScore(vataScore);
+        user.setPittaScore(pittaScore);
+        user.setKaphaScore(kaphaScore);
+        user.setDominantDosha(dominantDosha);
+        user.setDoshaAssessmentCompleted(assessmentCompleted);
+        user.setDoshaAssessmentDate(assessmentDate != null ? assessmentDate.atStartOfDay() : null);
+
+        String gender = value(data, "gender");
+        if (gender != null) {
+            user.setGender(gender);
+            patient.setGender(gender);
+        }
+        String fullName = value(data, "fullName");
+        if (fullName != null) {
+            user.setFullName(fullName);
+            String[] nameParts = fullName.trim().split("\\s+", 2);
+            patient.setFirstName(nameParts.length > 0 ? nameParts[0] : "");
+            patient.setLastName(nameParts.length > 1 ? nameParts[1] : "");
+        }
+        String height = value(data, "height");
+        user.setHeight(height);
+        Double heightValue = parseDouble(height, "height");
+        if (heightValue != null) {
+            patient.setHeight(heightValue);
+        }
+        String weight = value(data, "weight");
+        user.setWeight(weight);
+        Double weightValue = parseDouble(weight, "weight");
+        if (weightValue != null) {
+            patient.setWeight(weightValue);
+        }
+        String occupation = value(data, "occupation");
+        if (occupation != null) {
+            user.setOccupation(occupation);
+            patient.setOccupation(occupation);
+        }
+        String age = value(data, "age");
+        if (age != null) {
+            try {
+                user.setAge(Integer.valueOf(age));
+            } catch (NumberFormatException ignored) {
+                log.debug("Ignoring non-numeric age value in dosha assessment: {}", age);
+            }
+        }
+
+        userRepository.save(user);
+    }
+
+    private String value(Map<String, String> data, String key) {
+        return data.entrySet().stream()
+                .filter(entry -> entry.getKey().equalsIgnoreCase(key))
+                .map(Map.Entry::getValue)
+                .findFirst()
+                .orElse(null);
+    }
+
+    private Double parseDouble(String value, String fieldName) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        try {
+            return Double.valueOf(value);
+        } catch (NumberFormatException ignored) {
+            log.debug("Ignoring non-numeric {} value in dosha assessment: {}", fieldName, value);
+            return null;
+        }
+    }
+
+    private String doshaForAnswer(String key, String value) {
+        if (key == null || value == null) {
+            return null;
+        }
+
+        String normalizedKey = key.toLowerCase();
+        String normalizedValue = value.trim().toLowerCase();
+
+        return switch (normalizedKey) {
+            case "bodybuild" -> switch (normalizedValue) {
+                case "thin and lean" -> "VATA";
+                case "medium and athletic" -> "PITTA";
+                case "broad and sturdy" -> "KAPHA";
+                default -> null;
+            };
+            case "skintype" -> switch (normalizedValue) {
+                case "dry and rough" -> "VATA";
+                case "warm and sensitive" -> "PITTA";
+                case "soft and oily" -> "KAPHA";
+                default -> null;
+            };
+            case "appetite" -> switch (normalizedValue) {
+                case "irregular" -> "VATA";
+                case "strong and frequent" -> "PITTA";
+                case "moderate and steady" -> "KAPHA";
+                default -> null;
+            };
+            case "digestion" -> switch (normalizedValue) {
+                case "gas or bloating" -> "VATA";
+                case "acidity or heartburn" -> "PITTA";
+                case "slow digestion" -> "KAPHA";
+                default -> null;
+            };
+            case "sleeppattern" -> switch (normalizedValue) {
+                case "light and interrupted" -> "VATA";
+                case "moderate" -> "PITTA";
+                case "deep and long" -> "KAPHA";
+                default -> null;
+            };
+            case "energylevel" -> switch (normalizedValue) {
+                case "variable" -> "VATA";
+                case "active and energetic" -> "PITTA";
+                case "calm and steady" -> "KAPHA";
+                default -> null;
+            };
+            case "stressresponse" -> switch (normalizedValue) {
+                case "anxious or worried" -> "VATA";
+                case "irritated or angry" -> "PITTA";
+                case "calm or withdrawn" -> "KAPHA";
+                default -> null;
+            };
+            case "climatepreference" -> switch (normalizedValue) {
+                case "warm" -> "VATA";
+                case "cool" -> "PITTA";
+                case "dry or moderate" -> "KAPHA";
+                default -> null;
+            };
+            case "walkingstyle" -> switch (normalizedValue) {
+                case "fast" -> "VATA";
+                case "moderate" -> "PITTA";
+                case "slow and steady" -> "KAPHA";
+                default -> null;
+            };
+            case "personality" -> switch (normalizedValue) {
+                case "creative and enthusiastic" -> "VATA";
+                case "confident and ambitious" -> "PITTA";
+                case "calm and patient" -> "KAPHA";
+                default -> null;
+            };
+            default -> null;
+        };
+    }
+
+    private String determineDoshaType(int vataScore, int pittaScore, int kaphaScore) {
+        int maxScore = Math.max(vataScore, Math.max(pittaScore, kaphaScore));
+        boolean vataDominant = vataScore == maxScore;
+        boolean pittaDominant = pittaScore == maxScore;
+        boolean kaphaDominant = kaphaScore == maxScore;
+
+        if (vataDominant && pittaDominant && kaphaDominant) {
+            return "TRIDOSHA";
+        }
+        if (vataDominant && pittaDominant) {
+            return "VATA_PITTA";
+        }
+        if (vataDominant && kaphaDominant) {
+            return "VATA_KAPHA";
+        }
+        if (pittaDominant && kaphaDominant) {
+            return "PITTA_KAPHA";
+        }
+        if (vataDominant) {
+            return "VATA";
+        }
+        if (pittaDominant) {
+            return "PITTA";
+        }
+        return "KAPHA";
+    }
+
+    private DoshaAssessmentResponse buildDoshaResponse(Patient patient, List<String> recommendedTherapies,
+                                                       String message) {
+        return new DoshaAssessmentResponse(
+                patient.getDominantDosha(),
+                patient.getDominantDosha(),
+                patient.getVataScore(),
+                patient.getPittaScore(),
+                patient.getKaphaScore(),
+                patient.isDoshaAssessmentCompleted(),
+                patient.getDoshaAssessmentDate() != null ? patient.getDoshaAssessmentDate().atStartOfDay() : null,
+                recommendedTherapies,
+                message
+        );
+    }
+
+    private List<String> recommendedTherapiesFor(String dominantDosha) {
+        if (dominantDosha == null) {
+            return Collections.emptyList();
+        }
+        return switch (dominantDosha) {
+            case "VATA" -> List.of("Abhyanga (Oil Massage)", "Swedana (Herbal Steam)", "Basti (Enema)");
+            case "PITTA" -> List.of("Virechana (Purgation)", "Shirodhara (Oil Drip)", "Cooling Therapies");
+            case "KAPHA" -> List.of("Vamana (Emesis)", "Udvartana (Dry Powder Massage)", "Stimulating Therapies");
+            case "VATA_PITTA" -> List.of("Abhyanga (Oil Massage)", "Shirodhara (Oil Drip)", "Cooling Therapies");
+            case "VATA_KAPHA" -> List.of("Abhyanga (Oil Massage)", "Udvartana (Dry Powder Massage)", "Basti (Enema)");
+            case "PITTA_KAPHA" -> List.of("Virechana (Purgation)", "Udvartana (Dry Powder Massage)", "Shirodhara (Oil Drip)");
+            case "TRIDOSHA" -> List.of("Abhyanga (Oil Massage)", "Shirodhara (Oil Drip)", "Balanced Diet Consultation");
+            default -> Collections.emptyList();
+        };
     }
 }

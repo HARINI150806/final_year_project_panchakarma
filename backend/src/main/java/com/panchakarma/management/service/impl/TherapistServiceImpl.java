@@ -62,8 +62,8 @@ public class TherapistServiceImpl implements TherapistService {
                             patient.getContactNumber(),
                             patient.getGender(),
                             age,
-                            null, // dominantDosha not directly available in Patient
-                            patient.isProfileCompleted(),
+                            patient.getDominantDosha(),
+                            patient.isDoshaAssessmentCompleted(),
                             null // createdAt not directly available in Patient
                     );
                 })

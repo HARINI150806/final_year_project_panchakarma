@@ -44,7 +44,155 @@ const doshaDisplay = {
     badge: 'bg-[#d8edd0] text-[#3d6835]',
     bar: '#5a8553',
   },
+  VATA_PITTA: {
+    label: 'Vata-Pitta', subtitle: 'Air, Space & Fire', emoji: '🌬️🔥',
+    icon: Wind,
+    gradient: 'from-[#e8f4fd] to-[#fde8c8]',
+    border: 'border-[#cdbf9f]',
+    accent: '#7d858c',
+    badge: 'bg-[#ecdfcf] text-[#6f5f48]',
+    bar: '#7d858c',
+  },
+  VATA_KAPHA: {
+    label: 'Vata-Kapha', subtitle: 'Air, Space, Earth & Water', emoji: '🌬️🌊',
+    icon: Wind,
+    gradient: 'from-[#e8f4fd] to-[#d8edd0]',
+    border: 'border-[#a8c8c0]',
+    accent: '#547f84',
+    badge: 'bg-[#dceee5] text-[#3f6765]',
+    bar: '#547f84',
+  },
+  PITTA_KAPHA: {
+    label: 'Pitta-Kapha', subtitle: 'Fire, Water & Earth', emoji: '🔥🌊',
+    icon: Flame,
+    gradient: 'from-[#fef3e2] to-[#d8edd0]',
+    border: 'border-[#d1c89c]',
+    accent: '#8c7d42',
+    badge: 'bg-[#efe7c8] text-[#75652d]',
+    bar: '#8c7d42',
+  },
+  TRIDOSHA: {
+    label: 'Tridosha', subtitle: 'Vata, Pitta & Kapha Balanced', emoji: '✨',
+    icon: Sparkles,
+    gradient: 'from-[#e8f4fd] via-[#fef3e2] to-[#d8edd0]',
+    border: 'border-[#c8d4bd]',
+    accent: '#637a58',
+    badge: 'bg-[#e8efdf] text-[#52694b]',
+    bar: '#637a58',
+  },
 };
+
+function inferDoshaType(profile) {
+  const displayScores = normalizeScores(profile);
+  const scores = [
+    ['VATA', displayScores.vataScore],
+    ['PITTA', displayScores.pittaScore],
+    ['KAPHA', displayScores.kaphaScore],
+  ];
+  const maxScore = Math.max(...scores.map(([, score]) => score));
+  if (maxScore <= 0) return null;
+
+  const dominant = scores.filter(([, score]) => score === maxScore).map(([dosha]) => dosha);
+  if (dominant.length === 3) return 'TRIDOSHA';
+  return dominant.join('_');
+}
+
+function normalizeScores(profile) {
+  const answerScores = scoresFromAnswers(profile);
+  if (answerScores) {
+    return answerScores;
+  }
+
+  const rawScores = {
+    vataScore: profile?.vataScore || 0,
+    pittaScore: profile?.pittaScore || 0,
+    kaphaScore: profile?.kaphaScore || 0,
+  };
+  const rawTotal = rawScores.vataScore + rawScores.pittaScore + rawScores.kaphaScore;
+  const wasSavedWithTwoPointScoring =
+    rawTotal > 10 &&
+    rawScores.vataScore % 2 === 0 &&
+    rawScores.pittaScore % 2 === 0 &&
+    rawScores.kaphaScore % 2 === 0;
+
+  if (!wasSavedWithTwoPointScoring) {
+    return rawScores;
+  }
+
+  return {
+    vataScore: rawScores.vataScore / 2,
+    pittaScore: rawScores.pittaScore / 2,
+    kaphaScore: rawScores.kaphaScore / 2,
+  };
+}
+
+function scoresFromAnswers(profile) {
+  const answerMap = {
+    bodyBuild: {
+      'Thin and lean': 'vataScore',
+      'Medium and athletic': 'pittaScore',
+      'Broad and sturdy': 'kaphaScore',
+    },
+    skinType: {
+      'Dry and rough': 'vataScore',
+      'Warm and sensitive': 'pittaScore',
+      'Soft and oily': 'kaphaScore',
+    },
+    appetite: {
+      Irregular: 'vataScore',
+      'Strong and frequent': 'pittaScore',
+      'Moderate and steady': 'kaphaScore',
+    },
+    digestion: {
+      'Gas or bloating': 'vataScore',
+      'Acidity or heartburn': 'pittaScore',
+      'Slow digestion': 'kaphaScore',
+    },
+    sleepPattern: {
+      'Light and interrupted': 'vataScore',
+      Moderate: 'pittaScore',
+      'Deep and long': 'kaphaScore',
+    },
+    energyLevel: {
+      Variable: 'vataScore',
+      'Active and energetic': 'pittaScore',
+      'Calm and steady': 'kaphaScore',
+    },
+    stressResponse: {
+      'Anxious or worried': 'vataScore',
+      'Irritated or angry': 'pittaScore',
+      'Calm or withdrawn': 'kaphaScore',
+    },
+    climatePreference: {
+      Warm: 'vataScore',
+      Cool: 'pittaScore',
+      'Dry or moderate': 'kaphaScore',
+    },
+    walkingStyle: {
+      Fast: 'vataScore',
+      Moderate: 'pittaScore',
+      'Slow and steady': 'kaphaScore',
+    },
+    personality: {
+      'Creative and enthusiastic': 'vataScore',
+      'Confident and ambitious': 'pittaScore',
+      'Calm and patient': 'kaphaScore',
+    },
+  };
+
+  const scores = { vataScore: 0, pittaScore: 0, kaphaScore: 0 };
+  let answeredCount = 0;
+
+  Object.entries(answerMap).forEach(([key, options]) => {
+    const scoreKey = options[profile?.[key]];
+    if (scoreKey) {
+      scores[scoreKey] += 1;
+      answeredCount += 1;
+    }
+  });
+
+  return answeredCount === 10 ? scores : null;
+}
 
 function ScoreBar({ label, value, total, color, emoji }) {
   const pct = total > 0 ? Math.round((value / total) * 100) : 0;
@@ -103,14 +251,16 @@ export default function PatientProfilePage({ auth }) {
     fetchProfile();
   }, [auth]);
 
-  const dosha = profile?.dominantDosha ? doshaDisplay[profile.dominantDosha] : null;
+  const doshaType = inferDoshaType(profile);
+  const dosha = doshaType ? doshaDisplay[doshaType] : null;
   const DoshaIcon = dosha?.icon;
   const doshaCompleted = Boolean(
     profile?.doshaAssessmentCompleted === true ||
       profile?.doshaAssessmentCompleted === 'true' ||
-      profile?.dominantDosha,
+      doshaType,
   );
-  const total = (profile?.vataScore || 0) + (profile?.pittaScore || 0) + (profile?.kaphaScore || 0) || 10;
+  const displayScores = normalizeScores(profile);
+  const total = 10;
 
   const initials = profile?.fullName
     ? profile.fullName.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2)
@@ -251,9 +401,9 @@ export default function PatientProfilePage({ auth }) {
               <p className="text-sm font-bold text-forest">Dosha Score Breakdown</p>
             </div>
             <div className="space-y-4">
-              <ScoreBar label="Vata" value={profile?.vataScore || 0} total={total} color="#4a8db5" emoji="🌬️" />
-              <ScoreBar label="Pitta" value={profile?.pittaScore || 0} total={total} color="#c07830" emoji="🔥" />
-              <ScoreBar label="Kapha" value={profile?.kaphaScore || 0} total={total} color="#5a8553" emoji="🌊" />
+              <ScoreBar label="Vata" value={displayScores.vataScore} total={total} color="#4a8db5" emoji="🌬️" />
+              <ScoreBar label="Pitta" value={displayScores.pittaScore} total={total} color="#c07830" emoji="🔥" />
+              <ScoreBar label="Kapha" value={displayScores.kaphaScore} total={total} color="#5a8553" emoji="🌊" />
             </div>
           </div>
         )}

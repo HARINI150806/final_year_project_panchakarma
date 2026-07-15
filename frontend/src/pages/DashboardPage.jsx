@@ -48,6 +48,10 @@ const doshaInfo = {
   VATA: { label: 'Vata', emoji: '🌬️', icon: Wind, color: 'from-[#e8f4fd] to-[#d0e8f8]', border: 'border-[#a8d0e8]', accent: '#4a8db5', badge: 'bg-[#d0e8f8] text-[#2d6a96]' },
   PITTA: { label: 'Pitta', emoji: '🔥', icon: Flame, color: 'from-[#fef3e2] to-[#fde8c8]', border: 'border-[#e8c898]', accent: '#c07830', badge: 'bg-[#fde8c8] text-[#a06030]' },
   KAPHA: { label: 'Kapha', emoji: '🌊', icon: Droplets, color: 'from-[#edf6e8] to-[#d8edd0]', border: 'border-[#b0d8a0]', accent: '#5a8553', badge: 'bg-[#d8edd0] text-[#3d6835]' },
+  VATA_PITTA: { label: 'Vata-Pitta', emoji: '🌬️🔥', icon: Wind, color: 'from-[#e8f4fd] to-[#fde8c8]', border: 'border-[#cdbf9f]', accent: '#7d858c', badge: 'bg-[#ecdfcf] text-[#6f5f48]' },
+  VATA_KAPHA: { label: 'Vata-Kapha', emoji: '🌬️🌊', icon: Wind, color: 'from-[#e8f4fd] to-[#d8edd0]', border: 'border-[#a8c8c0]', accent: '#547f84', badge: 'bg-[#dceee5] text-[#3f6765]' },
+  PITTA_KAPHA: { label: 'Pitta-Kapha', emoji: '🔥🌊', icon: Flame, color: 'from-[#fef3e2] to-[#d8edd0]', border: 'border-[#d1c89c]', accent: '#8c7d42', badge: 'bg-[#efe7c8] text-[#75652d]' },
+  TRIDOSHA: { label: 'Tridosha', emoji: '✨', icon: Sparkles, color: 'from-[#e8f4fd] via-[#fef3e2] to-[#d8edd0]', border: 'border-[#c8d4bd]', accent: '#637a58', badge: 'bg-[#e8efdf] text-[#52694b]' },
 };
 
 function DoshaCallToAction({ onStart }) {

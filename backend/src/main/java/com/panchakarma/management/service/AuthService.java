@@ -77,10 +77,18 @@ public class AuthService {
                 .orElseThrow(() -> new IllegalArgumentException("Invalid credentials"));
 
         boolean isProfileCompleted = false;
+        boolean doshaAssessmentCompleted = user.isDoshaAssessmentCompleted();
+        String dominantDosha = user.getDominantDosha();
+        java.time.LocalDateTime doshaAssessmentDate = user.getDoshaAssessmentDate();
         if (user.getRole() == UserRole.PATIENT) {
             Patient patient = patientRepository.findByUser(user)
                     .orElseThrow(() -> new IllegalArgumentException("Patient profile not found"));
             isProfileCompleted = patient.isProfileCompleted();
+            doshaAssessmentCompleted = patient.isDoshaAssessmentCompleted();
+            dominantDosha = patient.getDominantDosha();
+            doshaAssessmentDate = patient.getDoshaAssessmentDate() != null
+                    ? patient.getDoshaAssessmentDate().atStartOfDay()
+                    : null;
         }
 
         String token = jwtService.generateToken(user.getEmail(), user.getRole().name());
@@ -90,9 +98,9 @@ public class AuthService {
                 user.getFullName(),
                 user.getEmail(),
                 user.getRole(),
-                user.isDoshaAssessmentCompleted(),
-                user.getDominantDosha(),
-                user.getDoshaAssessmentDate(),
+                doshaAssessmentCompleted,
+                dominantDosha,
+                doshaAssessmentDate,
                 isProfileCompleted
         );
     }

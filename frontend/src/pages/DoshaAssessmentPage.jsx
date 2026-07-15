@@ -46,6 +46,58 @@ const doshaInfo = {
       'Kapha types are nurturing, patient, and steady. You thrive with movement, stimulation, and light, warming foods.',
     qualities: ['Calm', 'Loyal', 'Patient', 'Steady'],
   },
+  VATA_PITTA: {
+    name: 'Vata-Pitta',
+    subtitle: 'Air, Space & Fire',
+    color: 'from-[#e8f4fd] to-[#fde8c8]',
+    accent: '#7d858c',
+    border: 'border-[#cdbf9f]',
+    badge: 'bg-[#ecdfcf] text-[#6f5f48]',
+    icon: Wind,
+    emoji: '🌬️🔥',
+    description:
+      'Vata-Pitta types combine quick creativity with focus and drive. You thrive with grounding routines and cooling balance.',
+    qualities: ['Creative', 'Focused', 'Quick', 'Driven'],
+  },
+  VATA_KAPHA: {
+    name: 'Vata-Kapha',
+    subtitle: 'Air, Space, Earth & Water',
+    color: 'from-[#e8f4fd] to-[#d8edd0]',
+    accent: '#547f84',
+    border: 'border-[#a8c8c0]',
+    badge: 'bg-[#dceee5] text-[#3f6765]',
+    icon: Wind,
+    emoji: '🌬️🌊',
+    description:
+      'Vata-Kapha types combine sensitivity and imagination with steadiness. You thrive with warmth, lightness, and steady movement.',
+    qualities: ['Imaginative', 'Steady', 'Sensitive', 'Calm'],
+  },
+  PITTA_KAPHA: {
+    name: 'Pitta-Kapha',
+    subtitle: 'Fire, Water & Earth',
+    color: 'from-[#fef3e2] to-[#d8edd0]',
+    accent: '#8c7d42',
+    border: 'border-[#d1c89c]',
+    badge: 'bg-[#efe7c8] text-[#75652d]',
+    icon: Flame,
+    emoji: '🔥🌊',
+    description:
+      'Pitta-Kapha types combine determination with steadiness. You thrive with cooling, stimulating routines that keep energy moving.',
+    qualities: ['Focused', 'Steady', 'Resilient', 'Purposeful'],
+  },
+  TRIDOSHA: {
+    name: 'Tridosha',
+    subtitle: 'Vata, Pitta & Kapha Balanced',
+    color: 'from-[#e8f4fd] via-[#fef3e2] to-[#d8edd0]',
+    accent: '#637a58',
+    border: 'border-[#c8d4bd]',
+    badge: 'bg-[#e8efdf] text-[#52694b]',
+    icon: Sparkles,
+    emoji: '✨',
+    description:
+      'Tridosha indicates a balanced constitution across Vata, Pitta, and Kapha. You thrive by maintaining consistency across seasons.',
+    qualities: ['Balanced', 'Adaptable', 'Stable', 'Responsive'],
+  },
 };
 
 // ─── Personal info step ───────────────────────────────────────
@@ -168,13 +220,58 @@ function ScoreBar({ label, value, max, color, emoji }) {
   );
 }
 
+function normalizeScores(result) {
+  const rawScores = {
+    vataScore: result?.vataScore || 0,
+    pittaScore: result?.pittaScore || 0,
+    kaphaScore: result?.kaphaScore || 0,
+  };
+  const rawTotal = rawScores.vataScore + rawScores.pittaScore + rawScores.kaphaScore;
+  const wasSavedWithTwoPointScoring =
+    rawTotal > 10 &&
+    rawScores.vataScore % 2 === 0 &&
+    rawScores.pittaScore % 2 === 0 &&
+    rawScores.kaphaScore % 2 === 0;
+
+  if (!wasSavedWithTwoPointScoring) {
+    return rawScores;
+  }
+
+  return {
+    vataScore: rawScores.vataScore / 2,
+    pittaScore: rawScores.pittaScore / 2,
+    kaphaScore: rawScores.kaphaScore / 2,
+  };
+}
+
+function inferDoshaType(result) {
+  if (result?.dominantDosha && result.dominantDosha !== 'UNKNOWN') {
+    return result.dominantDosha;
+  }
+
+  const scores = normalizeScores(result);
+  const entries = [
+    ['VATA', scores.vataScore],
+    ['PITTA', scores.pittaScore],
+    ['KAPHA', scores.kaphaScore],
+  ];
+  const maxScore = Math.max(...entries.map(([, score]) => score));
+  if (maxScore <= 0) return 'VATA';
+
+  const dominant = entries.filter(([, score]) => score === maxScore).map(([dosha]) => dosha);
+  if (dominant.length === 3) return 'TRIDOSHA';
+  return dominant.join('_');
+}
+
 // ─── Result step ──────────────────────────────────────────────
 function ResultStep({ result }) {
   if (!result) return null;
-  const { dominantDosha, vataScore, pittaScore, kaphaScore, recommendedTherapies } = result;
+  const { recommendedTherapies } = result;
+  const dominantDosha = inferDoshaType(result);
   const info = doshaInfo[dominantDosha] || doshaInfo.VATA;
   const DoshaIcon = info.icon;
-  const total = vataScore + pittaScore + kaphaScore || 10;
+  const displayScores = normalizeScores(result);
+  const total = 10;
 
   return (
     <div className="space-y-6">
@@ -207,9 +304,9 @@ function ResultStep({ result }) {
       <div className="rounded-3xl border border-white/70 bg-white/75 p-5 backdrop-blur-sm">
         <p className="mb-4 text-xs font-semibold uppercase tracking-[0.16em] text-forest/50">Score breakdown</p>
         <div className="space-y-4">
-          <ScoreBar label="Vata" value={vataScore} max={total} color="#4a8db5" emoji="🌬️" />
-          <ScoreBar label="Pitta" value={pittaScore} max={total} color="#c07830" emoji="🔥" />
-          <ScoreBar label="Kapha" value={kaphaScore} max={total} color="#5a8553" emoji="🌊" />
+          <ScoreBar label="Vata" value={displayScores.vataScore} max={total} color="#4a8db5" emoji="🌬️" />
+          <ScoreBar label="Pitta" value={displayScores.pittaScore} max={total} color="#c07830" emoji="🔥" />
+          <ScoreBar label="Kapha" value={displayScores.kaphaScore} max={total} color="#5a8553" emoji="🌊" />
         </div>
       </div>
 
@@ -294,6 +391,10 @@ export default function DoshaAssessmentPage({ auth, onAuthUpdate }) {
       const updatedAuth = updateStoredAuth({
         doshaAssessmentCompleted: true,
         dominantDosha: data.dominantDosha,
+        doshaAssessmentDate: data.doshaAssessmentDate,
+        vataScore: data.vataScore,
+        pittaScore: data.pittaScore,
+        kaphaScore: data.kaphaScore,
       });
       if (onAuthUpdate) onAuthUpdate(updatedAuth);
       setStep(3);

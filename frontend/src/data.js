@@ -93,4 +93,8 @@ export const doshaTherapies = {
   VATA: ['Abhyanga', 'Basti', 'Shirodhara'],
   PITTA: ['Shirodhara', 'Virechana'],
   KAPHA: ['Udvartana', 'Nasya', 'Vamana'],
+  VATA_PITTA: ['Abhyanga', 'Shirodhara', 'Cooling Therapies'],
+  VATA_KAPHA: ['Abhyanga', 'Udvartana', 'Basti'],
+  PITTA_KAPHA: ['Shirodhara', 'Virechana', 'Udvartana'],
+  TRIDOSHA: ['Abhyanga', 'Shirodhara', 'Balanced Diet Consultation'],
 };
