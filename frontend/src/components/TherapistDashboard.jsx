@@ -84,7 +84,7 @@ function TherapistDashboard() {
                                     <td className="py-2 px-4 border-b">{patient.email}</td>
                                     <td className="py-2 px-4 border-b">{patient.phone}</td>
                                     <td className="py-2 px-4 border-b">
-                                        <Link to={`/therapist/patients/${patient.id}/assigned-therapies`} className="text-blue-500 hover:underline">
+                                        <Link to={`/api/therapists/patients/${patient.id}/therapies`} className="text-blue-500 hover:underline">
                                             View Therapies
                                         </Link>
                                     </td>

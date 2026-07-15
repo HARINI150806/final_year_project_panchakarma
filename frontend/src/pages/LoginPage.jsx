@@ -26,7 +26,7 @@ export default function LoginPage({ onLogin }) {
       if (data.role === 'PATIENT' && !data.profileCompleted) {
         navigate('/complete-profile', { replace: true });
       } else {
-        navigate(getDefaultRoute(data.role), { replace: true });
+        navigate(getDefaultRoute(data.role, data.profileCompleted), { replace: true });
       }
     } catch (requestError) {
       console.error('Login error:', requestError);

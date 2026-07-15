@@ -13,11 +13,11 @@ function AssignedTherapiesPage() {
         async function fetchData() {
             try {
                 // Fetch patient details
-                const patientRes = await api.get(`/api/patients/${patientId}`);
+                const patientRes = await api.get(`/patient/details/${patientId}`);
                 setPatient(patientRes.data);
 
                 // Fetch assigned therapies for the patient
-                const therapiesRes = await api.get(`/api/therapists/patients/${patientId}/therapies`);
+                const therapiesRes = await api.get(`/therapists/patients/${patientId}/therapies`);
                 setTherapies(therapiesRes.data);
 
             } catch (err) {
@@ -48,13 +48,13 @@ function AssignedTherapiesPage() {
 
     return (
         <div className="container mx-auto p-4">
-            <h1 className="text-3xl font-bold mb-6">Assigned Therapies for {patient.name}</h1>
+            <h1 className="text-3xl font-bold mb-6">Assigned Therapies for {patient.firstName} {patient.lastName}</h1>
 
             <div className="bg-white shadow-md rounded-lg p-6 mb-8">
                 <h2 className="text-2xl font-semibold mb-4">Patient Details</h2>
-                <p><strong>Name:</strong> {patient.name}</p>
+                <p><strong>Name:</strong> {patient.firstName} {patient.lastName}</p>
                 <p><strong>Email:</strong> {patient.email}</p>
-                <p><strong>Phone:</strong> {patient.phone}</p>
+                <p><strong>Phone:</strong> {patient.contactNumber}</p>
                 {/* Add more patient details as needed */}
             </div>
 
@@ -70,15 +70,21 @@ function AssignedTherapiesPage() {
                                     <th className="py-2 px-4 border-b">Therapy Name</th>
                                     <th className="py-2 px-4 border-b">Description</th>
                                     <th className="py-2 px-4 border-b">Duration</th>
+                                    <th className="py-2 px-4 border-b">Date</th>
+                                    <th className="py-2 px-4 border-b">Time</th>
+                                    <th className="py-2 px-4 border-b">Status</th>
                                     {/* Add more therapy details as needed */}
                                 </tr>
                             </thead>
                             <tbody>
                                 {therapies.map(therapy => (
-                                    <tr key={therapy.id}>
-                                        <td className="py-2 px-4 border-b">{therapy.name}</td>
-                                        <td className="py-2 px-4 border-b">{therapy.description}</td>
-                                        <td className="py-2 px-4 border-b">{therapy.duration}</td>
+                                    <tr key={therapy.bookingId}>
+                                        <td className="py-2 px-4 border-b">{therapy.therapyName}</td>
+                                     <td className="py-2 px-4 border-b">{therapy.therapyDescription}</td>
+                                     <td className="py-2 px-4 border-b">{therapy.therapyDuration}</td>
+                                     <td className="py-2 px-4 border-b">{therapy.bookingDate}</td>
+                                     <td className="py-2 px-4 border-b">{therapy.bookingTime}</td>
+                                     <td className="py-2 px-4 border-b">{therapy.bookingStatus}</td>
                                     </tr>
                                 ))}
                             </tbody>

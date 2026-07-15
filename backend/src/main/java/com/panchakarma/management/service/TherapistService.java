@@ -11,4 +11,5 @@ public interface TherapistService {
     List<TherapistAssignedBookingDto> getMyBookings();
     List<PatientSummaryResponse> getMyPatients();
     List<User> listTherapists();
+    List<TherapistAssignedBookingDto> getAssignedBookingsForPatient(Long patientId);
 }

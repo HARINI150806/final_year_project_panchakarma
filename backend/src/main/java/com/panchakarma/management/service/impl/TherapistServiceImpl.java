@@ -3,9 +3,12 @@ package com.panchakarma.management.service.impl;
 import com.panchakarma.management.dto.BookingResponse;
 import com.panchakarma.management.dto.PatientSummaryResponse;
 import com.panchakarma.management.dto.TherapistAssignedBookingDto;
+import com.panchakarma.management.exception.ResourceNotFoundException;
+import com.panchakarma.management.model.Patient;
 import com.panchakarma.management.model.User;
 import com.panchakarma.management.model.UserRole;
 import com.panchakarma.management.repository.BookingRepository;
+import com.panchakarma.management.repository.PatientRepository;
 import com.panchakarma.management.repository.UserRepository;
 import com.panchakarma.management.service.TherapistService;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -22,27 +25,15 @@ public class TherapistServiceImpl implements TherapistService {
 
     private final BookingRepository bookingRepository;
     private final UserRepository userRepository;
+    private final PatientRepository patientRepository;
 
-    public TherapistServiceImpl(BookingRepository bookingRepository, UserRepository userRepository) {
+    public TherapistServiceImpl(BookingRepository bookingRepository, UserRepository userRepository, PatientRepository patientRepository) {
         this.bookingRepository = bookingRepository;
         this.userRepository = userRepository;
+        this.patientRepository = patientRepository;
     }
 
-    @Override
-    public List<TherapistAssignedBookingDto> getMyBookings() {
-        User user = getCurrentUser();
-        return bookingRepository.findByAssignedTo(user).stream()
-                .map(booking -> new TherapistAssignedBookingDto(
-                        booking.getBookingId(),
-                        booking.getPatient().getFullName(),
-                        booking.getPurpose(), // Assuming 'purpose' is the therapy name/description
-                        booking.getDate(), // Assuming 'date' is the booking date
-                        booking.getBookingStatus().toString()
-                ))
-                .collect(Collectors.toList());
-    }
-
-    @Override
+    
     public List<PatientSummaryResponse> getMyPatients() {
         // This is a simplified implementation. A more robust implementation would
         // involve a direct relationship between therapists and patients.
@@ -77,7 +68,45 @@ public class TherapistServiceImpl implements TherapistService {
     }
 
     @Override
+    public List<TherapistAssignedBookingDto> getMyBookings() {
+        User currentUser = getCurrentUser();
+        return bookingRepository.findByAssignedTo(currentUser).stream()
+                .map(booking -> new TherapistAssignedBookingDto(
+                        booking.getBookingId(),
+                        booking.getPatient().getFullName(),
+                        booking.getBookingType().toString(), // therapyName
+                        booking.getPurpose(), // therapyDescription
+                        "", // therapyDuration - not available in Booking entity
+                        booking.getDate(), // bookingDate
+                        booking.getTime(), // bookingTime
+                        booking.getBookingStatus().toString()
+                ))
+                .collect(Collectors.toList());
+    }
+
+    @Override
     public List<User> listTherapists() {
         return userRepository.findByRole(UserRole.THERAPIST);
+    }
+
+    @Override
+    public List<TherapistAssignedBookingDto> getAssignedBookingsForPatient(Long patientId) {
+        User currentUser = getCurrentUser();
+        Patient patient = patientRepository.findById(patientId)
+                .orElseThrow(() -> new ResourceNotFoundException("Patient not found with id: " + patientId));
+        User patientUser = patient.getUser(); // Get the User entity associated with the Patient
+
+        return bookingRepository.findByAssignedToAndPatient(currentUser, patientUser).stream()
+                .map(booking -> new TherapistAssignedBookingDto(
+                        booking.getBookingId(),
+                        booking.getPatient().getFullName(),
+                        booking.getBookingType().toString(), // therapyName
+                        booking.getPurpose(), // therapyDescription
+                        "", // therapyDuration - not available in Booking entity
+                        booking.getDate(), // bookingDate
+                        booking.getTime(), // bookingTime
+                        booking.getBookingStatus().toString()
+                ))
+                .collect(Collectors.toList());
     }
 }

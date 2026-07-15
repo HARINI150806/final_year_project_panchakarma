@@ -9,6 +9,7 @@ import com.panchakarma.management.service.TherapistService;
 import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -37,5 +38,11 @@ public class TherapistController {
     @GetMapping("/my-patients")
     public ResponseEntity<List<PatientSummaryResponse>> getMyPatients() {
         return ResponseEntity.ok(therapistService.getMyPatients());
+    }
+
+    @GetMapping("/patients/{patientId}/therapies")
+    public ResponseEntity<List<TherapistAssignedBookingDto>> getAssignedTherapiesForPatient(@PathVariable Long patientId) {
+        List<TherapistAssignedBookingDto> assignedBookings = therapistService.getAssignedBookingsForPatient(patientId);
+        return ResponseEntity.ok(assignedBookings);
     }
 }

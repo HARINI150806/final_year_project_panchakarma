@@ -46,11 +46,12 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**", "/api/health").permitAll()
                         .requestMatchers("/api/admin/therapists", "/api/admin/providers").hasAnyAuthority("ROLE_ADMIN")
+                        .requestMatchers("/api/patient/details/{id}").hasAnyAuthority("ROLE_PATIENT", "ROLE_ADMIN", "ROLE_THERAPIST")
                         .requestMatchers("/api/patient/my-bookings", "/api/patient/book-therapy", "/api/patient/book-consultation", "/api/patient/therapists").hasAnyAuthority("ROLE_PATIENT", "ROLE_ADMIN")
                         .requestMatchers("/api/patient/complaint", "/api/patient/complaints").hasAnyAuthority("ROLE_PATIENT", "ROLE_ADMIN")
                         .requestMatchers("/api/therapists/my-bookings", "/api/therapists/my-patients").hasAnyAuthority("ROLE_THERAPIST", "ROLE_ADMIN")
                         .requestMatchers("/api/admin/**").hasAuthority("ROLE_ADMIN")
-                        .requestMatchers("/api/therapist/**").hasAnyAuthority("ROLE_THERAPIST", "ROLE_ADMIN")
+                        .requestMatchers("/api/therapists/**").hasAnyAuthority("ROLE_THERAPIST", "ROLE_ADMIN")
                         .requestMatchers("/api/patient/**").hasAnyAuthority("ROLE_PATIENT", "ROLE_ADMIN", "ROLE_THERAPIST")
                         .anyRequest().authenticated()
                 )
