@@ -1,0 +1,39 @@
+package com.panchakarma.management.dto;
+
+import java.time.LocalDate;
+import java.time.LocalTime;
+import com.panchakarma.management.model.ConsultationType;
+
+public record TherapistAssignedBookingDto(
+    Long bookingId,
+    Long patientId,
+    String patientFullName,
+    String therapyName,
+    String therapyDescription,
+    String therapyDuration,
+    LocalDate bookingDate,
+    LocalTime bookingTime,
+    String bookingStatus,
+    ConsultationType consultationType,
+    String consultationCategory,
+    String meetLink,
+    String sessionNotes,
+    String patientAdvice,
+    Boolean rescheduleRequested,
+    LocalDate proposedDate,
+    LocalTime proposedTime,
+    String rescheduleReason,
+    Boolean altSlotsPending,
+    String declineReason,
+    LocalDate altSlot1Date,
+    LocalTime altSlot1Time,
+    LocalDate altSlot2Date,
+    LocalTime altSlot2Time,
+    LocalDate altSlot3Date,
+    LocalTime altSlot3Time,
+    String patientDominantDosha,
+    String paymentStatus,
+    Double paymentAmount,
+    String razorpayPaymentId,
+    String razorpayOrderId
+) {}

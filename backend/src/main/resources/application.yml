@@ -1,0 +1,60 @@
+server:
+  port: 8080
+
+spring:
+  servlet:
+    multipart:
+      max-file-size: 15MB
+      max-request-size: 15MB
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+app:
+  jwt:
+    secret: ${JWT_SECRET}
+    expiration-ms: 86400000
+
+cors:
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:5174}
+
+google:
+  client-id: ${GOOGLE_CLIENT_ID}
+  client-secret: ${GOOGLE_CLIENT_SECRET}
+  meet:
+    default-link: ${GOOGLE_MEET_DEFAULT_LINK:}
+  calendar:
+    client-id: ${GOOGLE_CALENDAR_CLIENT_ID}
+    client-secret: ${GOOGLE_CALENDAR_CLIENT_SECRET}
+    refresh-token: ${GOOGLE_CALENDAR_REFRESH_TOKEN:}
+
+gemini:
+  api-key: ${GEMINI_API_KEY:}
+  api-url: https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent
+
+razorpay:
+  key-id: ${RAZORPAY_KEY_ID:}
+  key-secret: ${RAZORPAY_KEY_SECRET:}
+  consultation-amount: ${RAZORPAY_CONSULTATION_AMOUNT:500.00}

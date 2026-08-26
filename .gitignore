@@ -1,0 +1,103 @@
+# ============================================================
+# ENVIRONMENT & SECRETS (NEVER COMMIT THESE)
+# ============================================================
+.env
+.env.local
+.env.production
+.env.staging
+backend/.env
+backend/.env.*
+frontend/.env
+frontend/.env.local
+frontend/.env.production
+
+# ============================================================
+# JAVA / MAVEN (Backend)
+# ============================================================
+backend/target/
+*.class
+*.jar
+*.war
+*.ear
+*.nar
+*.zip
+*.tar.gz
+*.rar
+hs_err_pid*
+replay_pid*
+
+# Maven wrapper
+backend/.mvn/wrapper/maven-wrapper.jar
+
+# Spring Boot logs
+*.log
+logs/
+
+# ============================================================
+# NODE / NPM / VITE (Frontend)
+# ============================================================
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+node_modules/
+dist/
+
+# NPM debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ============================================================
+# UPLOADS (User-uploaded files - runtime data)
+# ============================================================
+uploads/
+backend/uploads/
+
+# ============================================================
+# IDE & EDITOR FILES
+# ============================================================
+# VS Code
+.vscode/settings.json
+.vscode/launch.json
+.vscode/tasks.json
+.vscode/*.code-workspace
+!.vscode/extensions.json
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# Eclipse
+.classpath
+.project
+.settings/
+.factorypath
+
+# NetBeans
+nbproject/
+
+# ============================================================
+# OS-GENERATED FILES
+# ============================================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# ============================================================
+# MISCELLANEOUS
+# ============================================================
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+.cache/

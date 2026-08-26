@@ -1,0 +1,193 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply m-0 bg-[#eef9ea] font-body text-forest antialiased;
+  }
+
+  * {
+    @apply box-border;
+  }
+}
+
+@layer components {
+  .glass-panel {
+    @apply border border-white/60 bg-white/75 backdrop-blur;
+  }
+
+  .auth-card {
+    box-shadow:
+      0 40px 120px rgba(17, 28, 22, 0.18),
+      0 14px 38px rgba(93, 124, 77, 0.10);
+  }
+
+  .panel-frost {
+    @apply border border-white/70 bg-white/70 backdrop-blur-xl;
+    box-shadow:
+      0 28px 72px rgba(30, 44, 35, 0.12),
+      inset 0 1px 0 rgba(255, 255, 255, 0.48);
+  }
+
+  .panel-deep {
+    box-shadow:
+      0 36px 90px rgba(19, 31, 24, 0.28),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+
+  .page-shell {
+    @apply relative mx-auto w-full max-w-7xl px-3 sm:px-4 lg:px-6;
+  }
+
+  .hover-lift {
+    @apply transition duration-300 ease-out hover:-translate-y-1 hover:shadow-[0_20px_45px_rgba(19,31,24,0.14)];
+  }
+
+  .hover-glow {
+    @apply transition duration-300 ease-out hover:shadow-[0_18px_38px_rgba(58,106,64,0.18)];
+  }
+
+  .motion-fade-in-up {
+    animation: fade-in-up 0.65s ease both;
+  }
+
+  .motion-fade-in {
+    animation: fade-in 0.55s ease both;
+  }
+}
+
+@layer utilities {
+  @keyframes fade-in-up {
+    from {
+      opacity: 0;
+      transform: translateY(14px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+
+    to {
+      opacity: 1;
+    }
+  }
+
+  .bg-auth-surface {
+    background:
+      radial-gradient(circle at 18% 18%, rgba(209, 239, 200, 0.58), transparent 20%),
+      radial-gradient(circle at 82% 78%, rgba(231, 245, 225, 0.58), transparent 22%),
+      radial-gradient(circle at 65% 28%, rgba(196, 228, 187, 0.34), transparent 18%),
+      linear-gradient(140deg, #f4fbf1 0%, #e8f6e2 42%, #f1fbec 72%, #edf9e8 100%);
+  }
+
+  .bg-brand-canvas {
+    background:
+      radial-gradient(circle at 14% 18%, rgba(185, 226, 170, 0.48), transparent 18%),
+      radial-gradient(circle at 86% 82%, rgba(222, 240, 214, 0.56), transparent 22%),
+      radial-gradient(circle at 52% 18%, rgba(255, 255, 255, 0.56), transparent 20%),
+      linear-gradient(135deg, #effbea 0%, #e3f3dd 46%, #f4fdf1 100%);
+  }
+
+  .bg-dashboard-surface {
+    background:
+      radial-gradient(circle at 18% 12%, rgba(185, 226, 170, 0.5), transparent 16%),
+      radial-gradient(circle at 86% 16%, rgba(222, 240, 214, 0.56), transparent 18%),
+      radial-gradient(circle at 82% 82%, rgba(205, 235, 196, 0.42), transparent 20%),
+      linear-gradient(180deg, #f3fbef 0%, #e7f5e1 40%, #f8fef6 100%);
+  }
+
+  .bg-mesh-forest {
+    background:
+      radial-gradient(circle at top left, rgba(225, 245, 216, 0.92), transparent 24%),
+      radial-gradient(circle at 80% 18%, rgba(241, 251, 237, 0.95), transparent 18%),
+      linear-gradient(145deg, #f2fbea 0%, #e2f2d8 42%, #d7eacb 100%);
+  }
+
+  .bg-dashboard-panel-light {
+    background:
+      radial-gradient(circle at 14% 12%, rgba(234, 248, 226, 0.95), transparent 20%),
+      radial-gradient(circle at 88% 18%, rgba(255, 255, 255, 0.82), transparent 16%),
+      linear-gradient(145deg, #fbfff8 0%, #f0f9eb 48%, #e4f2df 100%);
+  }
+
+  .noise-grid {
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.12) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.12) 1px, transparent 1px);
+    background-size: 42px 42px;
+  }
+
+  .ambient-orb {
+    filter: blur(70px);
+    opacity: 0.65;
+    pointer-events: none;
+    position: absolute;
+    border-radius: 9999px;
+  }
+
+  .animate-float {
+    animation: float-slow 6s ease-in-out infinite;
+  }
+
+  .animate-pulse-glow {
+    animation: pulse-glow 3s infinite ease-in-out;
+  }
+
+  @keyframes float-slow {
+    0%, 100% {
+      transform: translateY(0px);
+    }
+    50% {
+      transform: translateY(-10px);
+    }
+  }
+
+  @keyframes pulse-glow {
+    0%, 100% {
+      opacity: 0.8;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1.04);
+    }
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
