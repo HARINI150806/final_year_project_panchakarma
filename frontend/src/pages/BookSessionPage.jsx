@@ -171,7 +171,7 @@ function SuccessCard({ type, booking, onNew, onDashboard }) {
                 </div>
                 {type === 'consultation' && (
                   <span className="rounded-full bg-emerald-100 px-3 py-1 text-[11px] font-bold text-emerald-800 border border-emerald-300">
-                    💳 Paid ₹500 (Razorpay Test)
+                    💳 Paid ₹500
                   </span>
                 )}
               </div>
@@ -192,7 +192,7 @@ function SuccessCard({ type, booking, onNew, onDashboard }) {
                 <>
                   <div className="h-px bg-[#cfe0c2]" />
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-forest/60">Razorpay Payment ID</p>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-forest/60">Payment ID</p>
                     <p className="mt-1 text-xs font-mono font-medium text-forest/80 bg-sand/20 px-2.5 py-1 rounded-md inline-block">{booking.razorpayPaymentId}</p>
                   </div>
                 </>
@@ -411,7 +411,7 @@ function ConsultationForm({ onSuccess }) {
           </div>
           <div>
             <p className="font-bold text-forest text-sm">Consultation Fee: ₹500</p>
-            <p className="text-xs text-forest/65">Razorpay Test Mode Integration</p>
+            <p className="text-xs text-forest/65">Secure Online Payment</p>
           </div>
         </div>
         <span className="rounded-full bg-emerald-100 px-3 py-1 text-[10px] font-extrabold text-emerald-900 uppercase tracking-wider border border-emerald-200">
@@ -691,9 +691,10 @@ function TherapyForm({ onSuccess, onSwitchToConsultation, onStatusChange }) {
             b => (b.bookingType === 'CONSULTATION' || b.type === 'CONSULTATION') &&
                  (b.bookingStatus === 'COMPLETED' || b.status === 'COMPLETED' || b.bookingStatus === 'CONFIRMED')
           );
-          const therapyBookings = allBookings.filter(
+          const activeTherapyBookings = allBookings.filter(
             b => (b.bookingType === 'THERAPY' || b.type === 'THERAPY') &&
-                 (b.bookingStatus !== 'CANCELLED' && b.status !== 'CANCELLED')
+                 (b.bookingStatus !== 'CANCELLED' && b.status !== 'CANCELLED') &&
+                 (b.bookingStatus !== 'COMPLETED' && b.status !== 'COMPLETED')
           );
 
           let isBooked = false;
@@ -701,14 +702,14 @@ function TherapyForm({ onSuccess, onSwitchToConsultation, onStatusChange }) {
             setHasCompletedConsultation(true);
             const latestCons = completedConsList[0];
             const consDate = new Date(latestCons.createdAt || latestCons.date);
-            const therapyAfterCons = therapyBookings.filter(tb => {
+            const therapyAfterCons = activeTherapyBookings.filter(tb => {
               const tbDate = new Date(tb.createdAt || tb.date);
               return tbDate >= consDate || tb.sessionNumber === 1 || tb.totalSessions >= 1;
             });
             if (therapyAfterCons.length > 0) {
               isBooked = true;
             }
-          } else if (therapyBookings.length > 0) {
+          } else if (activeTherapyBookings.length > 0) {
             isBooked = true;
           }
 
@@ -1052,7 +1053,7 @@ function TherapyForm({ onSuccess, onSwitchToConsultation, onStatusChange }) {
                 onChange={(e) => setForm({ ...form, therapist: e.target.value })}
                 disabled={hasBooked1stTherapySession}
               >
-                <option value="">✨ Auto-Assign Best Available Specialist (Load-Balanced)</option>
+                <option value="">✨ Auto-Assign Best Available Specialist</option>
                 {therapists.map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.fullName || t.name || `Therapist #${t.id}`} {t.specialization ? `(${t.specialization})` : ''}

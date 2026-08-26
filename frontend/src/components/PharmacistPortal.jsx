@@ -168,7 +168,8 @@ export default function PharmacistPortal({ auth, onLogout }) {
             />
           )}
 
-          {activeTab === 'dispense' && <PharmacistDispenseView refreshKey={refreshKey} onDispensed={handleRefresh} />}
+          {activeTab === 'dispense' && <PharmacistDispenseView refreshKey={refreshKey} onDispensed={handleRefresh} sidebarOffset={isCollapsed ? 80 : 260} />}
+
 
           {activeTab === 'medicines' && (
             <PharmacistMedicinesView

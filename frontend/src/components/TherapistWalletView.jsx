@@ -132,7 +132,7 @@ export default function TherapistWalletView() {
                         </p>
                     </div>
                     <div className="flex items-center justify-between border-t border-gray-100 pt-3 text-xs text-gray-500">
-                        <span>Razorpay Test Gateway</span>
+                        <span>Online Payment Gateway</span>
                         <span className="font-bold text-emerald-700">100% Verified</span>
                     </div>
                 </div>
@@ -208,7 +208,7 @@ export default function TherapistWalletView() {
                                 <th className="py-3.5 px-4">Reason for Payment</th>
                                 <th className="py-3.5 px-4">Mode</th>
                                 <th className="py-3.5 px-4">Amount</th>
-                                <th className="py-3.5 px-4">Razorpay Payment ID</th>
+                                <th className="py-3.5 px-4">Payment ID</th>
                                 <th className="py-3.5 px-4">Status</th>
                                 <th className="py-3.5 px-4 text-right">Receipt</th>
                             </tr>
@@ -313,7 +313,7 @@ export default function TherapistWalletView() {
                                 ₹{selectedTx.amount ? selectedTx.amount.toFixed(2) : '500.00'}
                             </div>
                             <span className="inline-block text-[10px] font-bold uppercase text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-300">
-                                Razorpay Verified Payment • PAID
+                                Verified Online Payment • PAID
                             </span>
                         </div>
 
@@ -342,12 +342,12 @@ export default function TherapistWalletView() {
                                 <span className="font-semibold text-gray-800">{selectedTx.consultationType === 'ONLINE' ? 'Online Video Consultation' : 'In-Clinic Consultation'}</span>
                             </div>
                             <div className="flex justify-between border-b border-gray-100 pb-2">
-                                <span className="text-gray-400 font-medium">Razorpay Payment ID</span>
-                                <span className="font-mono font-bold text-emerald-800">{selectedTx.razorpayPaymentId || `pay_test_${selectedTx.bookingId}`}</span>
+                                <span className="text-gray-400 font-medium">Payment ID</span>
+                                <span className="font-mono font-bold text-emerald-800">{selectedTx.razorpayPaymentId || `pay_${selectedTx.bookingId}`}</span>
                             </div>
-                            <div className="flex justify-between">
-                                <span className="text-gray-400 font-medium">Razorpay Order ID</span>
-                                <span className="font-mono text-gray-600 text-[11px]">{selectedTx.razorpayOrderId || `order_test_${selectedTx.bookingId}`}</span>
+                            <div className="flex justify-between items-center text-xs">
+                                <span className="text-gray-400 font-medium">Order Reference ID</span>
+                                <span className="font-mono text-gray-600 text-[11px]">{selectedTx.razorpayOrderId || `ord_${selectedTx.bookingId}`}</span>
                             </div>
                         </div>
 

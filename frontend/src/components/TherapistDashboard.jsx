@@ -11,7 +11,7 @@ import TherapistAvailabilityManager from './TherapistAvailabilityManager';
 import TherapistFollowUpsView from './TherapistFollowUpsView';
 import TherapistWalletView from './TherapistWalletView';
 
-function TherapistDashboard({ activeTab, onTabChange, auth }) {
+function TherapistDashboard({ activeTab, onTabChange, auth, sidebarOffset = 0 }) {
     const [searchParams] = useSearchParams();
     const targetBookingId = searchParams.get('bookingId');
     const [highlightedId, setHighlightedId] = useState(null);
@@ -1583,6 +1583,7 @@ function TherapistDashboard({ activeTab, onTabChange, auth }) {
                 patientData={selectedBooking}
                 booking={selectedBooking}
                 onSuccess={() => fetchData()}
+                sidebarOffset={sidebarOffset}
             />
 
             {/* View Notes Modal */}
@@ -1822,6 +1823,7 @@ function TherapistDashboard({ activeTab, onTabChange, auth }) {
                 onClose={() => setClinicalPrescriptionModalOpen(false)}
                 patientData={selectedPatientForPrescription}
                 onSuccess={() => fetchData()}
+                sidebarOffset={sidebarOffset}
             />
         </div>
     );

@@ -471,7 +471,8 @@ export default function DashboardPage({ auth, onLogout, onAuthUpdate }) {
             </section>
           ) : (
             <section className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 motion-fade-in-up">
-              <TherapistDashboard activeTab={patientTab} onTabChange={handleTabChange} auth={auth} />
+              <TherapistDashboard activeTab={patientTab} onTabChange={handleTabChange} auth={auth} sidebarOffset={isCollapsed ? 80 : 260} />
+
             </section>
           )
         ) : (

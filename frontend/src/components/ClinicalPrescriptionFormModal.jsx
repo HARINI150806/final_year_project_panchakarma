@@ -41,7 +41,7 @@ const POSTCARE_PRESET_CHIPS = [
   'Attend next scheduled session on time.',
 ];
 
-export default function ClinicalPrescriptionFormModal({ isOpen, onClose, patientData, booking, onSuccess }) {
+export default function ClinicalPrescriptionFormModal({ isOpen, onClose, patientData, booking, onSuccess, sidebarOffset = 0 }) {
   const [patients, setPatients] = useState([]);
   const [catalogMedicines, setCatalogMedicines] = useState([]);
   const [submitting, setSubmitting] = useState(false);
@@ -292,94 +292,79 @@ export default function ClinicalPrescriptionFormModal({ isOpen, onClose, patient
     purposeText.includes('general')
   );
   const isTherapyRecommendation = isConsultation && !isNormalConsultation;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-forest/50 p-3 md:p-4 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="w-full max-w-4xl max-h-[92vh] overflow-y-auto rounded-3xl bg-white p-5 md:p-8 shadow-2xl space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-sand/40 pb-4">
-          <div className="flex items-center gap-3">
-            <div className={`flex h-11 w-11 items-center justify-center rounded-2xl text-white ${
-              isNormalConsultation ? 'bg-blue-600' : 'bg-[#1F4D3A]'
-            }`}>
-              <FileText size={22} />
-            </div>
-            <div>
-              <h2 className="font-display text-xl font-bold text-forest">
-                {isNormalConsultation
-                  ? "🩺 Complete Normal Consultation Session"
-                  : isTherapyRecommendation
-                  ? "🌿 Complete Consultation with Therapy Session"
-                  : "Complete Session Notes & Clinical Prescription"}
-              </h2>
-              <p className="text-xs text-forest/60">
-                {booking
-                  ? `Patient: ${form.patientName || 'Patient'} • ${
-                      isNormalConsultation
-                        ? 'Standard Doctor Evaluation & General Health Assessment'
-                        : 'Panchakarma Detox & Therapy Track Planning'
-                    }`
-                  : "Panchakarma Therapy & Herbal Formulation Prescriber"}
-              </p>
-            </div>
-          </div>
-          <button onClick={onClose} className="rounded-full p-2 text-forest/40 hover:bg-sand/30 hover:text-forest">
-            <X size={20} />
-          </button>
-        </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 md:p-4 animate-in fade-in duration-200" style={{ background: 'rgba(15,30,20,0.60)', backdropFilter: 'blur(10px)' }}>
+      <div className="w-full max-w-4xl flex flex-col rounded-[2rem] bg-white shadow-[0_40px_100px_rgba(0,0,0,0.25)] overflow-hidden border border-white/60" style={{ maxHeight: 'calc(100vh - 32px)' }}>
 
-        {/* Consultation Category Informational Header Banner for Therapist */}
-        {isConsultation && (
-          <div className={`rounded-2xl p-4 border shadow-xs space-y-1.5 ${
-            isNormalConsultation
-              ? 'bg-blue-50/90 border-blue-200 text-blue-950'
-              : 'bg-emerald-50/90 border-emerald-200 text-emerald-950'
-          }`}>
-            <div className="flex items-center justify-between gap-2 flex-wrap">
-              <div className="flex items-center gap-2 font-bold text-xs">
-                <span className="text-base">
-                  {isNormalConsultation ? '🩺' : '🌿'}
-                </span>
-                <span>
-                  PATIENT BOOKING TYPE: {isNormalConsultation ? 'NORMAL CONSULTATION' : 'CONSULTATION WITH THERAPY RECOMMENDATION'}
-                </span>
+        {/* ── STICKY HEADER ── */}
+        <div className="relative shrink-0 px-7 pt-6 pb-5" style={{ background: isNormalConsultation ? 'linear-gradient(135deg,#1a2d5a 0%,#2d4a80 100%)' : 'linear-gradient(135deg,#1a3d2b 0%,#2d5a3d 50%,#3a7050 100%)' }}>
+          <div className="absolute top-0 right-0 h-40 w-40 rounded-full opacity-10" style={{ background: 'radial-gradient(circle,#fff,transparent)', transform: 'translate(30%,-30%)' }} />
+          <div className="relative flex items-start justify-between gap-4">
+            <div className="flex items-center gap-3.5">
+              <div className="h-11 w-11 rounded-2xl bg-white/15 backdrop-blur-sm flex items-center justify-center border border-white/25 shrink-0">
+                <FileText size={22} className="text-white" strokeWidth={1.8} />
               </div>
-              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase border ${
-                isNormalConsultation
-                  ? 'bg-blue-100 text-blue-900 border-blue-300'
-                  : 'bg-emerald-100 text-emerald-900 border-emerald-300'
-              }`}>
-                {isNormalConsultation ? 'General Health Checkup' : 'Therapy Track Prescription'}
+              <div>
+                <h2 className="font-display text-lg font-extrabold text-white tracking-tight">
+                  {isNormalConsultation ? '🩺 Complete Normal Consultation'
+                    : isTherapyRecommendation ? '🌿 Complete Consultation with Therapy'
+                    : '📋 Complete Session & Clinical Prescription'}
+                </h2>
+                <p className="text-white/60 text-xs font-medium mt-0.5">
+                  {booking ? `Patient: ${form.patientName || 'Patient'} · ${isNormalConsultation ? 'Standard Evaluation' : 'Therapy Track Planning'}` : 'Panchakarma Therapy & Herbal Formulation Prescriber'}
+                </p>
+              </div>
+            </div>
+            <button onClick={onClose} className="h-9 w-9 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 flex items-center justify-center text-white/70 hover:text-white transition cursor-pointer shrink-0">
+              <X size={17} />
+            </button>
+          </div>
+
+          {/* Booking type badge */}
+          {isConsultation && (
+            <div className="relative mt-3 flex items-center gap-2 bg-white/10 backdrop-blur-sm rounded-xl px-4 py-2 border border-white/15">
+              <span className="text-lg">{isNormalConsultation ? '🩺' : '🌿'}</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-[11px] font-extrabold text-white uppercase tracking-wider">{isNormalConsultation ? 'Normal Consultation' : 'Consultation + Therapy Recommendation'}</p>
+                <p className="text-white/60 text-[10px] font-medium leading-relaxed">{isNormalConsultation ? 'Enter clinical diagnosis, optional medicines, and diet/lifestyle advice.' : 'Specify therapy type, session count, frequency, and post-care instructions.'}</p>
+              </div>
+              <span className={`shrink-0 text-[10px] font-extrabold px-2.5 py-1 rounded-full border ${isNormalConsultation ? 'bg-blue-100/20 text-blue-100 border-blue-300/30' : 'bg-emerald-100/20 text-emerald-100 border-emerald-300/30'}`}>
+                {isNormalConsultation ? 'General Checkup' : 'Therapy Track'}
               </span>
             </div>
-            <p className="text-[11px] leading-relaxed text-forest/80 font-medium">
-              {isNormalConsultation
-                ? 'The patient selected a Normal Consultation. Enter clinical diagnosis, optional pharmacy medicines, and general diet/lifestyle advice to mark the session complete.'
-                : 'The patient selected Consultation with Therapy. Specify recommended therapy type, total session count (1, 3, 5, 7, 14), frequency, and post-care instructions so the patient can start their therapy course.'}
-            </p>
-          </div>
-        )}
+          )}
+        </div>
 
-        {error && (
-          <div className="p-3 rounded-2xl bg-rose-100 text-rose-900 text-xs font-bold">
-            {error}
-          </div>
-        )}
+        {/* ── SCROLLABLE BODY ── */}
+        <div className="flex-1 overflow-y-auto px-7 py-5 space-y-5">
 
-        {success ? (
-          <div className="py-12 text-center space-y-3">
-            <CheckCircle2 size={56} className="mx-auto text-emerald-600 animate-bounce" />
-            <h3 className="font-display text-2xl font-bold text-forest">
-              {booking ? "Session Marked COMPLETED & Prescription Saved!" : "Prescription Sent to Pharmacist Dispensary!"}
-            </h3>
-            <p className="text-xs text-forest/70 max-w-md mx-auto">
-              {booking
-                ? "The consultation session has been successfully marked as COMPLETED. Clinical notes and guidelines have been saved for patient access."
-                : "The prescription has been created with status PENDING. Stock will remain unchanged until the Pharmacist dispenses the medicine."}
-            </p>
-          </div>
-        ) : (
-          <form onSubmit={(e) => handleSubmit(e, false)} className="space-y-6 text-xs">
+          {error && (
+            <div className="flex items-start gap-3 p-3.5 rounded-2xl bg-rose-50 border border-rose-200">
+              <span className="text-rose-600 font-extrabold text-xs">{error}</span>
+            </div>
+          )}
+
+          {success ? (
+            <div className="py-16 text-center space-y-4">
+              <div className="relative inline-block">
+                <div className="h-20 w-20 mx-auto rounded-full bg-emerald-100 flex items-center justify-center">
+                  <CheckCircle2 size={44} className="text-emerald-600" strokeWidth={1.8} />
+                </div>
+                <div className="absolute -top-1 -right-1 h-6 w-6 rounded-full bg-emerald-500 flex items-center justify-center">
+                  <Sparkles size={13} className="text-white" />
+                </div>
+              </div>
+              <div>
+                <h3 className="font-display text-2xl font-bold text-forest">
+                  {booking ? 'Session Marked COMPLETED!' : 'Prescription Sent to Pharmacist!'}
+                </h3>
+                <p className="text-xs text-forest/70 max-w-md mx-auto mt-2 leading-relaxed">
+                  {booking ? 'Clinical notes and guidelines have been saved for patient access.' : 'The prescription is PENDING dispensal. Stock will be updated when the Pharmacist dispenses.'}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <form id="clinical-session-form" onSubmit={(e) => handleSubmit(e, false)} className="space-y-5 text-xs">
             {/* Step 1: Patient & Clinical Diagnosis */}
             <div className="rounded-2xl border border-sand/40 bg-[#faf8f4] p-4 space-y-4">
               <h3 className="font-bold uppercase tracking-wider text-forest/80 border-b border-sand/40 pb-2 text-[11px]">
@@ -441,7 +426,7 @@ export default function ClinicalPrescriptionFormModal({ isOpen, onClose, patient
                     2. Panchakarma Therapy Track Prescription
                   </h3>
                   <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-extrabold text-emerald-900 border border-emerald-300">
-                    Required: Patient Awaits Therapy Track Prescription
+                    Therapy Track Prescription
                   </span>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -793,35 +778,47 @@ export default function ClinicalPrescriptionFormModal({ isOpen, onClose, patient
               )}
             </div>
 
-            {/* Actions */}
-            <div className="flex items-center justify-end gap-3 pt-4 border-t border-sand/40">
-              <button
-                type="button"
-                onClick={onClose}
-                className="rounded-2xl border border-sand px-5 py-2.5 font-bold text-forest/70 hover:bg-sand/20 transition cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={submitting}
-                className={`rounded-2xl px-6 py-2.5 font-bold text-white shadow-md transition cursor-pointer disabled:opacity-50 flex items-center gap-2 active:scale-95 ${
-                  isNormalConsultation ? 'bg-blue-600 hover:bg-blue-700' : 'bg-[#1F4D3A] hover:bg-[#163a2c]'
-                }`}
-              >
-                <CheckCircle2 size={16} />
-                <span>
-                  {submitting
-                    ? 'Completing Session...'
-                    : isNormalConsultation
-                    ? 'Complete Normal Consultation & Save Notes'
-                    : isTherapyRecommendation
-                    ? 'Complete Consultation with Therapy & Save Plan'
+            </form>
+          )}
+        </div>
+
+        {/* ── STICKY FOOTER ── */}
+        {!success && (
+          <div className="shrink-0 px-7 py-4 border-t border-gray-100 bg-gray-50/60 flex items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-5 py-2.5 rounded-xl border border-gray-200 bg-white text-xs font-bold text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition cursor-pointer shadow-xs"
+            >
+              Cancel
+            </button>
+            <button
+              form="clinical-session-form"
+              type="submit"
+              disabled={submitting}
+              className={`flex items-center gap-2 px-7 py-2.5 rounded-xl text-white text-xs font-extrabold shadow-lg transition cursor-pointer active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed ${
+                isNormalConsultation ? 'bg-blue-600 hover:bg-blue-700' : 'bg-[#1F4D3A] hover:bg-[#163a2c]'
+              }`}
+              style={{ boxShadow: submitting ? 'none' : isNormalConsultation ? '0 8px 24px rgba(37,99,235,0.3)' : '0 8px 24px rgba(29,78,50,0.35)' }}
+            >
+              {submitting ? (
+                <>
+                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+                  </svg>
+                  Completing Session...
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 size={16} strokeWidth={2.5} />
+                  {isNormalConsultation ? 'Complete Consultation & Save Notes'
+                    : isTherapyRecommendation ? 'Complete Consultation & Save Therapy Plan'
                     : 'Complete Session & Save Prescription'}
-                </span>
-              </button>
-            </div>
-          </form>
+                </>
+              )}
+            </button>
+          </div>
         )}
       </div>
     </div>

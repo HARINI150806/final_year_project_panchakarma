@@ -48,14 +48,14 @@ export default function Header({ auth, onLogout, onAdminCreateClick, activeTab, 
         .then(res => {
           const bookings = res.data || [];
           const completedCons = bookings.filter(b => (b.bookingType === 'CONSULTATION' || b.type === 'CONSULTATION') && (b.bookingStatus === 'COMPLETED' || b.status === 'COMPLETED' || b.bookingStatus === 'CONFIRMED'));
-          const therapyBookings = bookings.filter(b => (b.bookingType === 'THERAPY' || b.type === 'THERAPY') && (b.bookingStatus !== 'CANCELLED' && b.status !== 'CANCELLED'));
+          const activeTherapyBookings = bookings.filter(b => (b.bookingType === 'THERAPY' || b.type === 'THERAPY') && (b.bookingStatus !== 'CANCELLED' && b.status !== 'CANCELLED') && (b.bookingStatus !== 'COMPLETED' && b.status !== 'COMPLETED'));
           if (completedCons.length > 0) {
             const latestCons = completedCons[0];
             const consDate = new Date(latestCons.createdAt || latestCons.date);
-            const therapyAfterCons = therapyBookings.filter(tb => new Date(tb.createdAt || tb.date) >= consDate || tb.sessionNumber === 1 || tb.totalSessions >= 1);
+            const therapyAfterCons = activeTherapyBookings.filter(tb => new Date(tb.createdAt || tb.date) >= consDate || tb.sessionNumber === 1 || tb.totalSessions >= 1);
             if (therapyAfterCons.length > 0) setHasBooked1stTherapy(true);
             else setHasBooked1stTherapy(false);
-          } else if (therapyBookings.length > 0) {
+          } else if (activeTherapyBookings.length > 0) {
             setHasBooked1stTherapy(true);
           } else {
             setHasBooked1stTherapy(false);

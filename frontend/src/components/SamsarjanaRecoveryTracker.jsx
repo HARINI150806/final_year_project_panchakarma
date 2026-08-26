@@ -290,7 +290,7 @@ export default function SamsarjanaRecoveryTracker({ patientId, patientName }) {
           onClick={handleCreateDemoPlan}
           className="mt-4 rounded-xl bg-forest px-4 py-2.5 text-xs font-bold text-white shadow-md hover:bg-forest/90 transition inline-flex items-center gap-1.5"
         >
-          <Sparkles size={14} /> Activate Sample Post-Detox Recovery Plan
+          <Sparkles size={14} /> Activate Post-Detox Recovery Plan
         </button>
       </div>
     );
