@@ -83,6 +83,10 @@ public class Booking {
     @Column(name = "booking_source", nullable = false, columnDefinition = "VARCHAR(255) DEFAULT 'MANUAL'")
     private BookingSource bookingSource = BookingSource.MANUAL;
 
+    /** Foreign key link to parent consultation booking */
+    @Column(name = "consultation_booking_id")
+    private Long consultationBookingId;
+
     /** Reference to the AI suggestion that created this booking (null for manual bookings) */
     @Column(name = "ai_suggestion_id")
     private Long aiSuggestionId;

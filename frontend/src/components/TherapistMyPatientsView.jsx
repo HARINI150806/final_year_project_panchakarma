@@ -436,12 +436,6 @@ export default function TherapistMyPatientsView() {
                     )}
                   </div>
                 </div>
-
-                {/* JOINED FOOTER */}
-                <div className="text-[11px] text-gray-400 font-normal flex items-center gap-1 pt-1 border-t border-[#f8faf7]">
-                  <Calendar size={11} className="text-gray-400 shrink-0" />
-                  <span>Joined {formatDate(patient.createdAt)}</span>
-                </div>
               </div>
             );
           })}
@@ -1018,9 +1012,11 @@ export default function TherapistMyPatientsView() {
                             <h4 className="font-extrabold text-[#1F4D3A] text-sm">
                               {b.therapyName || b.purpose || b.type || 'Therapy Session'}
                             </h4>
-                            <span className="text-[10px] font-extrabold text-emerald-900 bg-emerald-100/70 border border-emerald-300 px-2 py-0.5 rounded-md">
-                              Session {b.sessionNumber || (activeSessionsList.length - i)}/{b.totalSessions || activeSessionsList.length}
-                            </span>
+                            {!( (b.type || b.bookingType || '').toUpperCase() === 'CONSULTATION' ) && (
+                              <span className="text-[10px] font-extrabold text-emerald-900 bg-emerald-100/70 border border-emerald-300 px-2 py-0.5 rounded-md">
+                                Session {b.sessionNumber || (activeSessionsList.length - i)}/{b.totalSessions || activeSessionsList.length}
+                              </span>
+                            )}
                           </div>
                           <p className="text-xs text-forest/60 font-medium mt-1 flex items-center gap-1.5">
                             <Calendar size={13} className="text-[#1F4D3A]" />

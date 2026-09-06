@@ -47,20 +47,26 @@ public class AvailabilityService {
                 continue;
             }
 
-            // Get booked slots for this therapist on this date
-            List<LocalTime> bookedTimes = bookingRepository
+            // Get active (non-cancelled) bookings for this therapist on this date
+            List<Booking> activeBookings = bookingRepository
                     .findByAssignedToAndDate(therapist, preferredDate)
                     .stream()
                     .filter(booking -> booking.getBookingStatus() != BookingStatus.CANCELLED)
-                    .map(Booking::getTime)
+                    .filter(booking -> booking.getTime() != null)
                     .collect(Collectors.toList());
 
             for (LocalTime[] slotRange : workingSlots) {
                 LocalTime slotStart = slotRange[0];
                 LocalTime slotEnd = slotRange[1];
 
-                // Check if already booked
-                if (bookedTimes.contains(slotStart)) {
+                // Check if candidate 45-minute slot overlaps with any active booking
+                boolean isOverlapped = activeBookings.stream().anyMatch(b -> {
+                    LocalTime bStart = b.getTime();
+                    LocalTime bEnd = bStart.plusMinutes(45);
+                    return slotStart.isBefore(bEnd) && slotEnd.isAfter(bStart);
+                });
+
+                if (isOverlapped) {
                     continue;
                 }
 
@@ -199,19 +205,26 @@ public class AvailabilityService {
                 continue;
             }
 
-            // Get booked slots for this therapist on this date
-            List<LocalTime> bookedTimes = bookingRepository
+            // Get active (non-cancelled) bookings for this therapist on this date
+            List<Booking> activeBookings = bookingRepository
                     .findByAssignedToAndDate(therapist, date)
                     .stream()
                     .filter(booking -> booking.getBookingStatus() != BookingStatus.CANCELLED)
-                    .map(Booking::getTime)
+                    .filter(booking -> booking.getTime() != null)
                     .collect(Collectors.toList());
 
             for (LocalTime[] slotRange : workingSlots) {
                 LocalTime slotStart = slotRange[0];
                 LocalTime slotEnd = slotRange[1];
 
-                if (!bookedTimes.contains(slotStart)) {
+                // Check if candidate 45-minute slot overlaps with any active booking
+                boolean isOverlapped = activeBookings.stream().anyMatch(b -> {
+                    LocalTime bStart = b.getTime();
+                    LocalTime bEnd = bStart.plusMinutes(45);
+                    return slotStart.isBefore(bEnd) && slotEnd.isAfter(bStart);
+                });
+
+                if (!isOverlapped) {
                     if (date.equals(LocalDate.now()) && slotStart.isBefore(LocalTime.now(java.time.ZoneId.systemDefault()))) {
                         continue; // Skip past slots today
                     }

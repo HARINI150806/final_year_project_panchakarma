@@ -5,7 +5,9 @@ import {
   Bell,
   BookOpen,
   CalendarClock,
+  CheckCircle2,
   ClipboardList,
+  Clock,
   CloudRain,
   Download,
   Droplets,
@@ -13,6 +15,8 @@ import {
   Flame,
   HeartPulse,
   Leaf,
+  Lightbulb,
+  Mail,
   Settings,
   Sparkles,
   Stethoscope,
@@ -54,6 +58,7 @@ import PatientTreatmentHistory from '../components/PatientTreatmentHistory';
 import TherapyRoomMatrix from '../components/TherapyRoomMatrix';
 import MyFollowUpsPage from './MyFollowUpsPage';
 import MedicalDocumentsPage from './MedicalDocumentsPage';
+import AyurvedaAiAssistant from '../components/AyurvedaAiAssistant';
 import { predictions, recoveryTrend, roleLabels, roleMenus, doshaTherapies } from '../data';
 
 const fallbackDashboard = {
@@ -99,9 +104,9 @@ function DoshaCallToAction({ onStart }) {
         <button
           id="btn-start-dosha-assessment"
           onClick={onStart}
-          className="shrink-0 rounded-2xl bg-[linear-gradient(135deg,#355c39_0%,#5a8553_100%)] px-5 py-3 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(62,109,67,0.2)] transition hover:translate-y-[-1px] hover:shadow-[0_14px_30px_rgba(62,109,67,0.26)] active:translate-y-0"
+          className="shrink-0 rounded-2xl bg-[linear-gradient(135deg,#355c39_0%,#5a8553_100%)] px-5 py-3 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(62,109,67,0.2)] transition hover:translate-y-[-1px] hover:shadow-[0_14px_30px_rgba(62,109,67,0.26)] active:translate-y-0 inline-flex items-center gap-1.5"
         >
-          🌿 Take Dosha Assessment
+          <Sparkles size={16} /> Take Dosha Assessment
         </button>
       </div>
     </div>
@@ -125,7 +130,7 @@ function DoshaResultCard({ auth }) {
           <div>
             <p className="text-[10px] font-bold uppercase tracking-wider text-forest/50">Your Body Type (Prakriti)</p>
             <h3 className="font-display text-xl font-bold leading-tight text-forest">
-              {dosha.emoji} {dosha.label} Constitution
+              {dosha.label} Constitution
             </h3>
           </div>
         </div>
@@ -139,7 +144,7 @@ function DoshaResultCard({ auth }) {
         <div className="flex flex-wrap gap-2">
           {therapies.map((t) => (
             <span key={t} className="rounded-xl bg-emerald-50 border border-emerald-200/60 px-3 py-1 text-xs font-semibold text-emerald-900 flex items-center gap-1.5">
-              🌿 {t}
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-600 inline-block" /> {t}
             </span>
           ))}
         </div>
@@ -194,6 +199,55 @@ function DoshaSnapshotPanel({ auth }) {
   );
 }
 
+function getDoshaBreakdown(auth) {
+  if (!auth?.dominantDosha) return null;
+
+  const vRaw = Number(auth?.vataScore) || 0;
+  const pRaw = Number(auth?.pittaScore) || 0;
+  const kRaw = Number(auth?.kaphaScore) || 0;
+  const total = vRaw + pRaw + kRaw;
+
+  let vataPct = 30;
+  let pittaPct = 50;
+  let kaphaPct = 20;
+
+  if (total > 0) {
+    vataPct = Math.round((vRaw / total) * 100);
+    pittaPct = Math.round((pRaw / total) * 100);
+    kaphaPct = Math.round((kRaw / total) * 100);
+  } else {
+    const dom = String(auth.dominantDosha).toUpperCase();
+    if (dom.includes('VATA') && dom.includes('PITTA')) {
+      vataPct = 40; pittaPct = 40; kaphaPct = 20;
+    } else if (dom.includes('VATA') && dom.includes('KAPHA')) {
+      vataPct = 40; pittaPct = 20; kaphaPct = 40;
+    } else if (dom.includes('PITTA') && dom.includes('KAPHA')) {
+      vataPct = 20; pittaPct = 40; kaphaPct = 40;
+    } else if (dom.includes('VATA')) {
+      vataPct = 50; pittaPct = 30; kaphaPct = 20;
+    } else if (dom.includes('KAPHA')) {
+      vataPct = 25; pittaPct = 25; kaphaPct = 50;
+    } else if (dom.includes('TRIDOSHA')) {
+      vataPct = 34; pittaPct = 33; kaphaPct = 33;
+    } else {
+      vataPct = 30; pittaPct = 50; kaphaPct = 20;
+    }
+  }
+
+  const domName = String(auth.dominantDosha).toUpperCase();
+  let guidance = "Your constitution is naturally balanced. Focus on seasonal Ayurvedic eating and regular daily routine (Dinacharya).";
+
+  if (domName.includes('PITTA')) {
+    guidance = "Your constitution is naturally high in Pitta (Fire element). To stay balanced, focus on cooling foods (coconut water, cow ghee, fresh sweet fruits) and avoid excessive direct heat or spicy peppers.";
+  } else if (domName.includes('VATA')) {
+    guidance = "Your constitution is naturally high in Vata (Air element). To stay balanced, favor warm, cooked, unctuous foods with ghee, keep a steady daily routine, and stay well hydrated.";
+  } else if (domName.includes('KAPHA')) {
+    guidance = "Your constitution is naturally high in Kapha (Earth element). To stay balanced, favor light, warm, well-spiced foods, engage in active daily exercise, and avoid heavy oily sweets.";
+  }
+
+  return { vataPct, pittaPct, kaphaPct, guidance };
+}
+
 // ─── Main Dashboard ────────────────────────────────────────────
 export default function DashboardPage({ auth, onLogout, onAuthUpdate }) {
   const navigate = useNavigate();
@@ -238,7 +292,7 @@ export default function DashboardPage({ auth, onLogout, onAuthUpdate }) {
       'treatment-plans', 'prescriptions', 'notes',
       'availability', 'requests', 'reports', 'resources',
       'treatment', 'appointments', 'wellness', 'profile', 'complaints', 'settings',
-      'followups', 'documents'
+      'followups', 'documents', 'ayurveda-ai'
     ];
     if (currentTab && validTabs.includes(currentTab)) {
       setPatientTab(currentTab);
@@ -333,7 +387,19 @@ export default function DashboardPage({ auth, onLogout, onAuthUpdate }) {
     }
     if (isPatient) {
       api.get('/patient/prescriptions')
-        .then((res) => setPrescriptions(res.data || []))
+        .then((res) => {
+          const list = res.data || [];
+          const validList = list.filter(p => {
+            if (!p) return false;
+            if (Array.isArray(p.medicines) && p.medicines.length > 0) return true;
+            if (p.medicineName && p.medicineName.trim()) {
+              const name = p.medicineName.trim().toLowerCase();
+              return name !== 'n/a' && name !== 'none' && name !== 'null' && name !== 'undefined' && !name.includes('panchakarma formulation');
+            }
+            return false;
+          });
+          setPrescriptions(validList);
+        })
         .catch((err) => console.error('Prescriptions API error', err));
 
       api.get('/patient/reports')
@@ -493,7 +559,7 @@ export default function DashboardPage({ auth, onLogout, onAuthUpdate }) {
                       {/* Left Column: Greeting, Description, Tip & Buttons */}
                       <div className="lg:col-span-7 space-y-4">
                         <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/40 bg-emerald-900/60 px-3.5 py-1 text-xs font-bold uppercase tracking-wider text-emerald-200 backdrop-blur-md">
-                          🌿 Personal Care Companion
+                          <Leaf size={13} className="text-emerald-300" /> Personal Care Companion
                         </div>
 
                         <h1 className="font-display text-3xl md:text-4xl font-extrabold leading-tight text-amber-50">
@@ -502,7 +568,7 @@ export default function DashboardPage({ auth, onLogout, onAuthUpdate }) {
                             : new Date().getHours() < 17
                               ? 'Good Afternoon'
                               : 'Good Evening'}
-                          , {auth?.fullName || 'Patient'} 🌿
+                          , {auth?.fullName || 'Patient'}
                         </h1>
 
                         <p className="text-xs md:text-sm text-emerald-100/90 leading-relaxed max-w-xl">
@@ -560,7 +626,7 @@ export default function DashboardPage({ auth, onLogout, onAuthUpdate }) {
                         <div className="flex items-center justify-between border-b border-sand/30 pb-3">
                           <div>
                             <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100/80 px-3 py-1 text-xs font-bold text-emerald-900 uppercase tracking-wider">
-                              🌿 Constitutional Blueprint
+                              <Leaf size={13} className="text-emerald-800" /> Constitutional Blueprint
                             </div>
                             <h2 className="font-display text-2xl font-bold text-forest mt-1">Your Body Constitution (Prakriti)</h2>
                             <p className="text-xs text-forest/70">Understanding your Vata, Pitta, and Kapha energy balance</p>
@@ -571,50 +637,83 @@ export default function DashboardPage({ auth, onLogout, onAuthUpdate }) {
                           </span>
                         </div>
 
-                        {/* 3 Dosha Bars with Clear Explanations */}
-                        <div className="space-y-4">
-                          {/* Vata */}
-                          <div className="space-y-1">
-                            <div className="flex justify-between text-xs font-bold text-forest">
-                              <span>🌬️ Vata (Air & Movement - Controls circulation & nerves)</span>
-                              <span className="text-blue-700 font-semibold">30% - Balanced</span>
+                        {!auth?.dominantDosha ? (
+                          <div className="rounded-2xl border border-dashed border-amber-300 bg-amber-50/70 p-6 text-center space-y-4">
+                            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-100 text-amber-800">
+                              <Sparkles size={24} />
                             </div>
-                            <div className="h-3 w-full rounded-full bg-blue-100 overflow-hidden">
-                              <div className="h-full bg-blue-500 rounded-full transition-all duration-500" style={{ width: '30%' }} />
+                            <div className="space-y-1">
+                              <h3 className="font-bold text-amber-950 text-base">You haven&apos;t taken your Ayurvedic Dosha assessment yet</h3>
+                              <p className="text-xs text-amber-900/80 max-w-md mx-auto leading-relaxed">
+                                Complete the 2-minute assessment to diagnose your dominant Prakriti, unlock your Vata, Pitta, and Kapha energy balance, and view personalized health guidance.
+                              </p>
                             </div>
+                            <button
+                              type="button"
+                              onClick={() => navigate('/dosha-assessment')}
+                              className="inline-flex items-center gap-2 rounded-xl bg-forest px-5 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-forest/90 transition cursor-pointer"
+                            >
+                              <Sparkles size={14} /> Take Dosha Assessment Now
+                            </button>
                           </div>
+                        ) : (() => {
+                          const breakdown = getDoshaBreakdown(auth);
+                          if (!breakdown) return null;
+                          const domStr = String(auth.dominantDosha).toUpperCase();
 
-                          {/* Pitta */}
-                          <div className="space-y-1">
-                            <div className="flex justify-between text-xs font-bold text-forest">
-                              <span>🔥 Pitta (Fire & Digestion - Controls heat & metabolism)</span>
-                              <span className="text-amber-800 font-extrabold">50% - Primary Constitution</span>
-                            </div>
-                            <div className="h-3 w-full rounded-full bg-amber-100 overflow-hidden">
-                              <div className="h-full bg-amber-600 rounded-full transition-all duration-500" style={{ width: '50%' }} />
-                            </div>
-                          </div>
+                          return (
+                            <>
+                              {/* 3 Dosha Bars with Dynamic Percentages */}
+                              <div className="space-y-4">
+                                {/* Vata */}
+                                <div className="space-y-1">
+                                  <div className="flex justify-between text-xs font-bold text-forest">
+                                    <span className="flex items-center gap-1.5"><Wind size={14} className="text-blue-500 shrink-0" /> Vata (Air & Movement - Controls circulation & nerves)</span>
+                                    <span className="text-blue-700 font-semibold">
+                                      {breakdown.vataPct}% {domStr.includes('VATA') ? '- Primary Constitution' : '- Balanced'}
+                                    </span>
+                                  </div>
+                                  <div className="h-3 w-full rounded-full bg-blue-100 overflow-hidden">
+                                    <div className="h-full bg-blue-500 rounded-full transition-all duration-500" style={{ width: `${breakdown.vataPct}%` }} />
+                                  </div>
+                                </div>
 
-                          {/* Kapha */}
-                          <div className="space-y-1">
-                            <div className="flex justify-between text-xs font-bold text-forest">
-                              <span>🌊 Kapha (Earth & Structure - Controls stability & immunity)</span>
-                              <span className="text-emerald-700 font-semibold">20% - Stable</span>
-                            </div>
-                            <div className="h-3 w-full rounded-full bg-emerald-100 overflow-hidden">
-                              <div className="h-full bg-emerald-600 rounded-full transition-all duration-500" style={{ width: '20%' }} />
-                            </div>
-                          </div>
-                        </div>
+                                {/* Pitta */}
+                                <div className="space-y-1">
+                                  <div className="flex justify-between text-xs font-bold text-forest">
+                                    <span className="flex items-center gap-1.5"><Flame size={14} className="text-amber-600 shrink-0" /> Pitta (Fire & Digestion - Controls heat & metabolism)</span>
+                                    <span className="text-amber-800 font-extrabold">
+                                      {breakdown.pittaPct}% {domStr.includes('PITTA') ? '- Primary Constitution' : '- Balanced'}
+                                    </span>
+                                  </div>
+                                  <div className="h-3 w-full rounded-full bg-amber-100 overflow-hidden">
+                                    <div className="h-full bg-amber-600 rounded-full transition-all duration-500" style={{ width: `${breakdown.pittaPct}%` }} />
+                                  </div>
+                                </div>
 
-                        <div className="rounded-2xl bg-amber-50/80 border border-amber-200 p-4 text-xs text-amber-900 leading-relaxed space-y-1">
-                          <p className="font-bold flex items-center gap-1.5 text-amber-950">
-                            💡 What this means for your daily health:
-                          </p>
-                          <p>
-                            Your constitution is naturally high in <strong>Pitta (Fire element)</strong>. To stay balanced, focus on cooling foods (coconut water, cow ghee, fresh sweet fruits) and avoid excessive direct heat or spicy peppers.
-                          </p>
-                        </div>
+                                {/* Kapha */}
+                                <div className="space-y-1">
+                                  <div className="flex justify-between text-xs font-bold text-forest">
+                                    <span className="flex items-center gap-1.5"><Droplets size={14} className="text-emerald-600 shrink-0" /> Kapha (Earth & Structure - Controls stability & immunity)</span>
+                                    <span className="text-emerald-700 font-semibold">
+                                      {breakdown.kaphaPct}% {domStr.includes('KAPHA') ? '- Primary Constitution' : '- Stable'}
+                                    </span>
+                                  </div>
+                                  <div className="h-3 w-full rounded-full bg-emerald-100 overflow-hidden">
+                                    <div className="h-full bg-emerald-600 rounded-full transition-all duration-500" style={{ width: `${breakdown.kaphaPct}%` }} />
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="rounded-2xl bg-amber-50/80 border border-amber-200 p-4 text-xs text-amber-900 leading-relaxed space-y-1">
+                                <p className="font-bold flex items-center gap-1.5 text-amber-950">
+                                  <Lightbulb size={14} className="text-amber-600 shrink-0" /> What this means for your daily health:
+                                </p>
+                                <p>{breakdown.guidance}</p>
+                              </div>
+                            </>
+                          );
+                        })()}
                       </div>
 
                       {/* 4. TODAY'S DAILY WELLNESS ROUTINE (DINACHARYA) */}
@@ -670,17 +769,10 @@ export default function DashboardPage({ auth, onLogout, onAuthUpdate }) {
                         {(() => {
                           if (!auth?.dominantDosha) {
                             return (
-                              <div className="rounded-2xl bg-amber-50/70 border border-amber-200/80 p-5 text-center space-y-3">
-                                <p className="text-xs text-amber-950 font-semibold leading-relaxed">
-                                  You haven&apos;t taken your Ayurvedic Dosha assessment yet. Complete the 2-minute assessment to diagnose your dominant Prakriti and view personalized food recommendations.
+                              <div className="py-6 px-4 text-center rounded-2xl border border-dashed border-emerald-900/10 bg-emerald-50/40">
+                                <p className="text-xs text-forest/70 font-medium leading-relaxed">
+                                  Complete your Dosha assessment to unlock personalized food & habit recommendations.
                                 </p>
-                                <button
-                                  type="button"
-                                  onClick={() => navigate('/dosha-assessment')}
-                                  className="inline-flex items-center gap-2 rounded-2xl bg-[#1b3d2b] px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-[#122c1e] transition cursor-pointer"
-                                >
-                                  <Sparkles size={14} /> Take Dosha Assessment Now
-                                </button>
                               </div>
                             );
                           }
@@ -706,7 +798,7 @@ export default function DashboardPage({ auth, onLogout, onAuthUpdate }) {
                                 {/* EAT (PATHYA) */}
                                 <div className="rounded-2xl bg-emerald-50/90 border border-emerald-200 p-3.5 space-y-2">
                                   <p className="text-xs font-bold text-emerald-900 flex items-center gap-1.5 border-b border-emerald-200/60 pb-1.5">
-                                    🟢 Pathya (Foods to Take & Enjoy)
+                                    <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 inline-block" /> Pathya (Foods to Take & Enjoy)
                                   </p>
                                   <ul className="text-[11px] text-emerald-950/90 space-y-1.5 list-disc pl-4 leading-relaxed font-medium">
                                     {diet.pathya.map((item, idx) => (
@@ -718,7 +810,7 @@ export default function DashboardPage({ auth, onLogout, onAuthUpdate }) {
                                 {/* AVOID (APATHYA) */}
                                 <div className="rounded-2xl bg-rose-50/90 border border-rose-200 p-3.5 space-y-2">
                                   <p className="text-xs font-bold text-rose-900 flex items-center gap-1.5 border-b border-rose-200/60 pb-1.5">
-                                    🔴 Apathya (Foods to Avoid / Limit)
+                                    <span className="h-2.5 w-2.5 rounded-full bg-rose-500 inline-block" /> Apathya (Foods to Avoid / Limit)
                                   </p>
                                   <ul className="text-[11px] text-rose-950/90 space-y-1.5 list-disc pl-4 leading-relaxed font-medium">
                                     {diet.apathya.map((item, idx) => (
@@ -728,8 +820,8 @@ export default function DashboardPage({ auth, onLogout, onAuthUpdate }) {
                                 </div>
                               </div>
 
-                              <div className="text-[11px] text-forest/75 bg-sand/20 border border-sand/40 p-2.5 rounded-xl text-center font-medium">
-                                🕒 <strong>Best Meal Schedule for {diet.doshaName}:</strong> {diet.bestMealTiming}
+                              <div className="text-[11px] text-forest/75 bg-sand/20 border border-sand/40 p-2.5 rounded-xl text-center font-medium flex items-center justify-center gap-1.5">
+                                <Clock size={13} className="text-amber-800 shrink-0" /> <span><strong>Best Meal Schedule for {diet.doshaName}:</strong> {diet.bestMealTiming}</span>
                               </div>
                             </div>
                           );
@@ -740,7 +832,7 @@ export default function DashboardPage({ auth, onLogout, onAuthUpdate }) {
                       <div className="rounded-3xl border border-teal-900/10 bg-gradient-to-br from-teal-50/80 to-emerald-50/80 p-5 shadow-sm space-y-3">
                         <div className="flex items-center gap-2 text-teal-950 font-bold text-sm border-b border-teal-200/60 pb-2">
                           <CloudRain size={20} className="text-teal-700" />
-                          <span>Monsoon Seasonal Health Care 🌧️</span>
+                          <span>Monsoon Seasonal Health Care</span>
                         </div>
 
                         <ul className="space-y-2 text-xs text-teal-950/85 leading-relaxed">
@@ -1109,7 +1201,7 @@ export default function DashboardPage({ auth, onLogout, onAuthUpdate }) {
                         {/* In-App Notification Toggle */}
                         <div className="flex items-center justify-between p-3 rounded-2xl border border-sand/40 bg-[#faf8f4]">
                           <div className="space-y-0.5 pr-3">
-                            <span className="font-bold text-forest block">🔔 In-App Booking Notifications</span>
+                            <span className="font-bold text-forest flex items-center gap-1.5"><Bell size={14} className="text-emerald-700 shrink-0" /> In-App Booking Notifications</span>
                             <span className="text-[11px] text-forest/70 block">Receive instant popups and header bell alerts when a session is booked.</span>
                           </div>
                           <button
@@ -1124,7 +1216,7 @@ export default function DashboardPage({ auth, onLogout, onAuthUpdate }) {
                         {/* Email Notification Toggle */}
                         <div className="flex items-center justify-between p-3 rounded-2xl border border-sand/40 bg-[#faf8f4]">
                           <div className="space-y-0.5 pr-3">
-                            <span className="font-bold text-forest block">📧 Email Booking Confirmation</span>
+                            <span className="font-bold text-forest flex items-center gap-1.5"><Mail size={14} className="text-emerald-700 shrink-0" /> Email Booking Confirmation</span>
                             <span className="text-[11px] text-forest/70 block">Send instant confirmation & calendar invite to {auth?.email || 'your registered email'}.</span>
                           </div>
                           <button
@@ -1139,7 +1231,7 @@ export default function DashboardPage({ auth, onLogout, onAuthUpdate }) {
                         {/* Pre-Session Reminders */}
                         <div className="flex items-center justify-between p-3 rounded-2xl border border-sand/40 bg-[#faf8f4]">
                           <div className="space-y-0.5 pr-3">
-                            <span className="font-bold text-forest block">🌿 Pre-Session Guidelines</span>
+                            <span className="font-bold text-forest flex items-center gap-1.5"><Leaf size={14} className="text-emerald-700 shrink-0" /> Pre-Session Guidelines</span>
                             <span className="text-[11px] text-forest/70 block">Send pre-procedure oleation and diet preparation tips 24 hours prior.</span>
                           </div>
                           <button
@@ -1196,8 +1288,8 @@ export default function DashboardPage({ auth, onLogout, onAuthUpdate }) {
             {/* Header */}
             <div className="flex items-center justify-between border-b border-sand/30 pb-3">
               <div>
-                <h3 className="font-display text-lg font-bold text-forest">
-                  {complaintStep === 1 ? '📋 Log New Health Complaint' : '✅ Review & Submit'}
+                <h3 className="font-display text-lg font-bold text-forest flex items-center gap-1.5">
+                  {complaintStep === 1 ? <><ClipboardList size={18} className="text-emerald-700" /> Log New Health Complaint</> : <><CheckCircle2 size={18} className="text-emerald-700" /> Review & Submit</>}
                 </h3>
                 <p className="text-xs text-forest/60 mt-0.5">
                   {complaintStep === 1 ? 'Describe your symptoms so your Ayurvedic doctor can review them.' : 'Please review before submitting.'}
@@ -1402,9 +1494,9 @@ export default function DashboardPage({ auth, onLogout, onAuthUpdate }) {
                     type="button"
                     disabled={complaintSubmitting}
                     onClick={handleComplaintSubmit}
-                    className="flex-1 rounded-xl bg-forest px-5 py-2.5 text-xs font-bold text-white shadow-md hover:bg-forest/90 transition disabled:opacity-50"
+                    className="flex-1 rounded-xl bg-forest px-5 py-2.5 text-xs font-bold text-white shadow-md hover:bg-forest/90 transition disabled:opacity-50 inline-flex items-center justify-center gap-1.5"
                   >
-                    {complaintSubmitting ? 'Submitting...' : '✅ Submit Complaint'}
+                    {complaintSubmitting ? 'Submitting...' : <><CheckCircle2 size={15} /> Submit Complaint</>}
                   </button>
                 </div>
               </div>

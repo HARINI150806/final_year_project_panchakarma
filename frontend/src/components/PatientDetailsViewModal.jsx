@@ -603,9 +603,11 @@ export default function PatientDetailsViewModal({ isOpen, onClose, patientData, 
                             <h4 className="font-bold text-[#1F4D3A] text-sm">
                               {b.therapyName}
                             </h4>
-                            <span className="text-[10px] font-extrabold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
-                              Session {b.sessionNumber || (activeSessionsList.length - i)}/{b.totalSessions || activeSessionsList.length}
-                            </span>
+                            {!( (b.type || b.bookingType || '').toUpperCase() === 'CONSULTATION' ) && (
+                              <span className="text-[10px] font-extrabold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
+                                Session {b.sessionNumber || (activeSessionsList.length - i)}/{b.totalSessions || activeSessionsList.length}
+                              </span>
+                            )}
                           </div>
                           <p className="text-xs text-gray-500 font-medium mt-1 flex items-center gap-1.5">
                             <Calendar size={13} className="text-[#2e7d5a]" />

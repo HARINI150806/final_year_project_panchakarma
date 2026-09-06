@@ -239,8 +239,7 @@ const PatientBookings = ({ categoryFilter: propCategory }) => {
 
     // Category Filter (Consultations vs Therapies)
     const isConsultation = Boolean(
-      b.consultationType === 'ONLINE' ||
-      b.consultationType === 'OFFLINE' ||
+      (b.bookingType || b.type || '').toUpperCase() === 'CONSULTATION' ||
       (b.purpose || b.therapyName || '').toLowerCase().includes('consultation') ||
       (b.purpose || '').toLowerCase().includes('dosha') ||
       b.meetLink
@@ -552,9 +551,21 @@ const PatientBookings = ({ categoryFilter: propCategory }) => {
                 String(highlightedId) === String(booking.bookingId) ||
                 String(selectedBookingId) === String(bookingId);
 
-              let rawText = booking.notes || booking.purpose || booking.therapyName || 'Abhyanga Therapy';
-              if (booking.type === 'CONSULTATION' || booking.bookingType === 'CONSULTATION') {
+              const isTherapySession = (
+                (booking.type || booking.bookingType || '').toUpperCase() === 'THERAPY' ||
+                (booking.sessionNumber && booking.sessionNumber > 0) ||
+                (booking.totalSessions && booking.totalSessions > 1) ||
+                Boolean(booking.therapyName && !booking.therapyName.toLowerCase().includes('consultation')) ||
+                /Session\s*\d+/i.test(booking.purpose || '') ||
+                /Session\s*\d+/i.test(booking.notes || '')
+              );
+
+              let rawText = booking.therapyName || booking.notes || booking.purpose || 'Abhyanga Therapy';
+              if (!isTherapySession && (booking.type === 'CONSULTATION' || booking.bookingType === 'CONSULTATION')) {
                 rawText = booking.notes || booking.purpose || 'Initial Clinical Consultation';
+              } else {
+                // Strip leading CONSULTATION prefix if present in therapy session notes/purpose
+                rawText = rawText.replace(/^CONSULTATION\s*[—–-]?\s*/i, '').trim();
               }
 
               // 1. Extract session numbers if embedded (e.g. Session 7 of 7 or Session 7/7)
@@ -593,7 +604,7 @@ const PatientBookings = ({ categoryFilter: propCategory }) => {
               }
 
               if (!treatmentSubtitle) {
-                treatmentSubtitle = 'Follow-Up Clinical Evaluation';
+                treatmentSubtitle = isTherapySession ? 'Prescribed Care Session' : 'Follow-Up Clinical Evaluation';
               }
 
               // 5. Clean main title: strip any remaining trailing dashes, dots, or stray parens
@@ -604,10 +615,14 @@ const PatientBookings = ({ categoryFilter: propCategory }) => {
                 .replace(/[—–-•·]/g, '')
                 .trim();
 
-              if (!mainTitleName) mainTitleName = 'Abhyanga';
+              if (!mainTitleName || mainTitleName.equalsIgnoreCase?.('CONSULTATION') || mainTitleName.toLowerCase() === 'consultation') {
+                mainTitleName = (booking.therapyName && !booking.therapyName.toLowerCase().includes('consultation')) 
+                  ? booking.therapyName 
+                  : 'Abhyanga';
+              }
 
               let treatmentTitle = `${mainTitleName} Therapy`;
-              if (mainTitleName.toLowerCase().includes('consultation')) {
+              if (!isTherapySession && mainTitleName.toLowerCase().includes('consultation')) {
                 treatmentTitle = mainTitleName;
               }
 
@@ -633,6 +648,9 @@ const PatientBookings = ({ categoryFilter: propCategory }) => {
               }
 
               const therapistName = booking.assignedTo?.fullName || booking.therapistName || 'Harini';
+              const isConsultationAppointment = (
+                (booking.type || booking.bookingType || '').toUpperCase() === 'CONSULTATION'
+              );
 
               return (
                 <button
@@ -668,7 +686,7 @@ const PatientBookings = ({ categoryFilter: propCategory }) => {
                     </div>
 
                     {/* Consultation Category Badge for Consultation Appointments */}
-                    {(booking.type === 'CONSULTATION' || booking.bookingType === 'CONSULTATION') && (
+                    {isConsultationAppointment && (
                       <div className="flex items-center gap-2 pt-0.5">
                         {((booking.consultationCategory === 'NORMAL') || (booking.notes || booking.purpose || '').toLowerCase().includes('normal')) ? (
                           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#e8f0fe] text-[#1a73e8] border border-[#aecbfa]">
@@ -688,9 +706,11 @@ const PatientBookings = ({ categoryFilter: propCategory }) => {
                         {treatmentSubtitle}
                       </p>
 
-                      <span className="inline-flex items-center gap-1 shrink-0 rounded-full px-2.5 py-0.5 text-xs bg-green-50 text-green-700 font-medium border border-green-200/60">
-                        <span>Session {currentSess} / {totalSess}</span>
-                      </span>
+                      {!isConsultationAppointment && (
+                        <span className="inline-flex items-center gap-1 shrink-0 rounded-full px-2.5 py-0.5 text-xs bg-green-50 text-green-700 font-medium border border-green-200/60">
+                          <span>Session {currentSess} / {totalSess}</span>
+                        </span>
+                      )}
                     </div>
 
                     {/* Details row */}
@@ -996,12 +1016,20 @@ function BookingDetails({
               <CalendarClock size={13} className="text-blue-600" /> Reschedule
             </button>
           )}
-          <button
-            onClick={() => handleCancel(booking.id)}
-            className="flex cursor-pointer items-center gap-1.5 rounded-xl border border-rose-100 bg-rose-50/80 px-3.5 py-2 text-xs font-bold text-rose-600 shadow-sm transition hover:bg-rose-100"
-          >
-            <X size={13} className="text-rose-600" /> Cancel
-          </button>
+          {isModifiable && (
+            <button
+              onClick={() => handleCancel(booking.id)}
+              className="flex cursor-pointer items-center gap-1.5 rounded-xl border border-rose-100 bg-rose-50/80 px-3.5 py-2 text-xs font-bold text-rose-600 shadow-sm transition hover:bg-rose-100"
+            >
+              <X size={13} className="text-rose-600" /> Cancel
+            </button>
+          )}
+          {!isModifiable && (effectiveStatus === 'CONFIRMED' || effectiveStatus === 'PENDING') && (
+            <div className="w-full text-xs text-amber-800 bg-amber-50 border border-amber-200/80 rounded-xl p-2.5 font-medium flex items-center gap-2 mt-1">
+              <span>⏱️</span>
+              <span>Reschedule and cancellation options are available up to 48 hours (2 days) prior to your scheduled appointment.</span>
+            </div>
+          )}
         </div>
         <p className="mt-3 text-[11px] leading-5 text-forest/55">
           Tip: pick any row on the left to switch this panel instantly.

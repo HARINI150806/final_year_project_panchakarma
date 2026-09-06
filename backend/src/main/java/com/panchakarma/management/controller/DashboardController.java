@@ -7,7 +7,10 @@ import com.panchakarma.management.repository.TherapyRoomRepository;
 import com.panchakarma.management.repository.UserRepository;
 import com.panchakarma.management.service.DashboardService;
 import java.security.Principal;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -47,12 +50,24 @@ public class DashboardController {
         long bookingCount = bookingRepository.count();
         long roomCount = therapyRoomRepository.count();
 
-        return ResponseEntity.ok(Map.of(
-            "registeredPatients", patientCount,
-            "activeTherapists", therapistCount,
-            "activePharmacists", pharmacistCount,
-            "totalBookings", bookingCount,
-            "availableRooms", roomCount
-        ));
+        List<Map<String, Object>> therapistList = userRepository.findByRole(UserRole.THERAPIST).stream()
+                .map(t -> {
+                    Map<String, Object> map = new HashMap<>();
+                    map.put("id", t.getId());
+                    map.put("name", t.getFullName());
+                    map.put("isSenior", t.isSeniorTherapist());
+                    return map;
+                })
+                .collect(Collectors.toList());
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("registeredPatients", patientCount);
+        response.put("activeTherapists", therapistCount);
+        response.put("activePharmacists", pharmacistCount);
+        response.put("totalBookings", bookingCount);
+        response.put("availableRooms", roomCount);
+        response.put("therapists", therapistList);
+
+        return ResponseEntity.ok(response);
     }
 }

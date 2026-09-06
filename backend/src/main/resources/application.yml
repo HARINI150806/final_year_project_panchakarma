@@ -55,6 +55,6 @@ gemini:
   api-url: https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent
 
 razorpay:
-  key-id: ${RAZORPAY_KEY_ID:}
-  key-secret: ${RAZORPAY_KEY_SECRET:}
-  consultation-amount: ${RAZORPAY_CONSULTATION_AMOUNT:500.00}
+  key-id: ${RAZORPAY_KEY_ID}
+  key-secret: ${RAZORPAY_KEY_SECRET}
+  consultation-amount: ${RAZORPAY_CONSULTATION_AMOUNT}

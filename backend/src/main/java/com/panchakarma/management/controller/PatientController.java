@@ -6,6 +6,7 @@ import com.panchakarma.management.dto.DoshaAssessmentRequest;
 import com.panchakarma.management.dto.DoshaAssessmentResponse;
 import com.panchakarma.management.dto.PatientBookingRequest;
 import com.panchakarma.management.exception.ResourceNotFoundException;
+import com.panchakarma.management.model.BookingType;
 import com.panchakarma.management.model.Patient;
 import com.panchakarma.management.model.User;
 import com.panchakarma.management.repository.UserRepository;
@@ -176,7 +177,7 @@ public class PatientController {
         bookingRequest.setDate(patientBookingRequest.getDate());
         bookingRequest.setTime(patientBookingRequest.getTime());
         bookingRequest.setPurpose(patientBookingRequest.getNotes());
-        bookingRequest.setBookingType(patientBookingRequest.getType());
+        bookingRequest.setBookingType(patientBookingRequest.getType() != null ? patientBookingRequest.getType() : BookingType.THERAPY);
         bookingRequest.setBookingStatus(com.panchakarma.management.model.BookingStatus.CONFIRMED); // Default to CONFIRMED
 
         BookingResponse createdBooking = bookingService.createBooking(bookingRequest);
@@ -197,7 +198,7 @@ public class PatientController {
         bookingRequest.setDate(patientBookingRequest.getDate());
         bookingRequest.setTime(patientBookingRequest.getTime());
         bookingRequest.setPurpose(patientBookingRequest.getNotes());
-        bookingRequest.setBookingType(patientBookingRequest.getType());
+        bookingRequest.setBookingType(patientBookingRequest.getType() != null ? patientBookingRequest.getType() : BookingType.CONSULTATION);
         bookingRequest.setConsultationCategory(patientBookingRequest.getConsultationCategory() != null ? patientBookingRequest.getConsultationCategory() : "THERAPY_RECOMMENDATION");
         bookingRequest.setBookingStatus(com.panchakarma.management.model.BookingStatus.CONFIRMED); // Default to CONFIRMED
 

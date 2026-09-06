@@ -19,5 +19,6 @@ public record TreatmentPlanDto(
     String clinicalNotes,
     String status,
     String packageId,
+    Long consultationBookingId,
     LocalDateTime createdAt
 ) {}

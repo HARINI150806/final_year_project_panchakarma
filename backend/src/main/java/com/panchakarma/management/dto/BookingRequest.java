@@ -27,6 +27,7 @@ public class BookingRequest {
     private Integer sessionNumber;
     private Integer totalSessions;
     private String frequency;
+    private Long consultationBookingId;
     private Boolean inAppNotifEnabled;
     private Boolean emailNotifEnabled;
 }

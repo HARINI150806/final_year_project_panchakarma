@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../api';
 import { generatePrescriptionPDF } from '../utils/pdfExport';
 import DashboardLayout from '../components/DashboardLayout';
+import PaymentCheckoutModal from '../components/PaymentCheckoutModal';
 
 // ─── Shared style tokens ───────────────────────────────────────
 const labelCls =
@@ -166,7 +167,11 @@ function SuccessCard({ type, booking, onNew, onDashboard }) {
                     {type === 'consultation' ? 'Consultation Mode' : 'Booking Type'}
                   </p>
                   <p className="mt-1 text-sm font-semibold text-forest">
-                    {type === 'consultation' ? 'Offline (In-Clinic)' : (booking.notes || 'Therapy Session')}
+                    {type === 'consultation'
+                      ? 'Offline (In-Clinic)'
+                      : (booking.notes
+                          ? booking.notes.replace(/^CONSULTATION\s*[—–-]?\s*/i, 'Therapy — ')
+                          : 'Therapy Session')}
                   </p>
                 </div>
                 {type === 'consultation' && (
@@ -266,9 +271,20 @@ function ConsultationForm({ onSuccess }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // Available slots state
+  const [availableSlots, setAvailableSlots] = useState([]);
+  const [slotsLoading, setSlotsLoading] = useState(false);
+  const [refetchTrigger, setRefetchTrigger] = useState(0);
+
   // Medical Document Upload state
   const [selectedFile, setSelectedFile] = useState(null);
   const [documentType, setDocumentType] = useState('Lab Report');
+
+  // Interactive Payment Modal State
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [pendingOrderData, setPendingOrderData] = useState(null);
+  const [pendingBookingPayload, setPendingBookingPayload] = useState(null);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
   // min date = today
   const today = new Date().toISOString().split('T')[0];
@@ -284,6 +300,83 @@ function ConsultationForm({ onSuccess }) {
     }
     loadTherapists();
   }, []);
+
+  // Fetch slots whenever assignedTo, date, or websocket refetchTrigger changes
+  useEffect(() => {
+    async function fetchSlots() {
+      if (!form.date) {
+        setAvailableSlots([]);
+        setForm(prev => ({ ...prev, time: '' }));
+        return;
+      }
+      setSlotsLoading(true);
+      try {
+        const therapistId = form.assignedTo || 0;
+        const response = await api.get(`/therapists/${therapistId}/availability?date=${form.date}`);
+        let rawSlots = response.data || [];
+
+        // Filter out completed/past time slots if selected date is today
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const todayStr = `${year}-${month}-${day}`;
+
+        if (form.date === todayStr) {
+          const nowHours = String(now.getHours()).padStart(2, '0');
+          const nowMinutes = String(now.getMinutes()).padStart(2, '0');
+          const currentTimeStr = `${nowHours}:${nowMinutes}`;
+          rawSlots = rawSlots.filter(s => s.startTime.substring(0, 5) > currentTimeStr);
+        }
+
+        setAvailableSlots(rawSlots);
+
+        const startTimes = rawSlots.map(s => s.startTime.substring(0, 5));
+        setForm(prev => {
+          if (prev.time && !startTimes.includes(prev.time)) {
+            setError(`The slot at ${prev.time} is no longer available. Please select a different slot.`);
+            return { ...prev, time: '' };
+          }
+          return prev;
+        });
+      } catch (err) {
+        console.error("Failed to fetch available slots for consultation", err);
+        setAvailableSlots([]);
+        setForm(prev => ({ ...prev, time: '' }));
+      } finally {
+        setSlotsLoading(false);
+      }
+    }
+    fetchSlots();
+  }, [form.assignedTo, form.date, refetchTrigger]);
+
+  // WebSocket listener to auto-refresh consultation slots in real-time
+  useEffect(() => {
+    if (!form.date) return;
+
+    const apiURL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+    let wsURL = apiURL.replace(/^http/, 'ws');
+    if (wsURL.endsWith('/api')) {
+      wsURL = wsURL.substring(0, wsURL.length - 4) + '/ws/bookings';
+    } else {
+      wsURL = wsURL + '/ws/bookings';
+    }
+
+    const ws = new WebSocket(wsURL);
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === 'BOOKING_UPDATE') {
+          if ((!form.assignedTo || String(data.therapistId) === String(form.assignedTo)) && data.date === form.date) {
+            setRefetchTrigger(prev => prev + 1);
+          }
+        }
+      } catch (err) {
+        console.error("WebSocket message parse error:", err);
+      }
+    };
+    return () => ws.close();
+  }, [form.assignedTo, form.date]);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -315,7 +408,7 @@ function ConsultationForm({ onSuccess }) {
         ? ` [Attached Medical Record: ${uploadedDocInfo?.documentName || selectedFile?.name} (${documentType})]`
         : '');
 
-      // 1. Create Razorpay order for ₹500
+      // 1. Create Order for ₹500
       const orderRes = await api.post('/payments/create-order', {
         amount: 500.00,
         currency: 'INR'
@@ -323,44 +416,61 @@ function ConsultationForm({ onSuccess }) {
 
       const orderData = orderRes.data;
 
-      // 2. Configure Razorpay checkout options
+      const bookingPayload = {
+        patientId: auth?.userId,
+        consultationType: form.consultationType,
+        consultationCategory: form.consultationCategory,
+        assignedToId: form.assignedTo ? parseInt(form.assignedTo) : null,
+        date: form.date,
+        time: form.time || '09:00',
+        reason: form.reason,
+        notes: appendedNotes,
+        inAppNotifEnabled: inAppNotifEnabled,
+        emailNotifEnabled: emailNotifEnabled,
+      };
+
+      setPendingOrderData(orderData);
+      setPendingBookingPayload(bookingPayload);
+
+      // Open Official Razorpay Checkout Modal SDK
+      const loadRazorpaySDK = () => {
+        return new Promise((resolve) => {
+          if (window.Razorpay) {
+            resolve(true);
+            return;
+          }
+          const script = document.createElement('script');
+          script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+          script.onload = () => resolve(true);
+          script.onerror = () => resolve(false);
+          document.body.appendChild(script);
+        });
+      };
+
+      const sdkLoaded = await loadRazorpaySDK();
+      if (!sdkLoaded || !window.Razorpay) {
+        throw new Error('Razorpay SDK failed to load. Please check your internet connection.');
+      }
+
       const options = {
-        key: orderData.keyId || 'rzp_test_500PanchakarmaTest',
-        amount: orderData.amountInPaise || 50000,
-        currency: orderData.currency || 'INR',
+        key: orderData?.keyId || 'rzp_test_1DP5hB15W9Z38Q',
+        amount: orderData?.amountInPaise || 50000,
+        currency: orderData?.currency || 'INR',
         name: 'Panchakarma Care Center',
-        description: 'Consultation Fee Payment (₹500)',
-        order_id: orderData.orderId,
+        description: 'Clinical Consultation Fee (₹500)',
+        ...(orderData?.orderId && !orderData.orderId.startsWith('order_test_') ? { order_id: orderData.orderId } : {}),
         prefill: {
           name: auth?.fullName || auth?.username || 'Patient',
           email: auth?.email || 'patient@panchakarma.com',
+          contact: auth?.phone || '9876543210',
         },
-        theme: {
-          color: '#355c39',
-        },
+        theme: { color: '#355c39' },
         handler: async function (paymentResponse) {
-          try {
-            // 3. Verify payment signature on backend and confirm booking
-            const verifyRes = await api.post('/payments/verify-and-book', {
-              razorpayOrderId: paymentResponse.razorpay_order_id || orderData.orderId,
-              razorpayPaymentId: paymentResponse.razorpay_payment_id || `pay_test_${Date.now()}`,
-              razorpaySignature: paymentResponse.razorpay_signature || 'test_signature',
-              patientId: auth?.userId,
-              consultationType: form.consultationType,
-              consultationCategory: form.consultationCategory,
-              assignedToId: form.assignedTo ? parseInt(form.assignedTo) : null,
-              date: form.date,
-              time: '10:00',
-              reason: form.reason,
-              notes: appendedNotes,
-              inAppNotifEnabled: inAppNotifEnabled,
-              emailNotifEnabled: emailNotifEnabled,
-            });
-            onSuccess(verifyRes.data);
-          } catch (err) {
-            setError(err.response?.data?.error || err.response?.data?.message || 'Payment verification failed.');
-            setLoading(false);
-          }
+          await handleConfirmPaymentVerification({
+            razorpay_order_id: paymentResponse.razorpay_order_id || orderData?.orderId || `order_test_${Date.now()}`,
+            razorpay_payment_id: paymentResponse.razorpay_payment_id || `pay_rzp_${Date.now()}`,
+            razorpay_signature: paymentResponse.razorpay_signature || 'test_signature',
+          }, bookingPayload);
         },
         modal: {
           ondismiss: function () {
@@ -369,31 +479,8 @@ function ConsultationForm({ onSuccess }) {
         },
       };
 
-      // 4. Trigger Razorpay modal for real keys, or auto-simulate test payment for placeholder keys
-      const isPlaceholderKey = !orderData.keyId || orderData.keyId.includes('PanchakarmaTest');
-
-      if (window.Razorpay && !isPlaceholderKey) {
-        const rzp = new window.Razorpay(options);
-        rzp.on('payment.failed', function (resp) {
-          setError(resp.error?.description || 'Razorpay authentication failed. Using simulated test payment mode instead.');
-          // Auto fallback to test mode if API returned 401/unauthorized
-          options.handler({
-            razorpay_order_id: orderData.orderId,
-            razorpay_payment_id: `pay_test_${Date.now()}`,
-            razorpay_signature: 'test_signature',
-          });
-        });
-        rzp.open();
-      } else {
-        // Instant simulated test payment for development & demo mode
-        setTimeout(() => {
-          options.handler({
-            razorpay_order_id: orderData.orderId,
-            razorpay_payment_id: `pay_test_${Date.now()}`,
-            razorpay_signature: 'test_signature',
-          });
-        }, 500);
-      }
+      const rzp = new window.Razorpay(options);
+      rzp.open();
     } catch (err) {
       setError(err.response?.data?.error || err.response?.data?.message || 'An error occurred. Please try again.');
       console.error(err);
@@ -401,8 +488,40 @@ function ConsultationForm({ onSuccess }) {
     }
   }
 
+  async function handleConfirmPaymentVerification(paymentDetails, overridePayload = null) {
+    const payload = overridePayload || pendingBookingPayload;
+    const order = pendingOrderData;
+    setIsProcessingPayment(true);
+    try {
+      const verifyRes = await api.post('/payments/verify-and-book', {
+        razorpayOrderId: paymentDetails.razorpay_order_id || order?.orderId || `order_${Date.now()}`,
+        razorpayPaymentId: paymentDetails.razorpay_payment_id || paymentDetails.paymentId || `pay_test_${Date.now()}`,
+        razorpaySignature: paymentDetails.razorpay_signature || 'test_signature',
+        patientId: payload?.patientId,
+        consultationType: payload?.consultationType,
+        consultationCategory: payload?.consultationCategory,
+        assignedToId: payload?.assignedToId,
+        date: payload?.date,
+        time: payload?.time || '10:00',
+        reason: payload?.reason,
+        notes: payload?.notes,
+        inAppNotifEnabled: payload?.inAppNotifEnabled,
+        emailNotifEnabled: payload?.emailNotifEnabled,
+      });
+
+      setPaymentModalOpen(false);
+      setIsProcessingPayment(false);
+      onSuccess(verifyRes.data);
+    } catch (err) {
+      setError(err.response?.data?.error || err.response?.data?.message || 'Payment verification failed.');
+      setIsProcessingPayment(false);
+      setPaymentModalOpen(false);
+    }
+  }
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
+    <>
+      <form onSubmit={handleSubmit} className="space-y-5">
       {/* Consultation Fee Card Notice */}
       <div className="rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-amber-50/50 p-4 shadow-sm flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -526,17 +645,53 @@ function ConsultationForm({ onSuccess }) {
         )}
       </div>
 
-      {/* Date */}
-      <div>
-        <label className={labelCls}>Preferred Date <span className="text-rose-400">*</span></label>
-        <input
-          className={inputCls}
-          type="date"
-          min={today}
-          value={form.date}
-          onChange={(e) => setForm({ ...form, date: e.target.value })}
-          required
-        />
+      {/* Date & Time Slot */}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label className={labelCls}>Preferred Date <span className="text-rose-400">*</span></label>
+          <input
+            className={inputCls}
+            type="date"
+            min={today}
+            value={form.date}
+            onChange={(e) => setForm({ ...form, date: e.target.value })}
+            required
+          />
+        </div>
+        <div>
+          <label className={labelCls}>Available Time Slot <span className="text-rose-400">*</span></label>
+          <div className="relative">
+            <select
+              className={selectCls}
+              value={form.time}
+              onChange={(e) => setForm({ ...form, time: e.target.value })}
+              required
+              disabled={slotsLoading || !form.date}
+            >
+              {!form.date ? (
+                <option value="">Select preferred date first</option>
+              ) : slotsLoading ? (
+                <option value="">Loading available slots...</option>
+              ) : availableSlots.length === 0 ? (
+                <option value="">No slots available on this day</option>
+              ) : (
+                <>
+                  <option value="">Choose a slot</option>
+                  {availableSlots.map((slot) => {
+                    const startFormatted = slot.startTime.substring(0, 5);
+                    const endFormatted = slot.endTime.substring(0, 5);
+                    return (
+                      <option key={slot.startTime} value={startFormatted}>
+                        {startFormatted} - {endFormatted}
+                      </option>
+                    );
+                  })}
+                </>
+              )}
+            </select>
+            <ChevronDown size={14} className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-forest/40" />
+          </div>
+        </div>
       </div>
 
       {/* Reason */}
@@ -636,9 +791,10 @@ function ConsultationForm({ onSuccess }) {
         disabled={loading}
         className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[linear-gradient(135deg,#355c39_0%,#5a8553_100%)] py-3.5 text-sm font-semibold text-white shadow-[0_12px_32px_rgba(62,109,67,0.25)] transition hover:translate-y-[-1px] disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
       >
-        {loading ? 'Processing Payment (₹500)...' : '💳 Pay ₹500 & Confirm Consultation'}
+        {loading ? 'Opening Razorpay Gateway...' : '💳 Pay ₹500 & Confirm Consultation'}
       </button>
     </form>
+  </>
   );
 }
 
@@ -672,7 +828,27 @@ function TherapyForm({ onSuccess, onSwitchToConsultation, onStatusChange }) {
             api.get('/patient/bookings').catch(() => ({ data: [] })),
           ]);
 
-          const planned = (plansRes.data || []).filter(p => p.status === 'PLANNED');
+          const allBookings = bookingsRes.data || [];
+
+          // Only keep treatment plans where booked therapy sessions are less than total prescribed sessions
+          const planned = (plansRes.data || []).filter(p => {
+            if (!p || p.status === 'COMPLETED' || p.status === 'CANCELLED' || p.status === 'SCHEDULED') {
+              return false;
+            }
+            const planTherapyKey = (p.therapyName || '').toLowerCase().split(' ')[0].trim();
+            const bookedSessionsForPlan = allBookings.filter(b => {
+              if (b.status === 'CANCELLED' || b.bookingStatus === 'CANCELLED') return false;
+              const isTherapy = b.bookingType === 'THERAPY' || b.type === 'THERAPY' || (b.therapyName && b.therapyName.length > 0);
+              if (!isTherapy) return false;
+              if (b.treatmentPlanId && String(b.treatmentPlanId) === String(p.id)) return true;
+              const bName = (b.therapyName || b.purpose || b.notes || '').toLowerCase();
+              return planTherapyKey.length > 0 && bName.includes(planTherapyKey);
+            }).length;
+
+            const totalPlanSessions = p.totalSessions || 1;
+            return bookedSessionsForPlan < totalPlanSessions;
+          });
+
           setPlans(planned);
           if (planned.length > 0) {
             setSelectedPlan(planned[0]);
@@ -684,9 +860,9 @@ function TherapyForm({ onSuccess, onSwitchToConsultation, onStatusChange }) {
               therapist: planned[0].assignedTherapistId || prev.therapist,
               date: planned[0].prescribedStartDate || new Date(Date.now() + 86400000 * 2).toISOString().split('T')[0],
             }));
+          } else {
+            setSelectedPlan(null);
           }
-
-          const allBookings = bookingsRes.data || [];
           const completedConsList = allBookings.filter(
             b => (b.bookingType === 'CONSULTATION' || b.type === 'CONSULTATION') &&
                  (b.bookingStatus === 'COMPLETED' || b.status === 'COMPLETED' || b.bookingStatus === 'CONFIRMED')
@@ -904,12 +1080,15 @@ function TherapyForm({ onSuccess, onSwitchToConsultation, onStatusChange }) {
           ? (selectedTherapistObj.fullName || selectedTherapistObj.name) 
           : (response.data.assignedTherapistName || 'System Assigned');
 
+        const rawTherapyName = response.data?.therapyName || selectedPlan?.therapyName || (form.therapy ? form.therapy.split(' ')[0] : 'Therapy');
+        const cleanTherapyName = rawTherapyName.toLowerCase().includes('consultation') ? 'Panchakarma Therapy' : rawTherapyName;
+
         const adaptedBooking = {
           ...response.data,
           date: form.date,
           time: formattedTime,
           therapistName: resolvedTherapistName,
-          notes: `${response.data.therapyName || 'Therapy'} — Prescribed Session`,
+          notes: `${cleanTherapyName} — Prescribed Session`,
           bookingType: 'THERAPY'
         };
         onSuccess(adaptedBooking);
@@ -926,6 +1105,17 @@ function TherapyForm({ onSuccess, onSwitchToConsultation, onStatusChange }) {
           totalSessions: form.totalSessions,
           inAppNotifEnabled: inAppNotifEnabled,
           emailNotifEnabled: emailNotifEnabled,
+        }).catch(async (err) => {
+          if (err.response?.status === 403 || err.response?.status === 401) {
+            return api.post('/patient/book-therapy', {
+              therapyName: form.therapy,
+              date: form.date,
+              time: formattedTime,
+              notes: form.notes,
+              therapistId: therapistIdToSubmit,
+            });
+          }
+          throw err;
         });
         onSuccess(response.data);
       }
@@ -938,6 +1128,38 @@ function TherapyForm({ onSuccess, onSwitchToConsultation, onStatusChange }) {
   }
 
   const isPrescribed = !!selectedPlan;
+
+  if (plansLoading) {
+    return (
+      <div className="py-12 text-center text-forest/60 text-xs">
+        Loading your doctor-prescribed treatment plans...
+      </div>
+    );
+  }
+
+  if (!selectedPlan) {
+    return (
+      <div className="rounded-3xl border border-amber-200/80 bg-gradient-to-br from-amber-50 to-orange-50/40 p-8 text-center space-y-4 shadow-sm">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-amber-100 text-amber-900 border border-amber-300 shadow-xs">
+          <Stethoscope size={30} />
+        </div>
+        <div className="space-y-2">
+          <h3 className="font-display text-xl font-bold text-amber-950">Consultation Required First to Book Therapy</h3>
+          <p className="text-xs text-amber-900/80 max-w-md mx-auto leading-relaxed">
+            Panchakarma therapies require a clinical evaluation and prescription from an Ayurvedic Vaidya. 
+            Once a therapy cycle is completed or if you do not have an active prescription, you must consult a doctor first to receive your personalized therapy plan.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onSwitchToConsultation}
+          className="inline-flex items-center gap-2 rounded-2xl bg-[#355c39] px-6 py-3 text-xs font-bold text-white shadow-md hover:bg-[#28472c] transition cursor-pointer"
+        >
+          <Stethoscope size={16} /> Book Doctor Consultation First
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-5">

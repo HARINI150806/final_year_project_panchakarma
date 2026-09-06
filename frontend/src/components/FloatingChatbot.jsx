@@ -1,5 +1,23 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, Wand2, User, X, Trash2, Sparkles, MessageSquare } from 'lucide-react';
+import {
+  Send,
+  User,
+  X,
+  Trash2,
+  BookOpen,
+  ShieldAlert,
+  RefreshCw,
+  Maximize2,
+  Minimize2,
+  Copy,
+  Check,
+  Sparkles,
+  HelpCircle,
+  Flame,
+  Leaf,
+  HeartPulse,
+  Apple,
+} from 'lucide-react';
 import api from '../api';
 
 function formatBotMessage(text) {
@@ -14,7 +32,11 @@ function formatBotMessage(text) {
     const parts = str.split('**');
     return parts.map((part, index) => {
       if (index % 2 === 1) {
-        return <strong key={index} className="font-bold text-forest">{part}</strong>;
+        return (
+          <strong key={index} className="font-bold text-[#164E3D]">
+            {part}
+          </strong>
+        );
       }
       return part;
     });
@@ -25,27 +47,63 @@ function formatBotMessage(text) {
 
     if (line === '***' || line === '---' || line === '___') {
       if (inList) {
-        elements.push(<ul key={`list-${i}`} className="space-y-1.5 my-2 pl-1">{listItems}</ul>);
+        elements.push(
+          <ul key={`list-${i}`} className="space-y-1.5 my-2.5 pl-1">
+            {listItems}
+          </ul>
+        );
         inList = false;
         listItems = [];
       }
-      elements.push(<hr key={`hr-${i}`} className="my-3 border-sand/60" />);
+      elements.push(<hr key={`hr-${i}`} className="my-3 border-emerald-900/10" />);
+      continue;
+    }
+
+    if (line.startsWith('### ') || line.startsWith('## ') || line.startsWith('# ')) {
+      if (inList) {
+        elements.push(
+          <ul key={`list-${i}`} className="space-y-1.5 my-2.5 pl-1">
+            {listItems}
+          </ul>
+        );
+        inList = false;
+        listItems = [];
+      }
+      const titleText = line.replace(/^#+\s+/, '');
+      elements.push(
+        <h4 key={`h-${i}`} className="font-bold text-[#163322] text-sm md:text-base mt-3 mb-1.5 pb-1 border-b border-emerald-900/10 flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-full bg-[#16A34A]" />
+          {parseBoldText(titleText)}
+        </h4>
+      );
       continue;
     }
 
     const listMatch = line.match(/^[\*\-\+]\s+(.*)/);
-    if (listMatch) {
+    const numListMatch = line.match(/^(\d+)\.\s+(.*)/);
+
+    if (listMatch || numListMatch) {
       inList = true;
-      const content = listMatch[1];
+      const content = listMatch ? listMatch[1] : numListMatch[2];
+      const numPrefix = numListMatch ? `${numListMatch[1]}.` : null;
+
       listItems.push(
-        <li key={`li-${i}`} className="flex items-start gap-2 text-sm leading-6 mb-2">
-          <span className="text-sage mt-1.5 shrink-0 text-[10px]">✦</span>
+        <li key={`li-${i}`} className="flex items-start gap-2.5 text-xs md:text-sm leading-relaxed text-gray-800">
+          {numPrefix ? (
+            <span className="font-bold text-emerald-800 shrink-0 text-xs mt-0.5">{numPrefix}</span>
+          ) : (
+            <span className="text-emerald-600 mt-1 shrink-0 text-[10px]">🌿</span>
+          )}
           <span className="flex-1">{parseBoldText(content)}</span>
         </li>
       );
     } else {
       if (inList) {
-        elements.push(<ul key={`list-${i}`} className="space-y-1.5 my-2 pl-1">{listItems}</ul>);
+        elements.push(
+          <ul key={`list-${i}`} className="space-y-2 my-2.5 pl-0.5">
+            {listItems}
+          </ul>
+        );
         inList = false;
         listItems = [];
       }
@@ -53,20 +111,23 @@ function formatBotMessage(text) {
       if (line === '') {
         elements.push(<div key={`spacer-${i}`} className="h-2" />);
       } else {
-        const isDisclaimer = line.toLowerCase().includes('please remember') || 
-                             line.toLowerCase().includes('consult your doctor') ||
-                             line.toLowerCase().includes('disclaimer') ||
-                             line.toLowerCase().includes('educational purposes');
+        const isDisclaimer =
+          line.toLowerCase().includes('please remember') ||
+          line.toLowerCase().includes('consult your doctor') ||
+          line.toLowerCase().includes('disclaimer') ||
+          line.toLowerCase().includes('educational purposes');
+
         if (isDisclaimer) {
           const cleanedLine = line.replace(/^[\*_]+|[\*_]+$/g, '');
           elements.push(
-            <div key={`disclaimer-${i}`} className="mt-3 p-3 bg-sand/30 border border-sand/50 rounded-xl text-xs text-forest/70 italic leading-5">
-              {parseBoldText(cleanedLine)}
+            <div key={`disclaimer-${i}`} className="mt-3 p-3 bg-amber-50/80 border border-amber-200/80 rounded-xl text-xs text-amber-900 leading-relaxed font-medium flex items-start gap-2">
+              <ShieldAlert size={14} className="text-amber-700 shrink-0 mt-0.5" />
+              <span>{parseBoldText(cleanedLine)}</span>
             </div>
           );
         } else {
           elements.push(
-            <p key={`p-${i}`} className="mb-2 text-sm leading-6 last:mb-0">
+            <p key={`p-${i}`} className="mb-2 text-xs md:text-sm leading-relaxed text-gray-800 last:mb-0">
               {parseBoldText(line)}
             </p>
           );
@@ -76,7 +137,11 @@ function formatBotMessage(text) {
   }
 
   if (inList) {
-    elements.push(<ul key={`list-final`} className="space-y-1.5 my-2 pl-1">{listItems}</ul>);
+    elements.push(
+      <ul key={`list-final`} className="space-y-2 my-2.5 pl-0.5">
+        {listItems}
+      </ul>
+    );
   }
 
   return <div className="space-y-1">{elements}</div>;
@@ -84,8 +149,12 @@ function formatBotMessage(text) {
 
 export default function FloatingChatbot({ auth }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isFullScreen, setIsFullScreen] = useState(false);
+  const [copiedId, setCopiedId] = useState(null);
+  const [activeCategory, setActiveCategory] = useState('ALL');
+
   const [messages, setMessages] = useState(() => {
-    const stored = sessionStorage.getItem('ayurbot-messages');
+    const stored = sessionStorage.getItem('ayurveda-rag-chat-messages');
     if (stored) {
       try {
         return JSON.parse(stored);
@@ -97,25 +166,60 @@ export default function FloatingChatbot({ auth }) {
       {
         id: 1,
         sender: 'bot',
-        text: `Hello ${auth?.fullName || 'there'}! 🌿 I am AyurBot, your AI Ayurvedic Wellness Companion. I see your dominant Dosha is ${auth?.dominantDosha || 'not assessed yet'}. How can I assist you with your health, diet, daily routine, or Panchakarma therapies today?`,
+        text: `Namaste ${auth?.fullName || 'Patient'}! 🌿 Welcome to the **Ayurveda Educational Study Assistant**.\n\nI can help answer your questions about classical Ayurvedic texts, Panchakarma therapies, Vata-Pitta-Kapha Doshas, and healthy daily routines (Dinacharya & Ritucharya).`,
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       },
     ];
   });
-  
+
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef(null);
 
-  const suggestionChips = [
-    'What foods balance my dominant Dosha?',
-    'What are the benefits of Shirodhara?',
-    'Give me a basic morning Ayurvedic routine.',
-    'What should I eat before a therapy session?',
+  const topicCategories = [
+    { id: 'ALL', label: 'Popular Topics', icon: Sparkles },
+    { id: 'PANCHAKARMA', label: 'Panchakarma', icon: Leaf },
+    { id: 'DOSHAS', label: 'Doshas & Prakriti', icon: Flame },
+    { id: 'THERAPIES', label: 'Therapies & Benefits', icon: HeartPulse },
+    { id: 'DIET', label: 'Diet & Pathya', icon: Apple },
   ];
 
+  const suggestedQuestions = {
+    ALL: [
+      'What is Panchakarma?',
+      'Explain Abhyanga.',
+      'Explain Vata Dosha.',
+      'Benefits of Shirodhara.',
+      'Diet after Panchakarma.',
+    ],
+    PANCHAKARMA: [
+      'What is Panchakarma?',
+      'Explain 5 Shodhana therapies.',
+      'Preparation before Panchakarma (Purvakarma).',
+      'What is Samsarjana Krama post-diet?',
+    ],
+    DOSHAS: [
+      'Explain Vata Dosha.',
+      'Explain Pitta Dosha.',
+      'Explain Kapha Dosha.',
+      'How to determine Prakriti body type?',
+    ],
+    THERAPIES: [
+      'Explain Abhyanga therapy.',
+      'Benefits of Shirodhara.',
+      'What is Swedana herbal steam?',
+      'What is Basti therapy used for?',
+    ],
+    DIET: [
+      'Diet after Panchakarma.',
+      'What are Pathya & Apathya food rules?',
+      'Ayurvedic food combining principles.',
+      'Best daily habits (Dinacharya).',
+    ],
+  };
+
   useEffect(() => {
-    sessionStorage.setItem('ayurbot-messages', JSON.stringify(messages));
+    sessionStorage.setItem('ayurveda-rag-chat-messages', JSON.stringify(messages));
   }, [messages]);
 
   useEffect(() => {
@@ -130,13 +234,19 @@ export default function FloatingChatbot({ auth }) {
     return () => window.removeEventListener('open-chatbot', handleOpen);
   }, []);
 
+  const handleCopyText = (msgId, text) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(msgId);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
   const handleClearChat = () => {
-    if (window.confirm('Are you sure you want to clear the conversation?')) {
+    if (window.confirm('Clear conversation history?')) {
       const initialMsg = [
         {
           id: 1,
           sender: 'bot',
-          text: `Hello ${auth?.fullName || 'there'}! 🌿 I am AyurBot, your AI Ayurvedic Wellness Companion. I see your dominant Dosha is ${auth?.dominantDosha || 'not assessed yet'}. How can I assist you today?`,
+          text: `Namaste ${auth?.fullName || 'Patient'}! 🌿 How can I assist your Ayurveda studies today?`,
           time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         },
       ];
@@ -146,7 +256,7 @@ export default function FloatingChatbot({ auth }) {
 
   async function handleSend(textToSend) {
     const text = textToSend || input;
-    if (!text.trim()) return;
+    if (!text.trim() || loading) return;
 
     if (!textToSend) {
       setInput('');
@@ -163,11 +273,11 @@ export default function FloatingChatbot({ auth }) {
     setLoading(true);
 
     try {
-      const { data } = await api.post('/chatbot/ask', { message: text });
+      const { data } = await api.post('/ayurveda-ai/chat', { question: text });
       const botMsg = {
         id: Date.now() + 1,
         sender: 'bot',
-        text: data.response || 'I could not retrieve an answer at this time. Please try again.',
+        text: data.answer || data.response || "I couldn't find this information in the classical Ayurveda knowledge base.",
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
       setMessages((prev) => [...prev, botMsg]);
@@ -175,7 +285,7 @@ export default function FloatingChatbot({ auth }) {
       const errorMsg = {
         id: Date.now() + 1,
         sender: 'bot',
-        text: 'Sorry, I am having trouble connecting to the server. Please ensure the backend is running and try again.',
+        text: "I couldn't find this information in the classical Ayurveda knowledge base.",
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
       setMessages((prev) => [...prev, errorMsg]);
@@ -190,7 +300,7 @@ export default function FloatingChatbot({ auth }) {
         @keyframes slideUpFade {
           from {
             opacity: 0;
-            transform: translateY(20px) scale(0.95);
+            transform: translateY(20px) scale(0.96);
           }
           to {
             opacity: 1;
@@ -203,153 +313,246 @@ export default function FloatingChatbot({ auth }) {
       `}</style>
 
       {/* Floating Action Button (FAB) */}
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-[linear-gradient(135deg,#355c39_0%,#5a8553_100%)] text-white shadow-[0_8px_30px_rgba(53,92,57,0.4)] transition-all duration-300 hover:scale-110 active:scale-95 hover:shadow-[0_12px_36px_rgba(53,92,57,0.5)] border border-white/20"
-        title="Chat with Wellness Bot"
-      >
-        {isOpen ? <X size={24} /> : <MessageSquare size={24} className="animate-pulse" />}
-      </button>
+      {!isOpen && (
+        <button
+          onClick={() => setIsOpen(true)}
+          className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-[linear-gradient(135deg,#164E3D_0%,#1F4D3A_100%)] text-white shadow-[0_12px_32px_rgba(22,78,61,0.35)] transition-all duration-300 hover:scale-110 active:scale-95 hover:shadow-[0_16px_40px_rgba(22,78,61,0.45)] border border-emerald-400/30 cursor-pointer group"
+          title="Open Ayurveda AI Study Assistant"
+        >
+          <BookOpen size={24} className="group-hover:scale-110 transition" />
+          <span className="absolute -top-1 -right-1 flex h-4 w-4">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-4 w-4 bg-emerald-500 border border-white"></span>
+          </span>
+        </button>
+      )}
 
-      {/* Floating Chat Panel */}
+      {/* Main Chat Assistant Container */}
       {isOpen && (
-        <div className="panel-frost fixed bottom-24 right-6 z-50 flex h-[500px] w-[380px] max-w-[calc(100vw-2rem)] max-h-[calc(100vh-8rem)] flex-col overflow-hidden rounded-[2rem] border border-white/70 bg-[rgba(250,248,242,0.95)] shadow-[0_24px_72px_rgba(30,44,35,0.22)] backdrop-blur-2xl transition-all duration-300 animate-slide-up-fade">
-          {/* Header */}
-          <header className="flex items-center justify-between bg-[linear-gradient(135deg,#355c39_0%,#5a8553_100%)] px-4 py-3.5 text-white">
+        <div
+          className={`fixed z-50 flex flex-col overflow-hidden bg-white/95 shadow-[0_24px_72px_rgba(15,35,25,0.25)] backdrop-blur-2xl transition-all duration-300 animate-slide-up-fade ${
+            isFullScreen
+              ? 'inset-3 sm:inset-6 rounded-3xl border border-emerald-900/20 shadow-2xl'
+              : 'bottom-20 right-6 h-[620px] w-[460px] max-w-[calc(100vw-2rem)] max-h-[calc(100vh-6rem)] rounded-3xl border border-emerald-900/15'
+          }`}
+        >
+          {/* Header Bar */}
+          <header className="flex items-center justify-between bg-[linear-gradient(135deg,#164E3D_0%,#1F4D3A_100%)] px-5 py-4 text-white border-b border-emerald-900/20 shrink-0">
             <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/20 text-white">
-                <Wand2 size={16} />
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/15 text-emerald-200 border border-white/20 shrink-0 shadow-xs">
+                <BookOpen size={20} />
               </div>
-              <div>
-                <h2 className="font-display text-sm font-bold leading-none">AyurBot</h2>
-                <p className="mt-1 text-[10px] opacity-80 flex items-center gap-1">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  AI Wellness Companion
-                </p>
-              </div>
+                <h2 className="font-display text-base font-bold leading-tight">Ayurveda AI Assistant</h2>
             </div>
-            
+
             <div className="flex items-center gap-1.5">
               <button
-                onClick={handleClearChat}
-                className="flex h-7 w-7 items-center justify-center rounded-lg text-white/80 hover:bg-white/10 hover:text-white transition"
-                title="Clear Chat"
+                onClick={() => setIsFullScreen(!isFullScreen)}
+                className="flex h-9 w-9 items-center justify-center rounded-xl text-white/80 hover:bg-white/15 hover:text-white transition cursor-pointer"
+                title={isFullScreen ? 'Compact View' : 'Study Mode (Full Screen)'}
               >
-                <Trash2 size={14} />
+                {isFullScreen ? <Minimize2 size={17} /> : <Maximize2 size={17} />}
               </button>
               <button
-                onClick={() => setIsOpen(false)}
-                className="flex h-7 w-7 items-center justify-center rounded-lg text-white/80 hover:bg-white/10 hover:text-white transition"
-                title="Minimize"
+                onClick={handleClearChat}
+                className="flex h-9 w-9 items-center justify-center rounded-xl text-white/80 hover:bg-white/15 hover:text-white transition cursor-pointer"
+                title="Clear Chat History"
               >
-                <X size={15} />
+                <Trash2 size={16} />
+              </button>
+              <button
+                onClick={() => {
+                  setIsOpen(false);
+                  setIsFullScreen(false);
+                }}
+                className="flex h-9 w-9 items-center justify-center rounded-xl text-white/80 hover:bg-white/15 hover:text-white transition cursor-pointer"
+                title="Close Assistant"
+              >
+                <X size={18} />
               </button>
             </div>
           </header>
 
-          {/* Messages Viewport */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin bg-[#faf8f4]/60">
-            {messages.map((msg) => (
-              <div
-                key={msg.id}
-                className={`flex items-start gap-2.5 max-w-[88%] ${
-                  msg.sender === 'user' ? 'ml-auto flex-row-reverse' : ''
-                }`}
-              >
-                <div
-                  className={`flex h-7 w-7 items-center justify-center rounded-lg text-[10px] font-semibold shrink-0 ${
-                    msg.sender === 'user'
-                      ? 'bg-forest text-white'
-                      : 'bg-[#e6efdf] text-sage border border-[#cfe0c2]'
-                  }`}
-                >
-                  {msg.sender === 'user' ? <User size={12} /> : '🌿'}
+
+
+          {/* Study Mode FullScreen Sidebar Layout */}
+          <div className={`flex-1 flex overflow-hidden ${isFullScreen ? 'divide-x divide-emerald-900/10' : ''}`}>
+            {isFullScreen && (
+              <div className="w-72 bg-[#f4f8f2] p-5 hidden md:flex flex-col gap-4 shrink-0 overflow-y-auto">
+                <div>
+                  <h3 className="text-xs font-bold text-[#163322] uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <Sparkles size={14} className="text-emerald-700" /> Study Topics
+                  </h3>
+                  <p className="text-xs text-gray-600 leading-relaxed font-medium">
+                    Explore classical Ayurvedic concepts, Panchakarma procedures, and wellness rules.
+                  </p>
                 </div>
 
-                <div className="flex flex-col">
-                  <div
-                    className={`rounded-[1.2rem] px-3.5 py-2.5 text-xs leading-5 shadow-sm ${
-                      msg.sender === 'user'
-                        ? 'bg-forest text-white rounded-tr-none'
-                        : 'bg-white/95 text-forest border border-sand/70 rounded-tl-none'
-                    }`}
-                  >
-                    {msg.sender === 'user' ? msg.text : formatBotMessage(msg.text)}
-                  </div>
-                  <span
-                    className={`text-[9px] mt-1 text-forest/40 ${
-                      msg.sender === 'user' ? 'text-right mr-1' : 'ml-1'
-                    }`}
-                  >
-                    {msg.time}
-                  </span>
+                <div className="space-y-1">
+                  {topicCategories.map((cat) => {
+                    const Icon = cat.icon;
+                    const isSelected = activeCategory === cat.id;
+                    return (
+                      <button
+                        key={cat.id}
+                        onClick={() => setActiveCategory(cat.id)}
+                        className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
+                          isSelected
+                            ? 'bg-[#164E3D] text-white shadow-xs'
+                            : 'bg-white text-gray-700 hover:bg-emerald-100/50 border border-emerald-900/10'
+                        }`}
+                      >
+                        <Icon size={15} className={isSelected ? 'text-emerald-300' : 'text-emerald-700'} />
+                        <span>{cat.label}</span>
+                      </button>
+                    );
+                  })}
                 </div>
-              </div>
-            ))}
 
-            {loading && (
-              <div className="flex items-start gap-2.5 max-w-[80%]">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#e6efdf] border border-[#cfe0c2] text-sage text-[10px] font-semibold">
-                  🌿
-                </div>
-                <div className="flex flex-col">
-                  <div className="bg-white/95 text-forest border border-sand/70 rounded-[1.2rem] rounded-tl-none px-3 py-2.5 shadow-sm flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 bg-forest/40 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                    <span className="w-1.5 h-1.5 bg-forest/40 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                    <span className="w-1.5 h-1.5 bg-forest/40 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                  </div>
+                <div className="mt-auto p-3.5 bg-emerald-900/5 border border-emerald-900/10 rounded-2xl text-xs text-emerald-950 space-y-1">
+                  <p className="font-bold flex items-center gap-1">
+                    <HelpCircle size={14} className="text-emerald-700" /> Need Medical Advice?
+                  </p>
+                  <p className="text-[11px] text-gray-600 leading-relaxed">
+                    Please schedule a consultation with our doctors for individual health recommendations.
+                  </p>
                 </div>
               </div>
             )}
-            <div ref={messagesEndRef} />
-          </div>
 
-          {/* Suggestion Chips */}
-          {messages.length === 1 && !loading && (
-            <div className="px-4 py-2 border-t border-sand/30 bg-[#faf8f4]/60">
-              <p className="text-[9px] uppercase tracking-[0.12em] text-forest/50 mb-2">
-                Ask about:
-              </p>
-              <div className="flex flex-wrap gap-1.5 max-h-[75px] overflow-y-auto pr-1">
-                {suggestionChips.map((chip) => (
+            {/* Chat Transcript Viewport */}
+            <div className="flex-1 flex flex-col min-w-0 bg-[#fbfdfa] overflow-hidden">
+              <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-5 scrollbar-thin">
+                <div className={`space-y-5 ${isFullScreen ? 'max-w-4xl mx-auto w-full' : 'w-full'}`}>
+                  {messages.map((msg) => (
+                    <div
+                      key={msg.id}
+                      className={`flex items-start gap-3 ${
+                        isFullScreen ? 'max-w-[85%]' : 'max-w-[90%]'
+                      } ${msg.sender === 'user' ? 'ml-auto flex-row-reverse' : ''}`}
+                    >
+                      <div
+                        className={`flex h-9 w-9 items-center justify-center rounded-2xl text-xs font-semibold shrink-0 shadow-2xs ${
+                          msg.sender === 'user'
+                            ? 'bg-[#164E3D] text-white'
+                            : 'bg-[#e3eee0] text-emerald-950 border border-emerald-300/60'
+                        }`}
+                      >
+                        {msg.sender === 'user' ? <User size={15} /> : '🌿'}
+                      </div>
+
+                      <div className="flex flex-col group relative">
+                        <div
+                          className={`rounded-2xl p-4 text-xs md:text-sm leading-relaxed shadow-2xs ${
+                            msg.sender === 'user'
+                              ? 'bg-[#164E3D] text-white rounded-tr-none'
+                              : 'bg-white text-gray-800 border border-emerald-900/10 rounded-tl-none'
+                          }`}
+                        >
+                          {msg.sender === 'user' ? msg.text : formatBotMessage(msg.text)}
+                        </div>
+
+                        <div className={`flex items-center gap-2 mt-1.5 ${msg.sender === 'user' ? 'justify-end mr-1' : 'justify-between ml-1'}`}>
+                          <span className="text-[10px] font-medium text-gray-400">{msg.time}</span>
+                          {msg.sender === 'bot' && (
+                            <button
+                              onClick={() => handleCopyText(msg.id, msg.text)}
+                              className="text-[11px] text-gray-400 hover:text-emerald-700 flex items-center gap-1 transition opacity-80 hover:opacity-100 cursor-pointer"
+                              title="Copy response"
+                            >
+                              {copiedId === msg.id ? (
+                                <>
+                                  <Check size={12} className="text-emerald-600" />
+                                  <span className="text-emerald-700 font-bold">Copied</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy size={12} />
+                                  <span>Copy</span>
+                                </>
+                              )}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  {loading && (
+                    <div className={`flex items-start gap-3 ${isFullScreen ? 'max-w-[80%]' : 'max-w-[85%]'}`}>
+                      <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-[#e3eee0] border border-emerald-300/60 text-emerald-950 text-xs font-semibold shrink-0">
+                        🌿
+                      </div>
+                      <div className="flex flex-col">
+                        <div className="bg-white text-gray-800 border border-emerald-900/10 rounded-2xl rounded-tl-none p-4 shadow-2xs flex items-center gap-2.5 text-xs">
+                          <RefreshCw size={15} className="animate-spin text-emerald-700" />
+                          <span className="text-xs font-semibold text-emerald-950">Searching classical Ayurveda knowledge base...</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  <div ref={messagesEndRef} />
+                </div>
+              </div>
+
+              {/* Space-Optimized 1-Line Quick Suggestion Bar */}
+              <div className="border-t border-emerald-900/10 bg-[#f7faf6] px-3 py-1.5 shrink-0 overflow-x-auto no-scrollbar flex items-center gap-2">
+                <span className="text-[10px] font-bold text-emerald-900/70 shrink-0 flex items-center gap-1 pl-1">
+                  <Sparkles size={11} className="text-amber-600" /> Ask:
+                </span>
+                {[
+                  'What is Panchakarma?',
+                  'Explain Abhyanga',
+                  'Explain Vata Dosha',
+                  'Benefits of Shirodhara',
+                  'Diet after Panchakarma',
+                  'Pathya & Apathya rules',
+                  'Ayurvedic Daily Habits',
+                ].map((chip) => (
                   <button
                     key={chip}
+                    type="button"
                     onClick={() => handleSend(chip)}
-                    className="rounded-full border border-sand/80 bg-white/90 px-2.5 py-1.5 text-[10px] font-medium text-forest hover:bg-forest hover:text-white transition shadow-sm active:scale-[0.98] leading-tight"
+                    disabled={loading}
+                    className="whitespace-nowrap shrink-0 rounded-full border border-emerald-900/15 bg-white px-2.5 py-0.5 text-[11px] font-semibold text-emerald-950 hover:bg-[#164E3D] hover:text-white transition shadow-2xs active:scale-95 cursor-pointer disabled:opacity-50"
                   >
-                    {chip}
+                    • {chip}
                   </button>
                 ))}
               </div>
-            </div>
-          )}
 
-          {/* Input Form */}
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleSend();
-            }}
-            className="flex items-center gap-2 border-t border-sand/40 bg-white p-2.5"
-          >
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Type your question..."
-              disabled={loading}
-              className="flex-1 bg-transparent border-0 outline-none text-xs text-forest placeholder-forest/45 px-2.5 py-1.5 disabled:cursor-not-allowed"
-            />
-            <button
-              type="submit"
-              disabled={loading || !input.trim()}
-              className="flex h-8 w-8 items-center justify-center rounded-xl bg-[linear-gradient(135deg,#355c39_0%,#5a8553_100%)] text-white shadow-md transition hover:translate-y-[-1px] disabled:opacity-50 disabled:cursor-not-allowed disabled:translate-y-0 shrink-0"
-            >
-              <Send size={12} />
-            </button>
-          </form>
+              {/* Compact Input Form */}
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleSend();
+                }}
+                className="border-t border-emerald-900/10 bg-white px-3 py-2 shrink-0"
+              >
+                <div className={`flex items-center gap-2 ${isFullScreen ? 'max-w-4xl mx-auto w-full' : 'w-full'}`}>
+                  <input
+                    type="text"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    placeholder="Ask an Ayurveda question (e.g. Explain Vata)..."
+                    disabled={loading}
+                    className="flex-1 bg-gray-50 border border-emerald-900/15 rounded-xl outline-none text-xs md:text-sm text-gray-800 placeholder-gray-400 px-3.5 py-2 focus:border-[#164E3D] focus:bg-white transition disabled:opacity-50 shadow-2xs"
+                  />
+                  <button
+                    type="submit"
+                    disabled={loading || !input.trim()}
+                    className="flex h-9 w-9 md:h-10 md:w-10 items-center justify-center rounded-xl bg-[#164E3D] text-white shadow-md transition hover:bg-[#113d2f] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shrink-0"
+                    title="Send Question"
+                  >
+                    <Send size={15} />
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
         </div>
       )}
     </>
   );
 }
+

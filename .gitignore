@@ -101,3 +101,13 @@ desktop.ini
 *.swo
 *~
 .cache/
+
+# ============================================================
+# PYTHON / RAG SERVICE (Runtime Data & Caches)
+# ============================================================
+rag-service/__pycache__/
+rag-service/*.pyc
+rag-service/vector_db/
+rag-service/knowledge_base/
+rag-service/venv/
+rag-service/.venv/

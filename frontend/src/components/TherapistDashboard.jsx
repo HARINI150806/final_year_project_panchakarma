@@ -10,6 +10,7 @@ import TherapistMyPatientsView from './TherapistMyPatientsView';
 import TherapistAvailabilityManager from './TherapistAvailabilityManager';
 import TherapistFollowUpsView from './TherapistFollowUpsView';
 import TherapistWalletView from './TherapistWalletView';
+import RecoveryTrackingModal from './RecoveryTrackingModal';
 
 function TherapistDashboard({ activeTab, onTabChange, auth, sidebarOffset = 0 }) {
     const [searchParams] = useSearchParams();
@@ -19,6 +20,10 @@ function TherapistDashboard({ activeTab, onTabChange, auth, sidebarOffset = 0 })
     const [bookings, setBookings] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+
+    // Recovery Tracking & XGBoost Prediction Modal State
+    const [recoveryModalOpen, setRecoveryModalOpen] = useState(false);
+    const [selectedRecoveryPlan, setSelectedRecoveryPlan] = useState(null);
 
     // Patient Details & Clinical Prescription Form Modals
     const [patientDetailsModalOpen, setPatientDetailsModalOpen] = useState(false);
@@ -225,10 +230,45 @@ function TherapistDashboard({ activeTab, onTabChange, auth, sidebarOffset = 0 })
                     }),
                 api.get('/therapists/prescriptions').catch(() => ({ data: [] }))
             ]);
-            setBookings(bookingsRes.data || []);
+            const myBookingsList = bookingsRes.data || [];
+            const rawComplaints = complaintsRes.data || [];
+
+            // Filter complaints so only patient complaints for patients who have booked this therapist are displayed
+            const bookedPatientUserIds = new Set(
+                myBookingsList
+                    .map(b => b.patientId || b.patient?.id || b.patient?.userId)
+                    .filter(Boolean)
+            );
+            const bookedPatientNames = new Set(
+                myBookingsList
+                    .map(b => (b.patientName || b.patient?.fullName || '').toLowerCase().trim())
+                    .filter(Boolean)
+            );
+
+            const filteredComplaints = rawComplaints.filter(c => {
+                if (!c) return false;
+                const pUserId = c.patientUserId || c.patientId || c.patient?.id || c.patient?.userId;
+                if (pUserId && bookedPatientUserIds.has(pUserId)) return true;
+                const pName = (c.patientName || c.patient?.fullName || '').toLowerCase().trim();
+                if (pName && bookedPatientNames.has(pName)) return true;
+                // If therapist has no bookings for this patient, do not show to this therapist
+                return false;
+            });
+
+            setBookings(myBookingsList);
             setTreatmentPlans(plansRes.data || []);
-            setTherapistComplaints(complaintsRes.data || []);
-            setTherapistPrescriptions(prescriptionsRes.data || []);
+            setTherapistComplaints(filteredComplaints);
+            const rawPrescriptions = prescriptionsRes.data || [];
+            const validPrescriptions = rawPrescriptions.filter(p => {
+                if (!p) return false;
+                if (Array.isArray(p.medicines) && p.medicines.length > 0) return true;
+                if (p.medicineName && p.medicineName.trim()) {
+                    const name = p.medicineName.trim().toLowerCase();
+                    return name !== 'n/a' && name !== 'none' && name !== 'null' && name !== 'undefined' && !name.includes('panchakarma formulation');
+                }
+                return false;
+            });
+            setTherapistPrescriptions(validPrescriptions);
         } catch (err) {
             if (err.response && err.response.status === 403) {
                 setError('Access Denied: Please ensure you are logged in as a therapist.');
@@ -300,9 +340,9 @@ function TherapistDashboard({ activeTab, onTabChange, auth, sidebarOffset = 0 })
                 status: statusInput
             });
 
-            // Automatically create / save official Prescription for patient records
+            // Automatically create / save official Prescription for patient records ONLY if therapist chose medicines
             const targetPatientId = selectedBooking.patientId || (selectedBooking.patient ? selectedBooking.patient.id : null);
-            if (targetPatientId) {
+            if (targetPatientId && validMeds.length > 0) {
                 try {
                     await api.post('/patient/prescriptions', {
                         patientId: targetPatientId,
@@ -357,7 +397,11 @@ function TherapistDashboard({ activeTab, onTabChange, auth, sidebarOffset = 0 })
             }
 
             setNotesModalOpen(false);
-            alert('Session completed successfully! Clinical prescription & treatment plan created.');
+            if (validMeds.length > 0) {
+                alert('Session completed successfully! Clinical prescription created & sent to pharmacist.');
+            } else {
+                alert('Session is completed');
+            }
             fetchData();
         } catch (err) {
             const errorMsg = err.response?.data?.error || err.response?.data?.message || 'Failed to save session notes. Please try again.';
@@ -468,7 +512,7 @@ function TherapistDashboard({ activeTab, onTabChange, auth, sidebarOffset = 0 })
         if (!b) return false;
         // Category / Type Filter (Consultations vs Therapies)
         const tName = (b.therapyName || '').toLowerCase();
-        const isConsultation = b.consultationType != null || tName.includes('consultation');
+        const isConsultation = (b.bookingType || b.type || '').toUpperCase() === 'CONSULTATION' || tName.includes('consultation');
         if (typeFilter === 'CONSULTATION' && !isConsultation) {
             return false;
         }
@@ -528,45 +572,6 @@ function TherapistDashboard({ activeTab, onTabChange, auth, sidebarOffset = 0 })
 
     return (
         <div id="therapist-bookings-section" className="space-y-5">
-            {/* 1. TOP COMPACT HERO HEADER */}
-            <div className="rounded-3xl bg-white border border-emerald-900/10 p-5 shadow-sm transition duration-300">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                        <div>
-                            <div className="flex items-center gap-2">
-                                <h1 className="font-display text-xl sm:text-2xl font-extrabold text-green-900 leading-tight">
-                                    {new Date().getHours() < 12 ? 'Good Morning' : new Date().getHours() < 17 ? 'Good Afternoon' : 'Good Evening'}, {auth?.fullName ? (auth.fullName.toLowerCase().startsWith('dr.') ? auth.fullName : `Dr. ${auth.fullName}`) : 'Vaidya Practitioner'} 🌿
-                                </h1>
-                                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700 border border-emerald-200/60">
-                                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Online
-                                </span>
-                            </div>
-                            <p className="text-xs font-semibold text-gray-400 mt-0.5">
-                                Therapist Dashboard
-                            </p>
-                        </div>
-                    </div>
-
-                    {/* Quick Action Buttons */}
-                    <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-                        <button
-                            type="button"
-                            onClick={() => { setPrescribePatient(null); setPrescribeModalOpen(true); }}
-                            className="inline-flex items-center gap-2 rounded-full bg-[#1F4D3A] px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-[#183d2e] transition cursor-pointer"
-                        >
-                            <Sparkles size={14} /> + Prescribe Treatment Plan
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => { setViewMode('SESSIONS'); setDateMode('TODAY'); }}
-                            className="inline-flex items-center gap-2 rounded-full border border-emerald-900/15 bg-emerald-50/50 px-4 py-2 text-xs font-semibold text-emerald-900 hover:bg-emerald-100/60 transition cursor-pointer"
-                        >
-                            <Calendar size={14} /> View Schedule
-                        </button>
-                    </div>
-                </div>
-            </div>
-
             {/* 2. STAT CARDS */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {/* Card 1: Assigned Sessions */}
@@ -1234,6 +1239,18 @@ function TherapistDashboard({ activeTab, onTabChange, auth, sidebarOffset = 0 })
                                                     💡 Clinical Guidelines: {plan.clinicalNotes}
                                                 </p>
                                             )}
+
+                                            <div className="pt-2">
+                                                <button
+                                                    onClick={() => {
+                                                        setSelectedRecoveryPlan(plan);
+                                                        setRecoveryModalOpen(true);
+                                                    }}
+                                                    className="w-full py-2 rounded-xl bg-[#164E3D] text-white text-xs font-bold hover:bg-[#113d2f] transition flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+                                                >
+                                                    <Activity size={14} /> Track Recovery & Predict (XGBoost)
+                                                </button>
+                                            </div>
                                         </div>
                                     ))}
                                 </div>
@@ -1824,6 +1841,14 @@ function TherapistDashboard({ activeTab, onTabChange, auth, sidebarOffset = 0 })
                 patientData={selectedPatientForPrescription}
                 onSuccess={() => fetchData()}
                 sidebarOffset={sidebarOffset}
+            />
+
+            {/* Recovery Tracking & XGBoost Prediction Modal */}
+            <RecoveryTrackingModal
+                isOpen={recoveryModalOpen}
+                onClose={() => setRecoveryModalOpen(false)}
+                therapyPlan={selectedRecoveryPlan}
+                onSaved={() => fetchData()}
             />
         </div>
     );

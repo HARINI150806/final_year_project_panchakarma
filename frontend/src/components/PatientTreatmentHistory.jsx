@@ -12,13 +12,13 @@ import {
   Filter,
   Download,
   Sparkles,
-  HeartPulse,
   Activity,
   ChevronRight,
   X,
   ShieldCheck,
   Leaf,
   PlusCircle,
+  HeartPulse,
 } from 'lucide-react';
 import api from '../api';
 import { generatePrescriptionPDF } from '../utils/pdfExport';
@@ -35,119 +35,82 @@ export default function PatientTreatmentHistory({ auth }) {
     async function loadTreatmentHistory() {
       setLoading(true);
       try {
-        // Fetch real patient bookings, treatment plans, and prescriptions from backend APIs
-        const [bookingsRes, plansRes, prescriptionsRes] = await Promise.all([
-          api.get('/patient/bookings').catch(() => ({ data: [] })),
-          api.get('/treatment-plans/my').catch(() => ({ data: [] })),
-          api.get('/patient/prescriptions').catch(() => ({ data: [] })),
-        ]);
-
+        // Fetch real patient bookings directly from the bookings table API
+        const bookingsRes = await api.get('/patient/bookings').catch(() => ({ data: [] }));
         const bookingsData = Array.isArray(bookingsRes.data) ? bookingsRes.data : [];
-        const plansData = Array.isArray(plansRes.data) ? plansRes.data : [];
-        const prescriptionsData = Array.isArray(prescriptionsRes.data) ? prescriptionsRes.data : [];
 
         let combined = [];
 
         // Helper to extract clean practitioner name
         const resolvePractitioner = (b) => {
           let name = b.assignedTo?.fullName || b.assignedTo?.name || b.therapistName || b.assignedToName || b.doctorName;
-          if (!name || name === 'Ayurvedic Specialist' || name === 'null') {
-            name = 'Dr. Abi (Ayurvedic Specialist)';
-          } else if (!name.toLowerCase().startsWith('dr.') && !name.toLowerCase().startsWith('therapist')) {
+          if (!name || name === 'Ayurvedic Specialist' || name === 'null' || name === 'nil') {
+            name = 'Assigned Practitioner';
+          } else if (!name.toLowerCase().startsWith('dr.') && !name.toLowerCase().startsWith('therapist') && !name.toLowerCase().startsWith('vaidya')) {
             name = `Dr. ${name}`;
           }
           return name;
         };
 
-        // Helper to clean therapy titles
-        const resolveTherapyName = (purpose, bookingType) => {
-          if (!purpose || purpose === 'nil' || purpose === 'null' || purpose.trim() === '') {
-            return bookingType ? bookingType.replace(/_/g, ' ') : 'Panchakarma Consultation';
+        // Helper to resolve specific therapy name from booking object fields
+        const resolveTherapyName = (item) => {
+          if (!item) return 'Panchakarma Session';
+          
+          if (item.therapyName && item.therapyName !== 'nil' && item.therapyName !== 'null' && item.therapyName.trim() !== '') {
+            return item.therapyName;
           }
-          return purpose;
+          if (item.purpose && item.purpose !== 'nil' && item.purpose !== 'null' && item.purpose.trim() !== '') {
+            return item.purpose;
+          }
+          if (item.notes && item.notes !== 'nil' && item.notes !== 'null' && item.notes.trim() !== '') {
+            return item.notes;
+          }
+          if (item.packageId && item.packageId !== 'nil' && item.packageId !== 'null' && item.packageId.trim() !== '') {
+            return item.packageId.replace(/_/g, ' ');
+          }
+          if (item.consultationCategory && item.consultationCategory !== 'NORMAL') {
+            return `${item.consultationCategory.replace(/_/g, ' ')} Consultation`;
+          }
+          
+          const bookingType = item.type || item.bookingType;
+          if (bookingType === 'THERAPY') {
+            return 'Panchakarma Therapy Session';
+          } else if (bookingType === 'CONSULTATION') {
+            return 'Ayurvedic Doctor Consultation';
+          } else if (bookingType) {
+            return bookingType.replace(/_/g, ' ');
+          }
+          
+          return 'Panchakarma Session';
         };
 
-        // Helper to parse vitals parameters from booking notes or fallback cleanly
-        const resolveVitals = (b) => {
-          const notesText = `${b.sessionNotes || ''} ${b.notes || ''} ${b.patientAdvice || ''}`;
-          let bp = b.bloodPressure;
-          let pulse = b.pulseRate;
-
-          if (!bp) {
-            const bpMatch = notesText.match(/BP\s*[:=]?\s*(\d{2,3}\/\d{2,3})/i);
-            if (bpMatch) bp = `${bpMatch[1]} mmHg`;
-          }
-          if (!pulse) {
-            const pulseMatch = notesText.match(/Pulse\s*[:=]?\s*(\d{2,3})/i);
-            if (pulseMatch) pulse = `${pulseMatch[1]} bpm`;
-          }
-
-          return {
-            bp: bp || (b.bookingStatus === 'COMPLETED' ? '120/80 mmHg' : '120/80 mmHg (Baseline)'),
-            pulse: pulse || (b.bookingStatus === 'COMPLETED' ? '72 bpm' : '72 bpm (Normal)'),
-          };
-        };
-
-        // 1. Map real Bookings
+        // Map records exclusively from the bookings table
         bookingsData.forEach((b, idx) => {
-          const rawTherapy = resolveTherapyName(b.purpose, b.bookingType);
+          const rawTherapy = resolveTherapyName(b);
           const practitionerName = resolvePractitioner(b);
-          const vitalsData = resolveVitals(b);
+          
+          let displayNotes = '';
+          if (b.sessionNotes && b.sessionNotes !== 'nil' && b.sessionNotes !== 'null' && b.sessionNotes.trim() !== '') {
+            displayNotes = b.sessionNotes;
+          } else if (b.notes && b.notes !== rawTherapy && b.notes !== 'nil' && b.notes !== 'null' && b.notes.trim() !== '') {
+            displayNotes = b.notes;
+          }
 
           combined.push({
             id: `BK-${b.id || idx + 1}`,
             rawId: b.id,
             therapyName: rawTherapy,
-            category: (b.bookingType || 'THERAPY').toUpperCase(),
+            category: (b.type || b.bookingType || 'THERAPY').toUpperCase(),
             date: b.date || '',
             time: b.time || '',
             practitioner: practitionerName,
-            status: (b.bookingStatus || b.status || 'CONFIRMED').toUpperCase(),
-            notes: b.sessionNotes && b.sessionNotes !== 'nil' ? b.sessionNotes : (b.purpose && b.purpose !== 'nil' ? b.purpose : 'Panchakarma therapeutic session.'),
-            vitals: vitalsData,
-            patientAdvice: b.patientAdvice || 'Rest, drink warm water, avoid direct cold air exposure post session.',
+            practitionerRole: b.assignedTo?.role || b.practitionerRole || '',
+            status: (b.status || b.bookingStatus || 'CONFIRMED').toUpperCase(),
+            notes: displayNotes,
+            patientAdvice: b.patientAdvice || '',
             medicines: b.medicines || [],
+            meetLink: b.meetLink,
           });
-        });
-
-        // 2. Map real Treatment Plans
-        plansData.forEach((p) => {
-          if (!combined.some((item) => item.rawId === p.id && item.category === 'TREATMENT_PLAN')) {
-            combined.push({
-              id: `TP-${p.id}`,
-              rawId: p.id,
-              therapyName: `${p.therapyName || 'Panchakarma Plan'} (${p.totalSessions || 1} Sessions)`,
-              category: 'TREATMENT_PLAN',
-              date: p.prescribedStartDate || '',
-              time: '09:00 AM',
-              practitioner: p.prescribedByName ? (p.prescribedByName.toLowerCase().startsWith('dr.') ? p.prescribedByName : `Dr. ${p.prescribedByName}`) : 'Dr. Senior Vaidya',
-              status: (p.status || 'ACTIVE').toUpperCase(),
-              notes: p.clinicalNotes || 'Clinical treatment plan prescribed by practitioner.',
-              vitals: { bp: '118/78 mmHg', pulse: '74 bpm' },
-              patientAdvice: 'Follow constitutional diet & lifestyle guidelines.',
-              medicines: [],
-            });
-          }
-        });
-
-        // 3. Map real Prescriptions if not already included
-        prescriptionsData.forEach((rx) => {
-          if (!combined.some((item) => item.therapyName === rx.therapyName && item.date === rx.createdAt?.split('T')[0])) {
-            combined.push({
-              id: `RX-${rx.id || Math.floor(Math.random() * 1000)}`,
-              rawId: rx.id,
-              therapyName: rx.therapyName || rx.medicineName || 'Ayurvedic Prescription',
-              category: 'PRESCRIPTION',
-              date: rx.createdAt ? rx.createdAt.split('T')[0] : '',
-              time: '10:00 AM',
-              practitioner: rx.doctorName ? (rx.doctorName.toLowerCase().startsWith('dr.') ? rx.doctorName : `Dr. ${rx.doctorName}`) : 'Dr. Abi (Practitioner)',
-              status: (rx.status || 'COMPLETED').toUpperCase(),
-              notes: rx.clinicalDiagnosis || rx.practitionerNote || 'Ayurvedic herbal prescription issued.',
-              vitals: { bp: '120/80 mmHg', pulse: '72 bpm' },
-              patientAdvice: rx.dietAdvice || rx.postCareInstructions || 'Take medicines as directed with warm water.',
-              medicines: rx.medicines || [rx.medicineName].filter(Boolean),
-            });
-          }
         });
 
         // Sort descending by date (most recent first)
@@ -239,7 +202,7 @@ export default function PatientTreatmentHistory({ auth }) {
             My Panchakarma Treatment History
           </h2>
           <p className="text-sm text-forest/70 max-w-2xl leading-relaxed">
-            Real-time record of your Panchakarma sessions, active treatment plans, recorded vitals, doctor notes, and post-care guidelines.
+            Real-time record of your Panchakarma sessions, active treatment plans, doctor notes, and post-care guidelines.
           </p>
         </div>
 
@@ -272,7 +235,7 @@ export default function PatientTreatmentHistory({ auth }) {
         <div className="rounded-2xl border border-emerald-900/10 bg-white/90 p-4 shadow-xs">
           <p className="text-[10px] font-bold uppercase tracking-wider text-forest/50">Scheduled Sessions</p>
           <h3 className="text-2xl font-black text-teal-900 mt-1">{scheduledCount}</h3>
-          <p className="text-[11px] text-teal-700 font-semibold mt-0.5 flex items-center gap-1">
+          <p className="text-[11px] text-emerald-700 font-semibold mt-0.5 flex items-center gap-1">
             <Calendar size={13} /> Upcoming
           </p>
         </div>
@@ -362,7 +325,6 @@ export default function PatientTreatmentHistory({ auth }) {
                   <th className="py-4 px-5">Date &amp; Time</th>
                   <th className="py-4 px-5">Therapy / Record</th>
                   <th className="py-4 px-5">Practitioner</th>
-                  <th className="py-4 px-5">Clinical Parameters</th>
                   <th className="py-4 px-5 text-center">Status</th>
                   <th className="py-4 px-5 text-right">Actions</th>
                 </tr>
@@ -392,13 +354,15 @@ export default function PatientTreatmentHistory({ auth }) {
                       </td>
 
                       {/* Therapy Name & Notes */}
-                      <td className="py-4 px-5 max-w-[240px]">
+                      <td className="py-4 px-5 max-w-[280px]">
                         <p className="font-bold text-emerald-950 text-xs flex items-center gap-1.5">
                           🌿 {item.therapyName}
                         </p>
-                        <p className="text-[11px] text-forest/65 line-clamp-1 mt-0.5 font-medium">
-                          {item.notes}
-                        </p>
+                        {item.notes && item.notes.trim() !== '' && (
+                          <p className="text-[11px] text-forest/65 line-clamp-1 mt-0.5 font-medium">
+                            {item.notes}
+                          </p>
+                        )}
                       </td>
 
                       {/* Practitioner */}
@@ -408,20 +372,14 @@ export default function PatientTreatmentHistory({ auth }) {
                           {item.practitioner}
                         </p>
                         <span className="text-[10px] text-emerald-800 font-bold uppercase tracking-wider block mt-0.5">
-                          {item.category === 'PRESCRIPTION' ? 'Prescribing Physician' : 'Senior Vaidya Practitioner'}
+                          {item.practitionerRole
+                            ? item.practitionerRole.replace(/_/g, ' ')
+                            : item.category === 'PRESCRIPTION'
+                            ? 'Prescribing Physician'
+                            : item.category === 'CONSULTATION'
+                            ? 'Consulting Vaidya'
+                            : 'Ayurvedic Practitioner'}
                         </span>
-                      </td>
-
-                      {/* Vitals */}
-                      <td className="py-4 px-5">
-                        <div className="space-y-0.5 text-[11px]">
-                          <p className="text-forest/80 font-medium">
-                            <span className="text-forest/50 font-bold">BP:</span> {item.vitals?.bp}
-                          </p>
-                          <p className="text-forest/80 font-medium">
-                            <span className="text-forest/50 font-bold">Pulse:</span> {item.vitals?.pulse}
-                          </p>
-                        </div>
                       </td>
 
                       {/* Status */}
@@ -481,7 +439,7 @@ export default function PatientTreatmentHistory({ auth }) {
                   <Stethoscope size={20} />
                 </div>
                 <div>
-                  <h3 className="font-display font-bold text-forest text-base">Session Record &amp; Vitals</h3>
+                  <h3 className="font-display font-bold text-forest text-base">Session Record Details</h3>
                   <p className="text-xs text-forest/60">ID: {selectedSessionModal.id}</p>
                 </div>
               </div>
@@ -514,30 +472,6 @@ export default function PatientTreatmentHistory({ auth }) {
                 <div>
                   <p className="text-forest/60 font-semibold">Attending Practitioner:</p>
                   <p className="font-bold text-forest">{selectedSessionModal.practitioner}</p>
-                </div>
-              </div>
-
-              <div className="pt-2 border-t border-sand/30 space-y-1">
-                <p className="font-bold text-forest/80 flex items-center gap-1">
-                  <HeartPulse size={14} className="text-rose-600" /> Vitals &amp; Physical Parameters:
-                </p>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-[11px]">
-                  <div className="p-2 rounded-xl bg-white border border-sand/30">
-                    <span className="text-forest/50 font-semibold block">Blood Pressure</span>
-                    <span className="font-bold text-forest">{selectedSessionModal.vitals?.bp}</span>
-                  </div>
-                  <div className="p-2 rounded-xl bg-white border border-sand/30">
-                    <span className="text-forest/50 font-semibold block">Heart Rate</span>
-                    <span className="font-bold text-forest">{selectedSessionModal.vitals?.pulse}</span>
-                  </div>
-                  <div className="p-2 rounded-xl bg-white border border-sand/30">
-                    <span className="text-forest/50 font-semibold block">Body Weight</span>
-                    <span className="font-bold text-forest">{selectedSessionModal.vitals?.weight}</span>
-                  </div>
-                  <div className="p-2 rounded-xl bg-white border border-sand/30">
-                    <span className="text-forest/50 font-semibold block">Body Temp</span>
-                    <span className="font-bold text-forest">{selectedSessionModal.vitals?.temp}</span>
-                  </div>
                 </div>
               </div>
 
@@ -582,3 +516,4 @@ export default function PatientTreatmentHistory({ auth }) {
     </div>
   );
 }
+

@@ -56,20 +56,22 @@ public class SecurityConfig {
                             "/api/therapists/complaints",
                             "/api/therapists/wallet"
                         ).hasAnyAuthority("ROLE_THERAPIST", "ROLE_ADMIN", "THERAPIST", "ADMIN")
-                        .requestMatchers("/api/bookings", "/api/bookings/**").authenticated()
-                        .requestMatchers("/api/payments", "/api/payments/**").authenticated()
-                        .requestMatchers("/api/admin/therapists", "/api/admin/providers").hasAnyAuthority("ROLE_ADMIN")
+                        .requestMatchers("/api/bookings", "/api/bookings/**").hasAnyAuthority("ROLE_PATIENT", "ROLE_THERAPIST", "ROLE_ADMIN", "PATIENT", "THERAPIST", "ADMIN")
+                        .requestMatchers("/api/payments", "/api/payments/**").hasAnyAuthority("ROLE_PATIENT", "ROLE_THERAPIST", "ROLE_ADMIN", "PATIENT", "THERAPIST", "ADMIN")
+                        .requestMatchers("/api/admin", "/api/admin/**").hasAnyAuthority("ROLE_ADMIN", "ADMIN")
                         .requestMatchers(
                             "/api/patient/prescriptions",
                             "/api/patient/prescriptions/**",
                             "/api/patient/reports",
                             "/api/patient/reports/**",
+                            "/api/patient/treatment-journey",
+                            "/api/patient/treatment-journey/**",
                             "/api/prescriptions",
                             "/api/prescriptions/**",
                             "/api/reports",
                             "/api/reports/**"
                         ).authenticated()
-                        .requestMatchers("/api/patient/bookings", "/api/patient/book-therapy", "/api/patient/book-consultation", "/api/patient/therapists").hasAnyAuthority("ROLE_PATIENT", "ROLE_ADMIN", "PATIENT", "ADMIN")
+                        .requestMatchers("/api/patient/bookings", "/api/patient/book-therapy", "/api/patient/book-consultation", "/api/patient/therapists", "/api/patient/treatment-journey", "/api/patient/treatment-journey/**").hasAnyAuthority("ROLE_PATIENT", "ROLE_THERAPIST", "ROLE_ADMIN", "PATIENT", "THERAPIST", "ADMIN")
                         .requestMatchers("/api/patient/details/**").hasAnyAuthority("ROLE_PATIENT", "ROLE_THERAPIST", "ROLE_ADMIN", "PATIENT", "THERAPIST", "ADMIN")
                         .requestMatchers("/api/patient/complaint", "/api/patient/complaints").hasAnyAuthority("ROLE_PATIENT", "ROLE_THERAPIST", "ROLE_ADMIN", "PATIENT", "THERAPIST", "ADMIN")
                         .requestMatchers("/api/admin/**").hasAnyAuthority("ROLE_ADMIN", "ADMIN")
@@ -81,7 +83,8 @@ public class SecurityConfig {
                         // AI-assisted booking endpoints
                         .requestMatchers("/api/ai-booking/suggest", "/api/ai-booking/my-suggestions").hasAnyAuthority("ROLE_PATIENT", "ROLE_ADMIN")
                         .requestMatchers("/api/ai-booking/pending", "/api/ai-booking/*/approve", "/api/ai-booking/*/reject").hasAnyAuthority("ROLE_THERAPIST", "ROLE_ADMIN")
-                        .requestMatchers("/api/followups/**", "/api/medical-documents/**").authenticated()
+                        .requestMatchers("/api/recovery", "/api/recovery/**").hasAnyAuthority("ROLE_PATIENT", "ROLE_THERAPIST", "ROLE_ADMIN", "PATIENT", "THERAPIST", "ADMIN")
+                        .requestMatchers("/api/followups/**", "/api/medical-documents/**", "/api/ayurveda-ai/**").authenticated()
                         .anyRequest().authenticated()
                 )
                 .authenticationProvider(authenticationProvider())

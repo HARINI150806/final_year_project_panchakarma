@@ -59,9 +59,9 @@ public class PaymentServiceImpl implements PaymentService {
                 ? request.currency()
                 : "INR";
 
-        String orderId;
+        String orderId = null;
         try {
-            if (keyId != null && !keyId.contains("PanchakarmaTest")) {
+            if (keyId != null && !keyId.isBlank() && keySecret != null && !keySecret.isBlank()) {
                 RazorpayClient razorpayClient = new RazorpayClient(keyId, keySecret);
                 JSONObject orderRequest = new JSONObject();
                 orderRequest.put("amount", amountInPaise);
@@ -69,21 +69,28 @@ public class PaymentServiceImpl implements PaymentService {
                 orderRequest.put("receipt", "txn_" + System.currentTimeMillis());
 
                 Order order = razorpayClient.orders.create(orderRequest);
-                orderId = order.get("id");
-            } else {
-                orderId = "order_test_" + System.currentTimeMillis();
+                if (order != null && order.has("id")) {
+                    orderId = order.get("id");
+                }
             }
         } catch (Exception e) {
-            System.err.println("Razorpay SDK order creation notice: " + e.getMessage() + ". Generating test order ID.");
+            System.err.println("Razorpay API order creation notice: " + e.getMessage());
+        }
+
+        if (orderId == null || orderId.isBlank()) {
             orderId = "order_test_" + System.currentTimeMillis();
         }
+
+        String activeKeyId = (keyId != null && !keyId.isBlank())
+                ? keyId
+                : "rzp_test_1DP5hB15W9Z38Q";
 
         return new CreateOrderResponse(
                 orderId,
                 amount,
                 amountInPaise,
                 currency,
-                keyId
+                activeKeyId
         );
     }
 
@@ -105,6 +112,7 @@ public class PaymentServiceImpl implements PaymentService {
             AutoBookingRequest autoReq = new AutoBookingRequest(
                     request.patientId(),
                     request.date(),
+                    request.time(),
                     request.reason(),
                     request.notes(),
                     request.assignedToId(),

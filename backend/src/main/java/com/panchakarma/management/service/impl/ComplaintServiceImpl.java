@@ -5,6 +5,7 @@ import com.panchakarma.management.dto.ComplaintResponse;
 import com.panchakarma.management.exception.ResourceNotFoundException;
 import com.panchakarma.management.model.*;
 import com.panchakarma.management.model.enums.ComplaintStatus;
+import com.panchakarma.management.repository.BookingRepository;
 import com.panchakarma.management.repository.ComplaintRepository;
 import com.panchakarma.management.repository.PatientRepository;
 import com.panchakarma.management.repository.UserRepository;
@@ -17,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -30,6 +32,9 @@ public class ComplaintServiceImpl implements ComplaintService {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private BookingRepository bookingRepository;
 
     @Override
     @Transactional
@@ -144,6 +149,10 @@ public class ComplaintServiceImpl implements ComplaintService {
         if (identifier == null) {
             return new ArrayList<>();
         }
+        User currentUser = getCurrentUser();
+        boolean isAdmin = currentUser.getRole() != null && 
+                ("ROLE_ADMIN".equalsIgnoreCase(currentUser.getRole().name()) || "ADMIN".equalsIgnoreCase(currentUser.getRole().name()));
+
         Patient patient = null;
         java.util.Optional<User> userOpt = userRepository.findById(identifier);
         if (userOpt.isPresent()) {
@@ -155,6 +164,25 @@ public class ComplaintServiceImpl implements ComplaintService {
         if (patient == null) {
             return new ArrayList<>();
         }
+
+        // If current user is a therapist (and not admin), verify that this patient has booked this therapist
+        if (!isAdmin && currentUser.getRole() != null && 
+                ("ROLE_THERAPIST".equalsIgnoreCase(currentUser.getRole().name()) || "THERAPIST".equalsIgnoreCase(currentUser.getRole().name()))) {
+            User patientUser = userOpt.orElseGet(patient::getUser);
+            boolean hasBookingWithTherapist = false;
+            if (patientUser != null) {
+                hasBookingWithTherapist = !bookingRepository.findByAssignedToAndPatient(currentUser, patientUser).isEmpty();
+            }
+            if (!hasBookingWithTherapist) {
+                List<Booking> myBookings = bookingRepository.findByAssignedTo(currentUser);
+                final Long targetPatientId = patient.getId();
+                hasBookingWithTherapist = myBookings.stream().anyMatch(b -> b.getPatient() != null && b.getPatient().getPatient() != null && b.getPatient().getPatient().getId().equals(targetPatientId));
+            }
+            if (!hasBookingWithTherapist) {
+                return new ArrayList<>();
+            }
+        }
+
         List<Complaint> complaints = complaintRepository.findByPatientId(patient.getId());
         return complaints.stream().map(this::mapToComplaintResponse).collect(Collectors.toList());
     }
@@ -169,8 +197,43 @@ public class ComplaintServiceImpl implements ComplaintService {
     @Override
     @Transactional(readOnly = true)
     public List<ComplaintResponse> getTherapistComplaints() {
-        List<Complaint> complaints = complaintRepository.findAllByOrderByCreatedAtDesc();
-        return complaints.stream().map(this::mapToComplaintResponse).collect(Collectors.toList());
+        User currentUser = getCurrentUser();
+
+        // Admin sees all complaints
+        if (currentUser.getRole() != null && ("ROLE_ADMIN".equalsIgnoreCase(currentUser.getRole().name()) || "ADMIN".equalsIgnoreCase(currentUser.getRole().name()))) {
+            List<Complaint> complaints = complaintRepository.findAllByOrderByCreatedAtDesc();
+            return complaints.stream().map(this::mapToComplaintResponse).collect(Collectors.toList());
+        }
+
+        // Find all bookings assigned to this therapist
+        List<Booking> therapistBookings = bookingRepository.findByAssignedTo(currentUser);
+
+        // Collect patient entity IDs and patient User IDs associated with this therapist's bookings
+        Set<Long> patientEntityIds = therapistBookings.stream()
+                .filter(b -> b.getPatient() != null && b.getPatient().getPatient() != null)
+                .map(b -> b.getPatient().getPatient().getId())
+                .collect(Collectors.toSet());
+
+        Set<Long> patientUserIds = therapistBookings.stream()
+                .filter(b -> b.getPatient() != null)
+                .map(b -> b.getPatient().getId())
+                .collect(Collectors.toSet());
+
+        if (patientEntityIds.isEmpty() && patientUserIds.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        // Filter complaints to only patients who have booked this therapist
+        List<Complaint> allComplaints = complaintRepository.findAllByOrderByCreatedAtDesc();
+        return allComplaints.stream()
+                .filter(c -> {
+                    if (c.getPatient() == null) return false;
+                    boolean matchesEntityId = patientEntityIds.contains(c.getPatient().getId());
+                    boolean matchesUserId = c.getPatient().getUser() != null && patientUserIds.contains(c.getPatient().getUser().getId());
+                    return matchesEntityId || matchesUserId;
+                })
+                .map(this::mapToComplaintResponse)
+                .collect(Collectors.toList());
     }
 
     private ComplaintResponse mapToComplaintResponse(Complaint complaint) {

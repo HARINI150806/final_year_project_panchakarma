@@ -22,9 +22,11 @@ import com.panchakarma.management.model.Patient;
 import com.panchakarma.management.model.User;
 import com.panchakarma.management.model.BookingStatus;
 import com.panchakarma.management.model.BookingType;
+import com.panchakarma.management.model.TreatmentPlan;
 import com.panchakarma.management.repository.BookingRepository;
 import com.panchakarma.management.repository.PatientRepository;
 import com.panchakarma.management.repository.UserRepository;
+import com.panchakarma.management.repository.TreatmentPlanRepository;
 import com.panchakarma.management.service.BookingService;
 import com.panchakarma.management.service.GoogleMeetService;
 import com.panchakarma.management.service.AvailabilityService;
@@ -44,6 +46,9 @@ public class BookingServiceImpl implements BookingService {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private TreatmentPlanRepository treatmentPlanRepository;
 
     @Autowired
     private GoogleMeetService googleMeetService;
@@ -167,6 +172,17 @@ public class BookingServiceImpl implements BookingService {
                 booking.setPackageId(packageId);
                 booking.setSessionNumber(sessionIdx);
                 booking.setTotalSessions(totalSessions);
+
+                Long consultId = bookingRequest.getConsultationBookingId();
+                if (consultId == null && bookingRequest.getBookingType() == BookingType.THERAPY && patient != null) {
+                    List<Booking> patientBookings = bookingRepository.findByPatient_Id(patient.getId());
+                    consultId = patientBookings.stream()
+                            .filter(b -> b.getBookingType() == BookingType.CONSULTATION || (b.getPurpose() != null && b.getPurpose().toLowerCase().contains("consultation")))
+                            .sorted(java.util.Comparator.comparing(Booking::getBookingId, java.util.Comparator.nullsLast(java.util.Comparator.reverseOrder())))
+                            .map(Booking::getBookingId)
+                            .findFirst().orElse(null);
+                }
+                booking.setConsultationBookingId(consultId);
 
                 // Schedule Google Meet if online consultation for 1st session
                 if (sessionIdx == 1 && bookingRequest.getConsultationType() == ConsultationType.ONLINE) {
@@ -457,7 +473,8 @@ public class BookingServiceImpl implements BookingService {
             }
 
             // Resolve a free time slot for the selected therapist
-            java.time.LocalTime resolvedTime = resolveAvailableTimeSlotForDate(therapist.getId(), targetDate, java.time.LocalTime.of(10, 0));
+            java.time.LocalTime prefTime = request.preferredTime() != null ? request.preferredTime() : java.time.LocalTime.of(9, 0);
+            java.time.LocalTime resolvedTime = resolveAvailableTimeSlotForDate(therapist.getId(), targetDate, prefTime);
 
             // Create booking with auto-scheduled time
             Booking booking = new Booking();
@@ -612,7 +629,18 @@ public class BookingServiceImpl implements BookingService {
     }
 
     private void validateEligibility(Booking booking, String action) {
-        // Flexible real-time scheduling: allow patients to request rescheduling/cancellation anytime
+        if (booking.getBookingStatus() == BookingStatus.CANCELLED) {
+            throw new IllegalStateException("Booking is already cancelled.");
+        }
+        if (booking.getBookingStatus() == BookingStatus.COMPLETED) {
+            throw new IllegalStateException("Completed bookings cannot be " + action + "d.");
+        }
+        if (booking.getDate() != null && booking.getTime() != null) {
+            java.time.LocalDateTime bookingDateTime = java.time.LocalDateTime.of(booking.getDate(), booking.getTime());
+            if (java.time.LocalDateTime.now().plusDays(2).isAfter(bookingDateTime)) {
+                throw new IllegalStateException("Bookings can only be " + action + "d at least 48 hours (2 days) prior to the scheduled appointment time.");
+            }
+        }
     }
 
     @Override
@@ -892,44 +920,78 @@ public class BookingServiceImpl implements BookingService {
     }
 
     private java.time.LocalTime resolveAvailableTimeSlotForDate(Long therapistId, java.time.LocalDate date, java.time.LocalTime preferredTime) {
-        if (therapistId == null || preferredTime == null) return preferredTime;
+        if (therapistId == null || date == null) return preferredTime != null ? preferredTime : java.time.LocalTime.of(9, 0);
 
-        boolean isPreferredTaken = bookingRepository.findByAssignedTo_Id(therapistId).stream()
-                .anyMatch(b -> b.getDate() != null && b.getDate().equals(date) && b.getTime() != null && b.getTime().equals(preferredTime) && b.getBookingStatus() != BookingStatus.CANCELLED);
-
-        if (!isPreferredTaken) {
-            return preferredTime;
+        User therapist = userRepository.findById(therapistId).orElse(null);
+        List<java.time.LocalTime[]> workingSlots;
+        if (therapist != null) {
+            workingSlots = availabilityService.getTherapistWorkingSlotsForDate(therapist, date);
+        } else {
+            workingSlots = new java.util.ArrayList<>();
         }
 
-        java.time.LocalTime[] standardSlots = new java.time.LocalTime[]{
-            java.time.LocalTime.of(9, 0),
-            java.time.LocalTime.of(10, 0),
-            java.time.LocalTime.of(11, 0),
-            java.time.LocalTime.of(12, 0),
-            java.time.LocalTime.of(14, 0),
-            java.time.LocalTime.of(15, 0),
-            java.time.LocalTime.of(16, 0),
-            java.time.LocalTime.of(17, 0)
-        };
+        if (workingSlots.isEmpty()) {
+            workingSlots = java.util.Arrays.asList(
+                new java.time.LocalTime[]{java.time.LocalTime.of(9, 0), java.time.LocalTime.of(9, 45)},
+                new java.time.LocalTime[]{java.time.LocalTime.of(9, 45), java.time.LocalTime.of(10, 30)},
+                new java.time.LocalTime[]{java.time.LocalTime.of(10, 30), java.time.LocalTime.of(11, 15)},
+                new java.time.LocalTime[]{java.time.LocalTime.of(11, 15), java.time.LocalTime.of(12, 0)},
+                new java.time.LocalTime[]{java.time.LocalTime.of(12, 0), java.time.LocalTime.of(12, 45)},
+                new java.time.LocalTime[]{java.time.LocalTime.of(13, 30), java.time.LocalTime.of(14, 15)},
+                new java.time.LocalTime[]{java.time.LocalTime.of(14, 15), java.time.LocalTime.of(15, 0)},
+                new java.time.LocalTime[]{java.time.LocalTime.of(15, 0), java.time.LocalTime.of(15, 45)},
+                new java.time.LocalTime[]{java.time.LocalTime.of(15, 45), java.time.LocalTime.of(16, 30)}
+            );
+        }
 
-        java.util.Set<java.time.LocalTime> bookedTimes = bookingRepository.findByAssignedTo_Id(therapistId).stream()
+        List<Booking> activeBookings = bookingRepository.findByAssignedTo_Id(therapistId).stream()
                 .filter(b -> b.getDate() != null && b.getDate().equals(date) && b.getTime() != null && b.getBookingStatus() != BookingStatus.CANCELLED)
-                .map(Booking::getTime)
-                .collect(Collectors.toSet());
+                .collect(Collectors.toList());
 
-        for (java.time.LocalTime slot : standardSlots) {
-            if (slot.isAfter(preferredTime) && !bookedTimes.contains(slot)) {
-                return slot;
+        if (preferredTime != null) {
+            boolean isPreferredOverlapped = activeBookings.stream().anyMatch(b -> {
+                java.time.LocalTime bStart = b.getTime();
+                java.time.LocalTime bEnd = bStart.plusMinutes(45);
+                java.time.LocalTime prefEnd = preferredTime.plusMinutes(45);
+                return preferredTime.isBefore(bEnd) && prefEnd.isAfter(bStart);
+            });
+
+            if (!isPreferredOverlapped) {
+                return preferredTime;
             }
         }
 
-        for (java.time.LocalTime slot : standardSlots) {
-            if (!bookedTimes.contains(slot)) {
-                return slot;
+        for (java.time.LocalTime[] slotRange : workingSlots) {
+            java.time.LocalTime slotStart = slotRange[0];
+            java.time.LocalTime slotEnd = slotRange[1];
+
+            boolean overlaps = activeBookings.stream().anyMatch(b -> {
+                java.time.LocalTime bStart = b.getTime();
+                java.time.LocalTime bEnd = bStart.plusMinutes(45);
+                return slotStart.isBefore(bEnd) && slotEnd.isAfter(bStart);
+            });
+
+            if (!overlaps && (preferredTime == null || slotStart.isAfter(preferredTime) || slotStart.equals(preferredTime))) {
+                return slotStart;
             }
         }
 
-        return preferredTime;
+        for (java.time.LocalTime[] slotRange : workingSlots) {
+            java.time.LocalTime slotStart = slotRange[0];
+            java.time.LocalTime slotEnd = slotRange[1];
+
+            boolean overlaps = activeBookings.stream().anyMatch(b -> {
+                java.time.LocalTime bStart = b.getTime();
+                java.time.LocalTime bEnd = bStart.plusMinutes(45);
+                return slotStart.isBefore(bEnd) && slotEnd.isAfter(bStart);
+            });
+
+            if (!overlaps) {
+                return slotStart;
+            }
+        }
+
+        return preferredTime != null ? preferredTime : java.time.LocalTime.of(9, 0);
     }
 
     private int getDayGapForFrequency(String frequency) {

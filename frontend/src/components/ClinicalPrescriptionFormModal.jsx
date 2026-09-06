@@ -191,26 +191,31 @@ export default function ClinicalPrescriptionFormModal({ isOpen, onClose, patient
       const activeBookingData = booking || (patientData?.bookingId ? patientData : null) || patientData;
       const consultationCategory = activeBookingData?.consultationCategory || (isNormalConsultation ? 'NORMAL' : 'THERAPY_RECOMMENDATION');
 
-      const payload = {
-        ...form,
-        status: statusToSave,
-        consultationCategory,
-        doctorName: auth?.fullName ? (auth.fullName.toLowerCase().startsWith('dr.') ? auth.fullName : `Therapist ${auth.fullName}`) : 'Therapist Abi',
-        medicines: medicines.map(m => ({
-          medicineId: m.medicineId,
-          medicineName: m.medicineName,
-          form: m.form,
-          quantity: parseInt(m.quantity) || 1,
-          unit: m.unit || 'g',
-          dosage: m.dosage || '5 g',
-          frequency: m.frequency || 'Twice Daily',
-          duration: m.duration || '15 Days',
-          route: m.route || 'Oral',
-          instructions: m.instructions || 'After food'
-        })),
-      };
+      const validMeds = medicines.filter(m => m.medicineName && m.medicineName.trim() !== '');
 
-      await api.post('/patient/prescriptions', payload);
+      // Only send/create prescription for pharmacist if therapist selected/prescribed medicine(s)
+      if (validMeds.length > 0) {
+        const payload = {
+          ...form,
+          status: statusToSave,
+          consultationCategory,
+          doctorName: auth?.fullName ? (auth.fullName.toLowerCase().startsWith('dr.') ? auth.fullName : `Therapist ${auth.fullName}`) : 'Therapist Abi',
+          medicines: validMeds.map(m => ({
+            medicineId: m.medicineId,
+            medicineName: m.medicineName,
+            form: m.form,
+            quantity: parseInt(m.quantity) || 1,
+            unit: m.unit || 'g',
+            dosage: m.dosage || '5 g',
+            frequency: m.frequency || 'Twice Daily',
+            duration: m.duration || '15 Days',
+            route: m.route || 'Oral',
+            instructions: m.instructions || 'After food'
+          })),
+        };
+
+        await api.post('/patient/prescriptions', payload);
+      }
 
       // If completing a session booking, update booking status to COMPLETED
       const activeBooking = booking || (patientData?.bookingId ? patientData : null);
@@ -320,19 +325,7 @@ export default function ClinicalPrescriptionFormModal({ isOpen, onClose, patient
             </button>
           </div>
 
-          {/* Booking type badge */}
-          {isConsultation && (
-            <div className="relative mt-3 flex items-center gap-2 bg-white/10 backdrop-blur-sm rounded-xl px-4 py-2 border border-white/15">
-              <span className="text-lg">{isNormalConsultation ? '🩺' : '🌿'}</span>
-              <div className="flex-1 min-w-0">
-                <p className="text-[11px] font-extrabold text-white uppercase tracking-wider">{isNormalConsultation ? 'Normal Consultation' : 'Consultation + Therapy Recommendation'}</p>
-                <p className="text-white/60 text-[10px] font-medium leading-relaxed">{isNormalConsultation ? 'Enter clinical diagnosis, optional medicines, and diet/lifestyle advice.' : 'Specify therapy type, session count, frequency, and post-care instructions.'}</p>
-              </div>
-              <span className={`shrink-0 text-[10px] font-extrabold px-2.5 py-1 rounded-full border ${isNormalConsultation ? 'bg-blue-100/20 text-blue-100 border-blue-300/30' : 'bg-emerald-100/20 text-emerald-100 border-emerald-300/30'}`}>
-                {isNormalConsultation ? 'General Checkup' : 'Therapy Track'}
-              </span>
-            </div>
-          )}
+
         </div>
 
         {/* ── SCROLLABLE BODY ── */}
@@ -356,10 +349,14 @@ export default function ClinicalPrescriptionFormModal({ isOpen, onClose, patient
               </div>
               <div>
                 <h3 className="font-display text-2xl font-bold text-forest">
-                  {booking ? 'Session Marked COMPLETED!' : 'Prescription Sent to Pharmacist!'}
+                  {medicines.filter(m => m.medicineName && m.medicineName.trim() !== '').length > 0
+                    ? (booking ? 'Session Marked COMPLETED! Prescription sent to pharmacist.' : 'Prescription Sent to Pharmacist!')
+                    : 'Session is completed'}
                 </h3>
                 <p className="text-xs text-forest/70 max-w-md mx-auto mt-2 leading-relaxed">
-                  {booking ? 'Clinical notes and guidelines have been saved for patient access.' : 'The prescription is PENDING dispensal. Stock will be updated when the Pharmacist dispenses.'}
+                  {medicines.filter(m => m.medicineName && m.medicineName.trim() !== '').length > 0
+                    ? (booking ? 'Clinical notes and guidelines saved. Prescription sent to pharmacist.' : 'The prescription is PENDING dispensal by Pharmacist.')
+                    : 'Session has been completed successfully.'}
                 </p>
               </div>
             </div>
@@ -457,18 +454,7 @@ export default function ClinicalPrescriptionFormModal({ isOpen, onClose, patient
                     </select>
                   </div>
 
-                  <div>
-                    <label className="mb-1 block font-bold text-forest/70">Prescribed Frequency</label>
-                    <select
-                      value={form.frequency}
-                      onChange={(e) => setForm({ ...form, frequency: e.target.value })}
-                      className="w-full rounded-xl border border-sand bg-white p-2.5 font-semibold text-forest outline-none"
-                    >
-                      <option value="Daily">Daily (Once Daily)</option>
-                      <option value="Alternate Days">Alternate Days (Every 2 Days)</option>
-                      <option value="Weekly">Weekly (Every 7 Days)</option>
-                    </select>
-                  </div>
+
                 </div>
               </div>
             )}

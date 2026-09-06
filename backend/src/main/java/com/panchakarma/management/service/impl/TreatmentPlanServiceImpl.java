@@ -46,6 +46,9 @@ public class TreatmentPlanServiceImpl implements TreatmentPlanService {
     private NotificationService notificationService;
 
     @Autowired
+    private com.panchakarma.management.service.AvailabilityService availabilityService;
+
+    @Autowired
     private BookingWebSocketHandler bookingWebSocketHandler;
 
     @Override
@@ -82,7 +85,10 @@ public class TreatmentPlanServiceImpl implements TreatmentPlanService {
         plan.setPatient(patient);
         plan.setPrescribedBy(doctor);
         plan.setAssignedTherapist(therapist);
-        plan.setTherapyName(dto.therapyName());
+        String resolvedTherapyName = (dto.therapyName() != null && !dto.therapyName().trim().isEmpty() && !dto.therapyName().equalsIgnoreCase("CONSULTATION"))
+                ? dto.therapyName()
+                : "Abhyanga";
+        plan.setTherapyName(resolvedTherapyName);
         plan.setTotalSessions(dto.totalSessions() != null ? dto.totalSessions() : 1);
         plan.setFrequency(dto.frequency() != null ? dto.frequency() : "ALTERNATE_DAYS");
         plan.setPrescribedStartDate(dto.prescribedStartDate() != null ? dto.prescribedStartDate() : LocalDate.now().plusDays(2));
@@ -90,16 +96,30 @@ public class TreatmentPlanServiceImpl implements TreatmentPlanService {
         plan.setStatus("PLANNED");
         plan.setPackageId("PLAN-" + System.currentTimeMillis());
 
+        Long consultId = dto.consultationBookingId();
+        if (consultId == null && patient != null) {
+            List<Booking> patientBookings = bookingRepository.findByPatient_Id(patient.getId());
+            consultId = patientBookings.stream()
+                    .filter(b -> b.getBookingType() == BookingType.CONSULTATION || (b.getPurpose() != null && b.getPurpose().toLowerCase().contains("consultation")))
+                    .sorted(java.util.Comparator.comparing(Booking::getBookingId, java.util.Comparator.nullsLast(java.util.Comparator.reverseOrder())))
+                    .map(Booking::getBookingId)
+                    .findFirst().orElse(null);
+        }
+        plan.setConsultationBookingId(consultId);
+
         TreatmentPlan saved = treatmentPlanRepository.save(plan);
 
         // Notify patient that a plan has been prescribed by their doctor
-        try {
-            String doctorName = doctor != null ? doctor.getFullName() : "Your Ayurvedic Specialist";
-            String msg = String.format("%s has prescribed a %d-session %s plan (%s). Please select your preferred time slot to start treatment.",
-                    doctorName, saved.getTotalSessions(), saved.getTherapyName(), formatFrequency(saved.getFrequency()));
-            notificationService.createNotification(patient, "New Treatment Plan Prescribed 🌿", msg, "/dashboard/patient?tab=treatment&planId=" + saved.getId());
-        } catch (Exception e) {
-            System.err.println("Failed to send treatment plan notification: " + e.getMessage());
+        if (patient != null) {
+            String doctorName = doctor != null ? doctor.getFullName() : "Doctor";
+            try {
+                notificationService.createNotification(
+                        patient,
+                        "New Treatment Plan Prescribed",
+                        String.format("%s prescribed a %d-session %s plan.", doctorName, saved.getTotalSessions(), saved.getTherapyName()),
+                        "/dashboard/patient?tab=treatment-journey"
+                );
+            } catch (Exception ignored) {}
         }
 
         return mapToDto(saved);
@@ -107,9 +127,54 @@ public class TreatmentPlanServiceImpl implements TreatmentPlanService {
 
     @Override
     public List<TreatmentPlanDto> getTreatmentPlansByPatientId(Long patientId) {
-        return treatmentPlanRepository.findByPatient_Id(patientId).stream()
-                .map(this::mapToDto)
-                .collect(Collectors.toList());
+        List<TreatmentPlan> plans = treatmentPlanRepository.findByPatient_Id(patientId);
+        if (!plans.isEmpty()) {
+            return plans.stream().map(this::mapToDto).collect(Collectors.toList());
+        }
+
+        // Fallback: If no formal TreatmentPlan row exists yet, build synthetic plan from patient's consultation booking
+        List<Booking> bookings = bookingRepository.findByPatient_Id(patientId);
+        if (bookings.isEmpty()) {
+            User user = userRepository.findById(patientId).orElse(null);
+            if (user != null && user.getEmail() != null) {
+                bookings = bookingRepository.findByPatientEmail(user.getEmail());
+            }
+        }
+
+        if (!bookings.isEmpty()) {
+            Booking mainBooking = bookings.get(0);
+            String thName = (mainBooking.getTherapyName() != null && !mainBooking.getTherapyName().isBlank())
+                    ? mainBooking.getTherapyName()
+                    : (mainBooking.getPurpose() != null && !mainBooking.getPurpose().isBlank()
+                        ? mainBooking.getPurpose()
+                        : "Panchakarma Consultation & Therapy Plan");
+
+            Long prescribedById = mainBooking.getAssignedTo() != null ? mainBooking.getAssignedTo().getId() : null;
+            String doctorName = mainBooking.getTherapistName() != null ? mainBooking.getTherapistName() : "Ayurvedic Specialist";
+
+            TreatmentPlanDto syntheticDto = new TreatmentPlanDto(
+                    mainBooking.getBookingId(),
+                    patientId,
+                    mainBooking.getPatientName() != null ? mainBooking.getPatientName() : "Patient",
+                    mainBooking.getPatientEmail(),
+                    prescribedById,
+                    doctorName,
+                    prescribedById,
+                    doctorName,
+                    thName,
+                    mainBooking.getTotalSessions() != null ? mainBooking.getTotalSessions() : 1,
+                    "ALTERNATE_DAYS",
+                    mainBooking.getDate() != null ? mainBooking.getDate() : LocalDate.now(),
+                    mainBooking.getPurpose(),
+                    "PLANNED",
+                    mainBooking.getPackageId() != null ? mainBooking.getPackageId() : "PLAN-" + mainBooking.getBookingId(),
+                    mainBooking.getConsultationBookingId() != null ? mainBooking.getConsultationBookingId() : (mainBooking.getBookingType() == BookingType.CONSULTATION ? mainBooking.getBookingId() : null),
+                    mainBooking.getCreatedAt() != null ? mainBooking.getCreatedAt() : java.time.LocalDateTime.now()
+            );
+            return List.of(syntheticDto);
+        }
+
+        return List.of();
     }
 
     @Override
@@ -149,6 +214,20 @@ public class TreatmentPlanServiceImpl implements TreatmentPlanService {
         int totalSessions = plan.getTotalSessions() > 0 ? plan.getTotalSessions() : 1;
         int dayGap = getDayGapForFrequency(plan.getFrequency());
 
+        String effectiveTherapyName = (plan.getTherapyName() != null && !plan.getTherapyName().trim().isEmpty() && !plan.getTherapyName().equalsIgnoreCase("CONSULTATION"))
+                ? plan.getTherapyName()
+                : "Abhyanga Therapy";
+
+        if (plan.getConsultationBookingId() == null && plan.getPatient() != null) {
+            List<Booking> patientBookings = bookingRepository.findByPatient_Id(plan.getPatient().getId());
+            Long consultId = patientBookings.stream()
+                    .filter(b -> b.getBookingType() == BookingType.CONSULTATION || (b.getPurpose() != null && b.getPurpose().toLowerCase().contains("consultation")))
+                    .sorted(java.util.Comparator.comparing(Booking::getBookingId, java.util.Comparator.nullsLast(java.util.Comparator.reverseOrder())))
+                    .map(Booking::getBookingId)
+                    .findFirst().orElse(null);
+            plan.setConsultationBookingId(consultId);
+        }
+
         for (int i = 0; i < totalSessions; i++) {
             int sessionNum = i + 1;
             LocalDate sessionDate = startDate.plusDays((long) i * dayGap);
@@ -174,9 +253,10 @@ public class TreatmentPlanServiceImpl implements TreatmentPlanService {
             booking.setTime(resolvedTime);
             booking.setBookingType(BookingType.THERAPY);
             booking.setBookingStatus(BookingStatus.CONFIRMED);
-            booking.setConsultationType(ConsultationType.OFFLINE);
-            booking.setTherapyName(plan.getTherapyName());
+            booking.setConsultationType(null);
+            booking.setTherapyName(effectiveTherapyName);
             booking.setPackageId(plan.getPackageId());
+            booking.setConsultationBookingId(plan.getConsultationBookingId());
             booking.setSessionNumber(sessionNum);
             booking.setTotalSessions(totalSessions);
 
@@ -191,13 +271,17 @@ public class TreatmentPlanServiceImpl implements TreatmentPlanService {
             }
 
             String purpose = String.format("%s (%s • Session %d of %d)",
-                    plan.getTherapyName(), phaseName, sessionNum, totalSessions);
+                    effectiveTherapyName, phaseName, sessionNum, totalSessions);
             booking.setPurpose(purpose);
 
             Booking savedBooking = bookingRepository.save(booking);
 
-            Long assignedTherapistId = savedBooking.getAssignedTo() != null ? savedBooking.getAssignedTo().getId() : null;
-            bookingWebSocketHandler.broadcastBookingUpdate(assignedTherapistId, savedBooking.getDate().toString());
+            if (bookingWebSocketHandler != null && savedBooking.getDate() != null) {
+                Long assignedTherapistId = savedBooking.getAssignedTo() != null ? savedBooking.getAssignedTo().getId() : null;
+                try {
+                    bookingWebSocketHandler.broadcastBookingUpdate(assignedTherapistId, savedBooking.getDate().toString());
+                } catch (Exception ignored) {}
+            }
         }
 
         plan.setStatus("SCHEDULED");
@@ -258,49 +342,84 @@ public class TreatmentPlanServiceImpl implements TreatmentPlanService {
                 plan.getClinicalNotes(),
                 plan.getStatus(),
                 plan.getPackageId(),
+                plan.getConsultationBookingId(),
                 plan.getCreatedAt()
         );
     }
 
     private LocalTime resolveAvailableTimeSlotForDate(Long therapistId, LocalDate date, LocalTime preferredTime) {
-        if (therapistId == null || preferredTime == null) return preferredTime;
+        if (therapistId == null || date == null) return preferredTime != null ? preferredTime : LocalTime.of(9, 0);
 
-        boolean isPreferredTaken = bookingRepository.findByAssignedTo_Id(therapistId).stream()
-                .anyMatch(b -> b.getDate() != null && b.getDate().equals(date) && b.getTime() != null && b.getTime().equals(preferredTime) && b.getBookingStatus() != BookingStatus.CANCELLED);
-
-        if (!isPreferredTaken) {
-            return preferredTime;
+        User therapist = userRepository.findById(therapistId).orElse(null);
+        List<LocalTime[]> workingSlots;
+        if (therapist != null) {
+            workingSlots = availabilityService.getTherapistWorkingSlotsForDate(therapist, date);
+        } else {
+            workingSlots = java.util.Collections.emptyList();
         }
 
-        LocalTime[] standardSlots = new LocalTime[]{
-            LocalTime.of(9, 0),
-            LocalTime.of(10, 0),
-            LocalTime.of(11, 0),
-            LocalTime.of(12, 0),
-            LocalTime.of(14, 0),
-            LocalTime.of(15, 0),
-            LocalTime.of(16, 0),
-            LocalTime.of(17, 0)
-        };
+        if (workingSlots.isEmpty()) {
+            workingSlots = java.util.Arrays.asList(
+                new LocalTime[]{LocalTime.of(9, 0), LocalTime.of(9, 45)},
+                new LocalTime[]{LocalTime.of(9, 45), LocalTime.of(10, 30)},
+                new LocalTime[]{LocalTime.of(10, 30), LocalTime.of(11, 15)},
+                new LocalTime[]{LocalTime.of(11, 15), LocalTime.of(12, 0)},
+                new LocalTime[]{LocalTime.of(12, 0), LocalTime.of(12, 45)},
+                new LocalTime[]{LocalTime.of(13, 30), LocalTime.of(14, 15)},
+                new LocalTime[]{LocalTime.of(14, 15), LocalTime.of(15, 0)},
+                new LocalTime[]{LocalTime.of(15, 0), LocalTime.of(15, 45)},
+                new LocalTime[]{LocalTime.of(15, 45), LocalTime.of(16, 30)}
+            );
+        }
 
-        Set<LocalTime> bookedTimes = bookingRepository.findByAssignedTo_Id(therapistId).stream()
+        List<Booking> activeBookings = bookingRepository.findByAssignedTo_Id(therapistId).stream()
                 .filter(b -> b.getDate() != null && b.getDate().equals(date) && b.getTime() != null && b.getBookingStatus() != BookingStatus.CANCELLED)
-                .map(Booking::getTime)
-                .collect(Collectors.toSet());
+                .collect(Collectors.toList());
 
-        for (LocalTime slot : standardSlots) {
-            if (slot.isAfter(preferredTime) && !bookedTimes.contains(slot)) {
-                return slot;
+        if (preferredTime != null) {
+            boolean isPreferredOverlapped = activeBookings.stream().anyMatch(b -> {
+                LocalTime bStart = b.getTime();
+                LocalTime bEnd = bStart.plusMinutes(45);
+                LocalTime prefEnd = preferredTime.plusMinutes(45);
+                return preferredTime.isBefore(bEnd) && prefEnd.isAfter(bStart);
+            });
+
+            if (!isPreferredOverlapped) {
+                return preferredTime;
             }
         }
 
-        for (LocalTime slot : standardSlots) {
-            if (!bookedTimes.contains(slot)) {
-                return slot;
+        for (LocalTime[] slotRange : workingSlots) {
+            LocalTime slotStart = slotRange[0];
+
+            boolean overlaps = activeBookings.stream().anyMatch(b -> {
+                LocalTime bStart = b.getTime();
+                LocalTime bEnd = bStart.plusMinutes(45);
+                LocalTime slotEnd = slotStart.plusMinutes(45);
+                return slotStart.isBefore(bEnd) && slotEnd.isAfter(bStart);
+            });
+
+            if (!overlaps && (preferredTime == null || slotStart.isAfter(preferredTime) || slotStart.equals(preferredTime))) {
+                return slotStart;
             }
         }
 
-        return preferredTime;
+        for (LocalTime[] slotRange : workingSlots) {
+            LocalTime slotStart = slotRange[0];
+
+            boolean overlaps = activeBookings.stream().anyMatch(b -> {
+                LocalTime bStart = b.getTime();
+                LocalTime bEnd = bStart.plusMinutes(45);
+                LocalTime slotEnd = slotStart.plusMinutes(45);
+                return slotStart.isBefore(bEnd) && slotEnd.isAfter(bStart);
+            });
+
+            if (!overlaps) {
+                return slotStart;
+            }
+        }
+
+        return preferredTime != null ? preferredTime : LocalTime.of(9, 0);
     }
 
     private User pickLeastLoadedTherapist(LocalDate targetDate) {

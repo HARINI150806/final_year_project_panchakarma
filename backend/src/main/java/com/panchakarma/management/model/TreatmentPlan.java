@@ -54,6 +54,9 @@ public class TreatmentPlan {
     @Column(name = "package_id")
     private String packageId;
 
+    @Column(name = "consultation_booking_id")
+    private Long consultationBookingId;
+
     @CreationTimestamp
     private LocalDateTime createdAt;
 
