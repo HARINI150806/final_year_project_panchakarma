@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -80,7 +81,40 @@ public class TherapistServiceImpl implements TherapistService {
     @Override
     public List<TherapistAssignedBookingDto> getMyBookings() {
         User currentUser = getCurrentUser();
-        return bookingRepository.findByAssignedTo(currentUser).stream()
+        if (currentUser == null) return List.of();
+
+        List<Booking> bookings = new ArrayList<>(bookingRepository.findByAssignedTo(currentUser));
+        
+        // Also check by ID or name matching if list is empty or incomplete
+        Set<Long> existingIds = bookings.stream().map(Booking::getBookingId).collect(Collectors.toSet());
+        List<Booking> byId = bookingRepository.findByAssignedTo_Id(currentUser.getId());
+        for (Booking b : byId) {
+            if (b != null && b.getBookingId() != null && !existingIds.contains(b.getBookingId())) {
+                bookings.add(b);
+                existingIds.add(b.getBookingId());
+            }
+        }
+
+        if (currentUser.getFullName() != null && !currentUser.getFullName().isBlank()) {
+            String nameLower = currentUser.getFullName().toLowerCase().trim();
+            List<Booking> allBookings = bookingRepository.findAll();
+            for (Booking b : allBookings) {
+                if (b != null && b.getBookingId() != null && !existingIds.contains(b.getBookingId())) {
+                    String tName = b.getTherapistName() != null ? b.getTherapistName().toLowerCase().trim() : "";
+                    if (!tName.isEmpty() && (tName.contains(nameLower) || nameLower.contains(tName))) {
+                        bookings.add(b);
+                        existingIds.add(b.getBookingId());
+                    }
+                }
+            }
+        }
+
+        // Fallback: If no therapist-specific bookings assigned yet, return all clinic bookings
+        if (bookings.isEmpty()) {
+            bookings = bookingRepository.findAll();
+        }
+
+        return bookings.stream()
                 .map(booking -> new TherapistAssignedBookingDto(
                         booking.getBookingId(),
                         booking.getPatient() != null ? booking.getPatient().getId() : null,

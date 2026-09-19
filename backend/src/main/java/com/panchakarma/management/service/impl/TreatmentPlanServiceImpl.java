@@ -128,53 +128,7 @@ public class TreatmentPlanServiceImpl implements TreatmentPlanService {
     @Override
     public List<TreatmentPlanDto> getTreatmentPlansByPatientId(Long patientId) {
         List<TreatmentPlan> plans = treatmentPlanRepository.findByPatient_Id(patientId);
-        if (!plans.isEmpty()) {
-            return plans.stream().map(this::mapToDto).collect(Collectors.toList());
-        }
-
-        // Fallback: If no formal TreatmentPlan row exists yet, build synthetic plan from patient's consultation booking
-        List<Booking> bookings = bookingRepository.findByPatient_Id(patientId);
-        if (bookings.isEmpty()) {
-            User user = userRepository.findById(patientId).orElse(null);
-            if (user != null && user.getEmail() != null) {
-                bookings = bookingRepository.findByPatientEmail(user.getEmail());
-            }
-        }
-
-        if (!bookings.isEmpty()) {
-            Booking mainBooking = bookings.get(0);
-            String thName = (mainBooking.getTherapyName() != null && !mainBooking.getTherapyName().isBlank())
-                    ? mainBooking.getTherapyName()
-                    : (mainBooking.getPurpose() != null && !mainBooking.getPurpose().isBlank()
-                        ? mainBooking.getPurpose()
-                        : "Panchakarma Consultation & Therapy Plan");
-
-            Long prescribedById = mainBooking.getAssignedTo() != null ? mainBooking.getAssignedTo().getId() : null;
-            String doctorName = mainBooking.getTherapistName() != null ? mainBooking.getTherapistName() : "Ayurvedic Specialist";
-
-            TreatmentPlanDto syntheticDto = new TreatmentPlanDto(
-                    mainBooking.getBookingId(),
-                    patientId,
-                    mainBooking.getPatientName() != null ? mainBooking.getPatientName() : "Patient",
-                    mainBooking.getPatientEmail(),
-                    prescribedById,
-                    doctorName,
-                    prescribedById,
-                    doctorName,
-                    thName,
-                    mainBooking.getTotalSessions() != null ? mainBooking.getTotalSessions() : 1,
-                    "ALTERNATE_DAYS",
-                    mainBooking.getDate() != null ? mainBooking.getDate() : LocalDate.now(),
-                    mainBooking.getPurpose(),
-                    "PLANNED",
-                    mainBooking.getPackageId() != null ? mainBooking.getPackageId() : "PLAN-" + mainBooking.getBookingId(),
-                    mainBooking.getConsultationBookingId() != null ? mainBooking.getConsultationBookingId() : (mainBooking.getBookingType() == BookingType.CONSULTATION ? mainBooking.getBookingId() : null),
-                    mainBooking.getCreatedAt() != null ? mainBooking.getCreatedAt() : java.time.LocalDateTime.now()
-            );
-            return List.of(syntheticDto);
-        }
-
-        return List.of();
+        return plans.stream().map(this::mapToDto).collect(Collectors.toList());
     }
 
     @Override

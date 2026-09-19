@@ -36,7 +36,7 @@ const therapistMenuGroups = [
     title: 'WORKSPACE',
     items: [
       { id: 'home', label: 'Dashboard', icon: LayoutDashboard },
-      { id: 'sessions', label: 'My Sessions', icon: CalendarDays },
+      { id: 'sessions', label: 'Therapy', icon: CalendarDays },
       { id: 'patients', label: 'My Patients', icon: Users },
       { id: 'consultations', label: 'Consultations', icon: Stethoscope },
     ],

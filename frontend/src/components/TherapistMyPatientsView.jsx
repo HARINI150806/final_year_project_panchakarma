@@ -11,7 +11,6 @@ import {
   ChevronRight,
   X,
   ShieldCheck,
-  Stethoscope,
   Sparkles,
   Clock,
   FileText,
@@ -236,47 +235,25 @@ export default function TherapistMyPatientsView() {
 
   return (
     <div className="space-y-8 animate-fade-in font-body text-forest">
-      {/* 1. ELEGANT HERO BANNER */}
-      <section className="relative overflow-hidden rounded-3xl p-6 md:p-8 bg-gradient-to-br from-[#143022] via-[#1b3d2b] to-[#0f241a] text-white shadow-xl border border-emerald-800/60">
-        <div className="ambient-orb right-[-3rem] top-[-3rem] h-64 w-64 bg-emerald-400/15 blur-3xl" />
-        <div className="ambient-orb bottom-[-2rem] left-[20%] h-56 w-56 bg-amber-300/10 blur-3xl" />
-        <div className="noise-grid absolute inset-0 opacity-[0.05]" />
-
-        <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-3 max-w-2xl">
-            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-900/60 px-3.5 py-1 text-xs font-bold uppercase tracking-wider text-emerald-200 backdrop-blur-md">
-              <Stethoscope size={13} className="text-amber-300" /> Clinical Care Hub
-            </div>
-            <h1 className="font-display text-2xl md:text-3xl font-extrabold text-amber-50 leading-tight">
-              Patient Clinical Directory
-            </h1>
-            <p className="text-xs md:text-sm text-emerald-100/80 leading-relaxed">
-              Comprehensive patient wellness tracking, constitution (Prakriti) profiles, diagnostic uploads, and real-time therapy session management.
-            </p>
-          </div>
-
-          <div className="w-full md:w-80 shrink-0">
-            <div className="relative">
-              <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-emerald-300/70" />
-              <input
-                type="text"
-                placeholder="Search patient name, email, or phone..."
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                className="w-full rounded-2xl border border-emerald-700/60 bg-emerald-950/60 pl-10 pr-4 py-3 text-xs text-white placeholder:text-emerald-300/50 outline-none backdrop-blur-md focus:border-amber-300 focus:ring-2 focus:ring-amber-300/20 transition"
-              />
-              {search && (
-                <button
-                  onClick={() => setSearch('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-300 hover:text-white"
-                >
-                  <X size={14} />
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      </section>
+      {/* 1. SEARCH BAR ALONE */}
+      <div className="relative w-full max-w-md">
+        <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-emerald-700/60" />
+        <input
+          type="text"
+          placeholder="Search patient name, email, or phone..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="w-full rounded-2xl border border-emerald-900/15 bg-white pl-10 pr-4 py-2.5 text-xs md:text-sm text-forest placeholder:text-forest/40 outline-none shadow-sm focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition"
+        />
+        {search && (
+          <button
+            onClick={() => setSearch('')}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-forest/40 hover:text-forest transition"
+          >
+            <X size={14} />
+          </button>
+        )}
+      </div>
 
       {/* 2. REFINED SUMMARY METRIC CARDS */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

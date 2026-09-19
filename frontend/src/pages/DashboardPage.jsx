@@ -391,10 +391,12 @@ export default function DashboardPage({ auth, onLogout, onAuthUpdate }) {
           const list = res.data || [];
           const validList = list.filter(p => {
             if (!p) return false;
-            if (Array.isArray(p.medicines) && p.medicines.length > 0) return true;
-            if (p.medicineName && p.medicineName.trim()) {
+            if (Array.isArray(p.medicines)) {
+              return p.medicines.length > 0;
+            }
+            if (p.medicineName && typeof p.medicineName === 'string' && p.medicineName.trim()) {
               const name = p.medicineName.trim().toLowerCase();
-              return name !== 'n/a' && name !== 'none' && name !== 'null' && name !== 'undefined' && !name.includes('panchakarma formulation');
+              return name !== 'n/a' && name !== 'none' && name !== 'null' && name !== 'nil' && name !== 'undefined' && !name.includes('panchakarma formulation') && !name.includes('ayurvedic consultation') && !name.includes('general prescription');
             }
             return false;
           });
@@ -519,28 +521,9 @@ export default function DashboardPage({ auth, onLogout, onAuthUpdate }) {
             <AdminTherapistPanel activeTab={adminActiveTab} onTabChange={setAdminActiveTab} />
           </section>
         ) : isTherapist ? (
-          patientTab === 'availability' ? (
-            <section className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 motion-fade-in-up">
-              {/* Back button */}
-              <button
-                onClick={() => handleTabChange('home')}
-                className="flex items-center gap-2 rounded-xl border border-[#cfe0c2] bg-white/80 px-4 py-2 text-sm font-semibold text-[#1F4D3A]/80 shadow-sm backdrop-blur-sm transition hover:bg-white hover:text-[#1F4D3A]"
-              >
-                ← Back to Dashboard
-              </button>
-              <section className="panel-frost rounded-[2rem] p-6 bg-white/80 relative overflow-hidden">
-                <div className="ambient-orb right-[-2rem] top-[-2rem] h-32 w-32 bg-[#cce4c0] opacity-40" />
-                <div className="relative">
-                  <TherapistAvailabilityManager />
-                </div>
-              </section>
-            </section>
-          ) : (
-            <section className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 motion-fade-in-up">
-              <TherapistDashboard activeTab={patientTab} onTabChange={handleTabChange} auth={auth} sidebarOffset={isCollapsed ? 80 : 260} />
-
-            </section>
-          )
+          <section className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 motion-fade-in-up">
+            <TherapistDashboard activeTab={patientTab} onTabChange={handleTabChange} auth={auth} sidebarOffset={isCollapsed ? 80 : 260} />
+          </section>
         ) : (
           /* PATIENT DASHBOARD */
           <section className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-8 motion-fade-in-up">
@@ -555,63 +538,28 @@ export default function DashboardPage({ auth, onLogout, onAuthUpdate }) {
                     <div className="ambient-orb bottom-[-2rem] left-[10%] h-64 w-64 bg-amber-300/10 blur-3xl" />
                     <div className="noise-grid absolute inset-0 opacity-[0.06]" />
 
-                    <div className="relative grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-                      {/* Left Column: Greeting, Description, Tip & Buttons */}
-                      <div className="lg:col-span-7 space-y-4">
-                        <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/40 bg-emerald-900/60 px-3.5 py-1 text-xs font-bold uppercase tracking-wider text-emerald-200 backdrop-blur-md">
-                          <Leaf size={13} className="text-emerald-300" /> Personal Care Companion
-                        </div>
-
-                        <h1 className="font-display text-3xl md:text-4xl font-extrabold leading-tight text-amber-50">
-                          {new Date().getHours() < 12
-                            ? 'Good Morning'
-                            : new Date().getHours() < 17
-                              ? 'Good Afternoon'
-                              : 'Good Evening'}
-                          , {auth?.fullName || 'Patient'}
-                        </h1>
-
-                        <p className="text-xs md:text-sm text-emerald-100/90 leading-relaxed max-w-xl">
-                          Welcome to your Panchakarma healing portal. Track your upcoming therapies, personalized nutrition guidelines, and daily recovery routines in one place.
-                        </p>
-
-                        {/* Daily Health Tip Callout */}
-                        <div className="inline-flex items-center gap-2 bg-white/10 border border-white/15 rounded-2xl p-2.5 px-4 text-xs font-medium text-amber-100 backdrop-blur-md">
-                          <Sparkles size={16} className="text-amber-300 shrink-0" />
-                          <span><strong>Today&apos;s Health Tip:</strong> Sip warm cumin-coriander tea throughout the day to nourish your digestive fire (Agni).</span>
-                        </div>
+                    <div className="relative space-y-4 max-w-3xl">
+                      <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/40 bg-emerald-900/60 px-3.5 py-1 text-xs font-bold uppercase tracking-wider text-emerald-200 backdrop-blur-md">
+                        <Leaf size={13} className="text-emerald-300" /> Personal Care Companion
                       </div>
 
-                      {/* Right Column: Score Ring Card */}
-                      <div className="lg:col-span-5 flex justify-center lg:justify-end items-center">
-                        <div className="flex items-center gap-4 bg-white/10 border border-white/15 rounded-3xl p-5 px-6 backdrop-blur-md shadow-lg w-full max-w-sm">
-                          <div className="relative h-16 w-16 shrink-0 flex items-center justify-center font-bold text-white text-base">
-                            <svg className="h-full w-full transform -rotate-90" viewBox="0 0 36 36">
-                              <path
-                                className="text-emerald-900"
-                                strokeWidth="3.5"
-                                stroke="currentColor"
-                                fill="none"
-                                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                              />
-                              <path
-                                className="text-amber-300"
-                                strokeDasharray="88, 100"
-                                strokeWidth="3.5"
-                                strokeLinecap="round"
-                                stroke="currentColor"
-                                fill="none"
-                                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                              />
-                            </svg>
-                            <span className="absolute text-xs font-extrabold text-amber-200">88%</span>
-                          </div>
-                          <div className="space-y-1">
-                            <p className="text-[11px] font-extrabold text-amber-300 uppercase tracking-wider">Wellness Progress</p>
-                            <p className="text-base font-extrabold text-white leading-tight">Optimal Agni & Digestion</p>
-                            <p className="text-xs text-emerald-200/80 font-medium">Body Type: {auth?.dominantDosha ? String(auth.dominantDosha).replace('_', '-') : 'Not Assessed Yet'}</p>
-                          </div>
-                        </div>
+                      <h1 className="font-display text-3xl md:text-4xl font-extrabold leading-tight text-amber-50">
+                        {new Date().getHours() < 12
+                          ? 'Good Morning'
+                          : new Date().getHours() < 17
+                            ? 'Good Afternoon'
+                            : 'Good Evening'}
+                        , {auth?.fullName || 'Patient'}
+                      </h1>
+
+                      <p className="text-xs md:text-sm text-emerald-100/90 leading-relaxed max-w-2xl">
+                        Welcome to your Panchakarma healing portal. Track your upcoming therapies, personalized nutrition guidelines, and daily recovery routines in one place.
+                      </p>
+
+                      {/* Daily Health Tip Callout */}
+                      <div className="inline-flex items-center gap-2 bg-white/10 border border-white/15 rounded-2xl p-2.5 px-4 text-xs font-medium text-amber-100 backdrop-blur-md">
+                        <Sparkles size={16} className="text-amber-300 shrink-0" />
+                        <span><strong>Today&apos;s Health Tip:</strong> Sip warm cumin-coriander tea throughout the day to nourish your digestive fire (Agni).</span>
                       </div>
                     </div>
                   </section>
@@ -718,32 +666,6 @@ export default function DashboardPage({ auth, onLogout, onAuthUpdate }) {
 
                       {/* 4. TODAY'S DAILY WELLNESS ROUTINE (DINACHARYA) */}
                       <PatientWellnessRoutine />
-
-                      {/* 4B. TREATMENT HISTORY QUICK ACCESS */}
-                      <div className="rounded-3xl border border-emerald-900/10 bg-gradient-to-br from-emerald-900 via-[#1b3d2b] to-[#122c1e] p-5 shadow-sm text-white space-y-3 relative overflow-hidden">
-                        <div className="ambient-orb right-[-2rem] top-[-2rem] h-32 w-32 bg-emerald-400/20 blur-2xl" />
-                        <div className="relative z-10 flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-800/80 text-emerald-200">
-                              <Stethoscope size={20} />
-                            </div>
-                            <div>
-                              <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-300">Clinical History Log</p>
-                              <h3 className="font-display text-lg font-bold leading-snug text-white">Your Treatment History</h3>
-                            </div>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => handleTabChange('treatment')}
-                            className="shrink-0 rounded-2xl bg-emerald-100 px-4 py-2 text-xs font-extrabold text-emerald-950 shadow-xs hover:bg-white transition cursor-pointer"
-                          >
-                            View Full History →
-                          </button>
-                        </div>
-                        <p className="text-xs text-emerald-100/80 leading-relaxed relative z-10">
-                          Access past Panchakarma therapy records, doctor notes, recorded vitals (BP/Pulse), and download official clinical summary PDFs.
-                        </p>
-                      </div>
                     </div>
 
                     {/* Right Column: Personal Nutrition */}

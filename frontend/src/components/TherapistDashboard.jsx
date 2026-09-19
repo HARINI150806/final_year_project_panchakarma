@@ -1,6 +1,22 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Check, X, FileText, ClipboardList, Calendar, Sparkles, Search, ChevronLeft, ChevronRight, RotateCcw, Filter, Mail, Clock, BarChart3, BookOpen, Users, Activity, HeartPulse, ShieldAlert, Download, Plus } from 'lucide-react';
+import { Check, X, FileText, ClipboardList, Calendar, Sparkles, Search, ChevronLeft, ChevronRight, RotateCcw, Filter, Mail, Clock, BarChart3, BookOpen, Users, Activity, HeartPulse, ShieldAlert, Download, Plus, MoreVertical } from 'lucide-react';
+
+const formatTime12h = (timeStr) => {
+    if (!timeStr) return '09:45 AM';
+    if (timeStr.includes('AM') || timeStr.includes('PM')) return timeStr;
+    const parts = timeStr.split(':');
+    if (parts.length >= 2) {
+        let hrs = parseInt(parts[0], 10);
+        const mins = parts[1];
+        const ampm = hrs >= 12 ? 'PM' : 'AM';
+        hrs = hrs % 12;
+        if (hrs === 0) hrs = 12;
+        const hrsFormatted = String(hrs).padStart(2, '0');
+        return `${hrsFormatted}:${mins} ${ampm}`;
+    }
+    return timeStr;
+};
 import api from '../api';
 import { generatePrescriptionPDF } from '../utils/pdfExport';
 import DoctorPrescribePlanModal from './DoctorPrescribePlanModal';
@@ -11,6 +27,53 @@ import TherapistAvailabilityManager from './TherapistAvailabilityManager';
 import TherapistFollowUpsView from './TherapistFollowUpsView';
 import TherapistWalletView from './TherapistWalletView';
 import RecoveryTrackingModal from './RecoveryTrackingModal';
+
+const getTherapyDisplayInfo = (booking) => {
+    if (!booking) return { title: 'Panchakarma Session', sessionTag: '1 of 1' };
+    let raw = booking.therapyDescription || booking.purpose || '';
+    if (!raw) {
+        if (booking.therapyName === 'CONSULTATION' || booking.bookingType === 'CONSULTATION') return { title: 'Ayurvedic Consultation', sessionTag: '1 of 1' };
+        if (booking.therapyName === 'THERAPY' || booking.bookingType === 'THERAPY') return { title: 'Panchakarma Therapy', sessionTag: '1 of 1' };
+        return { title: booking.therapyName || 'Panchakarma Session', sessionTag: '1 of 1' };
+    }
+
+    const mainTherapies = [
+        'Vamana', 'Virechana', 'Basti', 'Nasya', 'Raktamokshana',
+        'Abhyanga', 'Shirodhara', 'Kati Basti', 'Janu Basti', 'Greeva Basti',
+        'Netra Tarpana', 'Udwarthanam', 'Pizhichil', 'Kizhi', 'Takradhara',
+        'Swedana', 'Udvartana'
+    ];
+
+    let title = null;
+    for (const t of mainTherapies) {
+        if (raw.toLowerCase().includes(t.toLowerCase())) {
+            title = t;
+            break;
+        }
+    }
+
+    if (!title) {
+        let clean = raw;
+        if (clean.includes('(')) clean = clean.split('(')[0];
+        if (clean.includes('—')) clean = clean.split('—')[0];
+        if (clean.includes('-')) clean = clean.split('-')[0];
+        if (clean.includes('•')) clean = clean.split('•')[0];
+        title = clean.trim() || raw;
+    }
+
+    let sessionTag = '1 of 1';
+    const sessionMatch = raw.match(/Session\s+\d+(\s+of\s+\d+)?/i);
+    if (sessionMatch) {
+        sessionTag = sessionMatch[0].replace(/^Session\s+/i, '');
+    }
+
+    return { title, sessionTag };
+};
+
+const getCleanTherapyTitle = (booking) => {
+    if (!booking) return 'Panchakarma Session';
+    return getTherapyDisplayInfo(booking).title;
+};
 
 function TherapistDashboard({ activeTab, onTabChange, auth, sidebarOffset = 0 }) {
     const [searchParams] = useSearchParams();
@@ -36,10 +99,16 @@ function TherapistDashboard({ activeTab, onTabChange, auth, sidebarOffset = 0 })
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('ALL');
     const [typeFilter, setTypeFilter] = useState('ALL'); // 'ALL', 'CONSULTATION', 'THERAPY'
+    const [specificTreatmentFilter, setSpecificTreatmentFilter] = useState('ALL');
     const [dateMode, setDateMode] = useState('ALL'); // 'ALL', 'TODAY', 'CUSTOM'
     const [customDate, setCustomDate] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 8;
+
+    // Prescriptions & Plans Filter State
+    const [rxSearchQuery, setRxSearchQuery] = useState('');
+    const [rxStatusFilter, setRxStatusFilter] = useState('ALL');
+    const [rxCategoryFilter, setRxCategoryFilter] = useState('ALL');
 
     const getTodayString = () => {
         const today = new Date();
@@ -53,7 +122,7 @@ function TherapistDashboard({ activeTab, onTabChange, auth, sidebarOffset = 0 })
         if (!targetBookingId) {
             setCurrentPage(1);
         }
-    }, [searchQuery, statusFilter, typeFilter, dateMode, customDate, targetBookingId]);
+    }, [searchQuery, statusFilter, typeFilter, specificTreatmentFilter, dateMode, customDate, targetBookingId]);
 
     const [saving, setSaving] = useState(false);
 
@@ -74,16 +143,19 @@ function TherapistDashboard({ activeTab, onTabChange, auth, sidebarOffset = 0 })
         if (activeTab === 'home' || activeTab === 'dashboard') {
             setViewMode('SESSIONS');
             setTypeFilter('ALL');
+            setSpecificTreatmentFilter('ALL');
             setStatusFilter('ALL');
             setDateMode('ALL');
         } else if (activeTab === 'sessions') {
             setViewMode('SESSIONS');
             setTypeFilter('THERAPY');
+            setSpecificTreatmentFilter('ALL');
             setStatusFilter('ALL');
             setDateMode('ALL');
         } else if (activeTab === 'consultations') {
             setViewMode('SESSIONS');
             setTypeFilter('CONSULTATION');
+            setSpecificTreatmentFilter('ALL');
             setStatusFilter('ALL');
             setDateMode('ALL');
         } else if (activeTab === 'patients') {
@@ -231,6 +303,7 @@ function TherapistDashboard({ activeTab, onTabChange, auth, sidebarOffset = 0 })
                 api.get('/therapists/prescriptions').catch(() => ({ data: [] }))
             ]);
             const myBookingsList = bookingsRes.data || [];
+            setBookings(myBookingsList);
             const rawComplaints = complaintsRes.data || [];
 
             // Filter complaints so only patient complaints for patients who have booked this therapist are displayed
@@ -255,20 +328,73 @@ function TherapistDashboard({ activeTab, onTabChange, auth, sidebarOffset = 0 })
                 return false;
             });
 
-            setBookings(myBookingsList);
-            setTreatmentPlans(plansRes.data || []);
+            const currentTherapistId = auth?.userId || auth?.id;
+            const rawTherapistName = auth?.fullName || auth?.name || auth?.username || auth?.user?.fullName || auth?.user?.name || '';
+            const currentTherapistName = rawTherapistName.toLowerCase().trim();
+
+            const myTreatmentPlans = (plansRes.data || []).filter(plan => {
+                if (!plan || !plan.id || plan.status === 'PLANNED') return false;
+                const tName = (plan.therapyName || '').toLowerCase().trim();
+                if (!tName || tName === 'none' || tName === 'n/a' || tName === 'null' || tName === 'consultation' || tName.includes('consultation') || tName.includes('panchakarma consultation')) {
+                    return false;
+                }
+
+                const pById = plan.prescribedById ? String(plan.prescribedById) : null;
+                const aById = plan.assignedTherapistId ? String(plan.assignedTherapistId) : null;
+                const pByName = (plan.prescribedByName || plan.prescribedByDoctorName || '').toLowerCase().trim();
+                const aByName = (plan.assignedTherapistName || '').toLowerCase().trim();
+
+                // Direct ID match
+                if (currentTherapistId) {
+                    if (pById && pById === String(currentTherapistId)) return true;
+                    if (aById && aById === String(currentTherapistId)) return true;
+                }
+
+                // Direct Name match
+                if (currentTherapistName) {
+                    if (pByName && (pByName.includes(currentTherapistName) || currentTherapistName.includes(pByName))) return true;
+                    if (aByName && (aByName.includes(currentTherapistName) || currentTherapistName.includes(aByName))) return true;
+                }
+
+                // Fallback: If plan patient is in this therapist's assigned bookings AND not explicitly assigned to a different therapist
+                const pUserId = plan.patientId;
+                const pName = (plan.patientName || '').toLowerCase().trim();
+                const isMyPatient = (pUserId && bookedPatientUserIds.has(pUserId)) || (pName && bookedPatientNames.has(pName));
+
+                if (isMyPatient) {
+                    if (!pById && !aById && !pByName && !aByName) return true;
+                }
+
+                return false;
+            });
+
+            setTreatmentPlans(myTreatmentPlans);
             setTherapistComplaints(filteredComplaints);
+
             const rawPrescriptions = prescriptionsRes.data || [];
             const validPrescriptions = rawPrescriptions.filter(p => {
                 if (!p) return false;
-                if (Array.isArray(p.medicines) && p.medicines.length > 0) return true;
-                if (p.medicineName && p.medicineName.trim()) {
-                    const name = p.medicineName.trim().toLowerCase();
-                    return name !== 'n/a' && name !== 'none' && name !== 'null' && name !== 'undefined' && !name.includes('panchakarma formulation');
+                const rxTherapistId = p.therapistId || p.doctorId ? String(p.therapistId || p.doctorId) : null;
+                const rxDoctorName = (p.doctorName || p.therapistName || '').toLowerCase().trim();
+
+                if (currentTherapistId && rxTherapistId && rxTherapistId === String(currentTherapistId)) {
+                    return true;
                 }
+
+                if (currentTherapistName && rxDoctorName && (rxDoctorName.includes(currentTherapistName) || currentTherapistName.includes(rxDoctorName))) {
+                    return true;
+                }
+
+                const pUserId = p.patientUserId || p.patientId || p.patient?.id || p.patient?.userId;
+                const pName = (p.patientName || p.patient?.fullName || '').toLowerCase().trim();
+                const isMyPatient = (pUserId && bookedPatientUserIds.has(pUserId)) || (pName && bookedPatientNames.has(pName));
+
+                if (isMyPatient) return true;
+                if (!rxTherapistId && !rxDoctorName) return true;
+
                 return false;
             });
-            setTherapistPrescriptions(validPrescriptions);
+            setTherapistPrescriptions(validPrescriptions.length > 0 ? validPrescriptions : rawPrescriptions);
         } catch (err) {
             if (err.response && err.response.status === 403) {
                 setError('Access Denied: Please ensure you are logged in as a therapist.');
@@ -508,16 +634,66 @@ function TherapistDashboard({ activeTab, onTabChange, auth, sidebarOffset = 0 })
         setViewNotesOpen(true);
     };
 
+    const availableTreatmentTypes = Array.from(new Set(
+        (bookings || []).map(b => getTherapyDisplayInfo(b)?.title).filter(Boolean)
+    )).sort();
+
+    const filteredPrescriptions = (therapistPrescriptions || []).filter(rx => {
+        if (!rx) return false;
+        const hasMeds = Array.isArray(rx.medicines) && rx.medicines.length > 0;
+        const isDispensed = rx.dispensed || rx.status === 'DISPENSED';
+
+        if (rxStatusFilter === 'PENDING' && (!hasMeds || isDispensed)) return false;
+        if (rxStatusFilter === 'DISPENSED' && !isDispensed) return false;
+        if (rxStatusFilter === 'NO_MEDICINES' && hasMeds) return false;
+
+        if (rxSearchQuery.trim()) {
+            const query = rxSearchQuery.toLowerCase();
+            const pName = (rx.patientName || '').toLowerCase();
+            const pNum = (rx.prescriptionNumber || `rx-${rx.id}`).toLowerCase();
+            const diag = (rx.clinicalDiagnosis || rx.chiefComplaint || '').toLowerCase();
+            const medNames = (rx.medicines || []).map(m => (m.medicineName || '').toLowerCase()).join(' ');
+
+            if (!pName.includes(query) && !pNum.includes(query) && !diag.includes(query) && !medNames.includes(query)) {
+                return false;
+            }
+        }
+        return true;
+    });
+
+    const filteredTreatmentPlans = (treatmentPlans || []).filter(plan => {
+        if (!plan) return false;
+        if (rxSearchQuery.trim()) {
+            const query = rxSearchQuery.toLowerCase();
+            const pName = (plan.patientName || '').toLowerCase();
+            const tName = (plan.therapyName || '').toLowerCase();
+            const notes = (plan.clinicalNotes || '').toLowerCase();
+
+            if (!pName.includes(query) && !tName.includes(query) && !notes.includes(query)) {
+                return false;
+            }
+        }
+        return true;
+    });
+
     const filteredBookings = (bookings || []).filter(b => {
         if (!b) return false;
-        // Category / Type Filter (Consultations vs Therapies)
-        const tName = (b.therapyName || '').toLowerCase();
-        const isConsultation = (b.bookingType || b.type || '').toUpperCase() === 'CONSULTATION' || tName.includes('consultation');
+        // Category / Type / Specific Treatment Filter
+        const info = getTherapyDisplayInfo(b);
+        const tName = ((b.therapyName || '') + ' ' + (b.therapyDescription || '') + ' ' + (b.purpose || '') + ' ' + (info.title || '')).toLowerCase();
+        const bType = (b.bookingType || b.therapyName || b.type || '').toUpperCase();
+        const isConsultation = bType === 'CONSULTATION' || tName.includes('consultation');
+
         if (typeFilter === 'CONSULTATION' && !isConsultation) {
             return false;
         }
         if (typeFilter === 'THERAPY' && isConsultation) {
             return false;
+        }
+        if (specificTreatmentFilter !== 'ALL') {
+            if (info.title !== specificTreatmentFilter && !tName.includes(specificTreatmentFilter.toLowerCase())) {
+                return false;
+            }
         }
 
         // Search Filter
@@ -551,12 +727,18 @@ function TherapistDashboard({ activeTab, onTabChange, auth, sidebarOffset = 0 })
     const totalPages = Math.ceil(filteredBookings.length / itemsPerPage) || 1;
     const paginatedBookings = filteredBookings.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-    const isFilterActive = searchQuery.trim() !== '' || statusFilter !== 'ALL' || typeFilter !== 'ALL' || dateMode !== 'ALL';
+    const isFilterActive = searchQuery.trim() !== '' || 
+        typeFilter !== 'ALL' || 
+        specificTreatmentFilter !== 'ALL' || 
+        (activeTab === 'requests' ? statusFilter !== 'REQUESTS' : statusFilter !== 'ALL') || 
+        dateMode !== 'ALL';
+    const showSessionColumn = activeTab !== 'consultations' && typeFilter !== 'CONSULTATION';
 
     const resetFilters = () => {
         setSearchQuery('');
-        setStatusFilter('ALL');
         setTypeFilter('ALL');
+        setSpecificTreatmentFilter('ALL');
+        setStatusFilter(activeTab === 'requests' ? 'REQUESTS' : 'ALL');
         setDateMode('ALL');
         setCustomDate('');
         setCurrentPage(1);
@@ -572,72 +754,72 @@ function TherapistDashboard({ activeTab, onTabChange, auth, sidebarOffset = 0 })
 
     return (
         <div id="therapist-bookings-section" className="space-y-5">
-            {/* 2. STAT CARDS */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {/* Card 1: Assigned Sessions */}
-                <div className="rounded-2xl p-5 bg-white border border-emerald-900/10 shadow-sm hover:shadow-md transition duration-200 flex flex-col justify-between space-y-3">
-                    <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold uppercase tracking-wider text-gray-400">Assigned Sessions</span>
-                        <div className="w-9 h-9 rounded-xl bg-emerald-50 border border-emerald-200/60 text-emerald-800 flex items-center justify-center">
-                            <Calendar size={18} />
+            {/* 2. STAT CARDS (Dashboard & Sessions Tabs) */}
+            {(activeTab === 'home' || activeTab === 'dashboard' || activeTab === 'sessions' || !activeTab) && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {/* Card 1: Assigned Sessions */}
+                    <div className="rounded-2xl p-5 bg-white border border-emerald-900/10 shadow-sm hover:shadow-md transition duration-200 flex flex-col justify-between space-y-3">
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold uppercase tracking-wider text-gray-400">Assigned Sessions</span>
+                            <div className="w-9 h-9 rounded-xl bg-emerald-50 border border-emerald-200/60 text-emerald-800 flex items-center justify-center">
+                                <Calendar size={18} />
+                            </div>
+                        </div>
+                        <div>
+                            <h3 className="text-3xl font-extrabold text-green-900">{bookings.length}</h3>
+                            <p className="text-xs font-medium text-emerald-700 mt-1">
+                                {(bookings || []).filter(b => b?.bookingStatus === 'PENDING').length} Pending
+                            </p>
                         </div>
                     </div>
-                    <div>
-                        <h3 className="text-3xl font-extrabold text-green-900">{bookings.length}</h3>
-                        <p className="text-xs font-medium text-emerald-700 mt-1">
-                            {(bookings || []).filter(b => b?.bookingStatus === 'PENDING').length} Pending
-                        </p>
-                    </div>
-                </div>
 
-                {/* Card 2: Completed Today */}
-                <div className="rounded-2xl p-5 bg-white border border-emerald-900/10 shadow-sm hover:shadow-md transition duration-200 flex flex-col justify-between space-y-3">
-                    <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold uppercase tracking-wider text-gray-400">Completed Today</span>
-                        <div className="w-9 h-9 rounded-xl bg-green-50 border border-green-200/60 text-green-800 flex items-center justify-center">
-                            <Check size={18} />
+                    {/* Card 2: Completed Today */}
+                    <div className="rounded-2xl p-5 bg-white border border-emerald-900/10 shadow-sm hover:shadow-md transition duration-200 flex flex-col justify-between space-y-3">
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold uppercase tracking-wider text-gray-400">Completed Today</span>
+                            <div className="w-9 h-9 rounded-xl bg-green-50 border border-green-200/60 text-green-800 flex items-center justify-center">
+                                <Check size={18} />
+                            </div>
+                        </div>
+                        <div>
+                            <h3 className="text-3xl font-extrabold text-green-900">
+                                {(bookings || []).filter(b => b?.bookingStatus === 'COMPLETED' && (b?.bookingDate === getTodayString() || !b?.bookingDate)).length}
+                            </h3>
+                            <p className="text-xs font-medium text-gray-500 mt-1">Completed today</p>
                         </div>
                     </div>
-                    <div>
-                        <h3 className="text-3xl font-extrabold text-green-900">
-                            {(bookings || []).filter(b => b?.bookingStatus === 'COMPLETED').length}
-                        </h3>
-                        <p className="text-xs font-medium text-gray-500 mt-1">Completed</p>
-                    </div>
-                </div>
 
-                {/* Card 3: Room Utilization */}
-                <div className="rounded-2xl p-5 bg-white border border-emerald-900/10 shadow-sm hover:shadow-md transition duration-200 flex flex-col justify-between space-y-3">
-                    <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold uppercase tracking-wider text-gray-400">Room Utilization</span>
-                        <div className="w-9 h-9 rounded-xl bg-sky-50 border border-sky-200/60 text-sky-800 flex items-center justify-center">
-                            <Sparkles size={18} />
+                    {/* Card 3: Room Utilization */}
+                    <div className="rounded-2xl p-5 bg-white border border-emerald-900/10 shadow-sm hover:shadow-md transition duration-200 flex flex-col justify-between space-y-3">
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold uppercase tracking-wider text-gray-400">Room Utilization</span>
+                            <div className="w-9 h-9 rounded-xl bg-sky-50 border border-sky-200/60 text-sky-800 flex items-center justify-center">
+                                <Sparkles size={18} />
+                            </div>
+                        </div>
+                        <div>
+                            <h3 className="text-3xl font-extrabold text-green-900">75%</h3>
+                            <p className="text-xs font-medium text-sky-700 mt-1">3 of 4 rooms occupied</p>
                         </div>
                     </div>
-                    <div>
-                        <h3 className="text-3xl font-extrabold text-green-900">75%</h3>
-                        <p className="text-xs font-medium text-sky-700 mt-1">3 of 4 rooms occupied</p>
-                    </div>
-                </div>
 
-                {/* Card 4: Patient Updates */}
-                <div className="rounded-2xl p-5 bg-white border border-emerald-900/10 shadow-sm hover:shadow-md transition duration-200 flex flex-col justify-between space-y-3">
-                    <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold uppercase tracking-wider text-gray-400">Patient Updates</span>
-                        <div className="w-9 h-9 rounded-xl bg-amber-50 border border-amber-200/60 text-amber-800 flex items-center justify-center">
-                            <ClipboardList size={18} />
+                    {/* Card 4: Patient Updates */}
+                    <div className="rounded-2xl p-5 bg-white border border-emerald-900/10 shadow-sm hover:shadow-md transition duration-200 flex flex-col justify-between space-y-3">
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold uppercase tracking-wider text-gray-400">Patient Updates</span>
+                            <div className="w-9 h-9 rounded-xl bg-amber-50 border border-amber-200/60 text-amber-800 flex items-center justify-center">
+                                <ClipboardList size={18} />
+                            </div>
+                        </div>
+                        <div>
+                            <h3 className="text-3xl font-extrabold text-green-900">{therapistComplaints.length}</h3>
+                            <p className="text-xs font-medium text-amber-700 mt-1">
+                                {therapistComplaints.length === 0 ? 'No pending updates' : `${therapistComplaints.length} active updates`}
+                            </p>
                         </div>
                     </div>
-                    <div>
-                        <h3 className="text-3xl font-extrabold text-green-900">{therapistComplaints.length}</h3>
-                        <p className="text-xs font-medium text-amber-700 mt-1">
-                            {therapistComplaints.length === 0 ? 'No pending updates' : `${therapistComplaints.length} active updates`}
-                        </p>
-                    </div>
                 </div>
-            </div>
-
-            {/* 3. MAIN WORKSPACE SECTION */}
+            )}
             <div className="space-y-3 pt-1">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <h2 className="text-xl font-bold text-green-900">
@@ -647,7 +829,7 @@ function TherapistDashboard({ activeTab, onTabChange, auth, sidebarOffset = 0 })
                          viewMode === 'AVAILABILITY' ? 'Therapist Schedule & Availability' :
                          viewMode === 'REPORTS' ? 'Clinical Reports & Insights' :
                          viewMode === 'RESOURCES' ? 'Ayurveda Clinical Guidance & Protocols' :
-                         activeTab === 'sessions' ? 'My Therapy Sessions' :
+                         activeTab === 'sessions' ? 'Therapy' :
                          activeTab === 'consultations' ? 'Doctor Consultations' :
                          activeTab === 'requests' ? 'Session & Reschedule Requests' :
                          "Today's & Scheduled Sessions"}
@@ -670,34 +852,80 @@ function TherapistDashboard({ activeTab, onTabChange, auth, sidebarOffset = 0 })
                                         type="text"
                                         value={searchQuery}
                                         onChange={(e) => setSearchQuery(e.target.value)}
-                                        placeholder="Search patient name or therapy..."
+                                        placeholder="Search patient name or treatment..."
                                         className="w-full pl-10 pr-4 py-2 text-sm text-gray-800 bg-gray-50/60 border border-gray-200 rounded-full outline-none focus:bg-white focus:border-emerald-500 transition"
                                     />
                                 </div>
 
                                 {/* Filter Controls */}
                                 <div className="flex flex-wrap items-center gap-2">
+                                    {/* Type Dropdown */}
                                     <select
-                                        value={statusFilter}
-                                        onChange={(e) => setStatusFilter(e.target.value)}
-                                        className="bg-gray-50/60 border border-gray-200 rounded-full px-3.5 py-2 text-xs font-semibold text-gray-700 outline-none focus:bg-white focus:border-emerald-500 cursor-pointer"
+                                        value={typeFilter}
+                                        onChange={(e) => setTypeFilter(e.target.value)}
+                                        className={`border rounded-full px-4 py-2 text-xs font-semibold outline-none transition cursor-pointer ${
+                                            typeFilter !== 'ALL'
+                                                ? 'border-emerald-500 text-emerald-800 bg-emerald-50/60 font-bold ring-2 ring-emerald-400/20'
+                                                : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                                        }`}
                                     >
-                                        <option value="ALL">All Statuses ▼</option>
-                                        <option value="REQUESTS">Reschedule Requests</option>
-                                        <option value="CONFIRMED">Confirmed</option>
-                                        <option value="PENDING">Pending Only</option>
-                                        <option value="COMPLETED">Completed</option>
-                                        <option value="CANCELLED">Cancelled</option>
-                                        <option value="RESCHEDULE_REQUESTED">Reschedule Requested</option>
-                                        <option value="ALT_SLOTS_PENDING">Awaiting Patient Choice</option>
+                                        <option value="ALL">Type ▼</option>
+                                        <option value="ALL">All Types</option>
+                                        <option value="CONSULTATION">🩺 Consultation</option>
+                                        <option value="THERAPY">🌿 Therapy</option>
                                     </select>
 
+                                    {/* Treatment Dropdown */}
+                                    <select
+                                        value={specificTreatmentFilter}
+                                        onChange={(e) => setSpecificTreatmentFilter(e.target.value)}
+                                        className={`border rounded-full px-4 py-2 text-xs font-semibold outline-none transition cursor-pointer ${
+                                            specificTreatmentFilter !== 'ALL'
+                                                ? 'border-emerald-500 text-emerald-800 bg-emerald-50/60 font-bold ring-2 ring-emerald-400/20'
+                                                : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                                        }`}
+                                    >
+                                        <option value="ALL">Treatment ▼</option>
+                                        <option value="ALL">All Treatments</option>
+                                        {availableTreatmentTypes.map(t => (
+                                            <option key={t} value={t}>{t}</option>
+                                        ))}
+                                    </select>
+
+                                    {/* Status Dropdown */}
+                                    {activeTab !== 'requests' && (
+                                        <select
+                                            value={statusFilter}
+                                            onChange={(e) => setStatusFilter(e.target.value)}
+                                            className={`border rounded-full px-4 py-2 text-xs font-semibold outline-none transition cursor-pointer ${
+                                                statusFilter !== 'ALL'
+                                                    ? 'border-emerald-500 text-emerald-800 bg-emerald-50/60 font-bold ring-2 ring-emerald-400/20'
+                                                    : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                                            }`}
+                                        >
+                                            <option value="ALL">Status ▼</option>
+                                            <option value="ALL">All Statuses</option>
+                                            <option value="CONFIRMED">Confirmed</option>
+                                            <option value="COMPLETED">Completed</option>
+                                            <option value="PENDING">Pending</option>
+                                            <option value="CANCELLED">Cancelled</option>
+                                            <option value="REQUESTS">Reschedule Requests</option>
+                                            <option value="ALT_SLOTS_PENDING">Awaiting Patient Choice</option>
+                                        </select>
+                                    )}
+
+                                    {/* Date Dropdown */}
                                     <select
                                         value={dateMode}
                                         onChange={(e) => setDateMode(e.target.value)}
-                                        className="bg-gray-50/60 border border-gray-200 rounded-full px-3.5 py-2 text-xs font-semibold text-gray-700 outline-none focus:bg-white focus:border-emerald-500 cursor-pointer"
+                                        className={`border rounded-full px-4 py-2 text-xs font-semibold outline-none transition cursor-pointer ${
+                                            dateMode !== 'ALL'
+                                                ? 'border-emerald-500 text-emerald-800 bg-emerald-50/60 font-bold ring-2 ring-emerald-400/20'
+                                                : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                                        }`}
                                     >
-                                        <option value="ALL">All Dates ▼</option>
+                                        <option value="ALL">Date ▼</option>
+                                        <option value="ALL">All Dates</option>
                                         <option value="TODAY">Today Only</option>
                                         <option value="CUSTOM">Custom Date</option>
                                     </select>
@@ -707,17 +935,18 @@ function TherapistDashboard({ activeTab, onTabChange, auth, sidebarOffset = 0 })
                                             type="date"
                                             value={customDate}
                                             onChange={(e) => setCustomDate(e.target.value)}
-                                            className="bg-gray-50/60 border border-gray-200 rounded-full px-3 py-1.5 text-xs font-semibold text-gray-700 outline-none focus:bg-white focus:border-emerald-500 cursor-pointer"
+                                            className="bg-white border border-emerald-300 rounded-full px-3.5 py-1.5 text-xs font-semibold text-gray-700 outline-none focus:border-emerald-500 cursor-pointer shadow-2xs"
                                         />
                                     )}
 
+                                    {/* Clear Button */}
                                     {isFilterActive && (
                                         <button
                                             type="button"
                                             onClick={resetFilters}
-                                            className="px-3.5 py-2 text-xs font-bold text-rose-700 bg-rose-50 border border-rose-200 rounded-full hover:bg-rose-100 transition cursor-pointer"
+                                            className="px-4 py-2 text-xs font-bold text-rose-500 bg-rose-50 border border-rose-200 rounded-full hover:bg-rose-100 transition cursor-pointer flex items-center gap-1.5 shrink-0"
                                         >
-                                            Reset Filters
+                                            <RotateCcw size={13} /> Clear
                                         </button>
                                     )}
                                 </div>
@@ -731,18 +960,19 @@ function TherapistDashboard({ activeTab, onTabChange, auth, sidebarOffset = 0 })
                                 <table className="w-full text-left border-collapse">
                                     <thead>
                                         <tr className="border-b border-gray-100 bg-gray-50/60 text-xs font-bold text-gray-500 uppercase tracking-wider">
-                                            <th className="py-3.5 px-5">Patient</th>
-                                            <th className="py-3.5 px-5">Treatment</th>
-                                            <th className="py-3.5 px-5">Dosha</th>
-                                            <th className="py-3.5 px-5">Schedule</th>
-                                            <th className="py-3.5 px-5">Status</th>
-                                            <th className="py-3.5 px-5 text-right">Actions</th>
+                                            <th className="py-4 px-5 text-left">Patient</th>
+                                            <th className="py-4 px-5 text-left">Treatment</th>
+                                            {showSessionColumn && <th className="py-4 px-5 text-center">Session</th>}
+                                            <th className="py-4 px-5 text-center">Dosha</th>
+                                            <th className="py-4 px-5 text-left">Schedule</th>
+                                            <th className="py-4 px-5 text-left">Status</th>
+                                            <th className="py-4 px-5 text-right pr-6">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-100">
                                         {paginatedBookings.length === 0 ? (
                                             <tr>
-                                                <td colSpan={6} className="py-12 text-center text-gray-500 text-sm font-medium">
+                                                <td colSpan={showSessionColumn ? 7 : 6} className="py-12 text-center text-gray-500 text-sm font-medium">
                                                     No sessions found matching your criteria.
                                                 </td>
                                             </tr>
@@ -750,6 +980,8 @@ function TherapistDashboard({ activeTab, onTabChange, auth, sidebarOffset = 0 })
                                             paginatedBookings.map((booking) => {
                                                 if (!booking) return null;
                                                 const isHighlighted = highlightedId && (String(booking.bookingId || booking.id) === String(highlightedId));
+                                                const info = getTherapyDisplayInfo(booking);
+                                                const isConsultationBooking = booking.therapyName === 'CONSULTATION' || booking.bookingType === 'CONSULTATION' || (booking.therapyDescription && booking.therapyDescription.toLowerCase().includes('consultation'));
                                                 return (
                                                     <tr
                                                         key={booking.bookingId || booking.id}
@@ -760,33 +992,42 @@ function TherapistDashboard({ activeTab, onTabChange, auth, sidebarOffset = 0 })
                                                                 : 'hover:bg-emerald-50/30'
                                                         }`}
                                                     >
-                                                        <td className="py-4 px-5">
-                                                            <div className="font-semibold text-green-900 text-sm">
-                                                                {booking.patientFullName || 'Registered Patient'}
-                                                            </div>
+                                                        <td className="py-4 px-5 text-sm font-bold text-[#05603A] whitespace-nowrap">
+                                                            {booking.patientFullName || 'Registered Patient'}
                                                         </td>
-                                                        <td className="py-4 px-5 text-sm font-medium text-gray-700">
-                                                            <div>{booking.therapyName || 'Abhyanga Therapy'}</div>
-                                                            {booking.type === 'CONSULTATION' ? (
+                                                        <td className="py-4 px-5 text-sm font-semibold text-gray-900 whitespace-nowrap">
+                                                            <div className="font-bold text-gray-900">{info.title}</div>
+                                                            {isConsultationBooking ? (
                                                                 booking.consultationCategory === 'NORMAL' ? (
-                                                                <span className="inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#e8f0fe] text-[#1a73e8] border border-[#aecbfa]">
+                                                                <span className="inline-flex items-center gap-1 mt-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#e8f0fe] text-[#1a73e8] border border-[#aecbfa]">
                                                                     🩺 Normal Consultation
                                                                 </span>
                                                                 ) : (
-                                                                <span className="inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                                                <span className="inline-flex items-center gap-1 mt-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
                                                                     🌿 Consultation + Therapy
                                                                 </span>
                                                                 )
                                                             ) : null}
                                                         </td>
-                                                        <td className="py-4 px-5 text-sm">
+                                                        {showSessionColumn && (
+                                                            <td className="py-4 px-5 text-sm text-center whitespace-nowrap">
+                                                                {isConsultationBooking ? (
+                                                                    <span className="text-gray-300 font-medium text-xs">-</span>
+                                                                ) : (
+                                                                    <span className="px-3 py-1 rounded-xl text-xs font-bold bg-[#E7F9EE] text-[#05603A] border border-[#BBEFCE] inline-block whitespace-nowrap shadow-2xs">
+                                                                        {info.sessionTag}
+                                                                    </span>
+                                                                )}
+                                                            </td>
+                                                        )}
+                                                        <td className="py-4 px-5 text-sm text-center whitespace-nowrap">
                                                             {booking.patientDominantDosha ? (
-                                                                <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${
+                                                                <span className={`px-3 py-1 rounded-full text-xs font-bold border ${
                                                                     booking.patientDominantDosha.includes('VATA') && booking.patientDominantDosha.includes('PITTA') ? 'bg-sky-50 text-sky-900 border-sky-200' :
                                                                     booking.patientDominantDosha.includes('VATA') && booking.patientDominantDosha.includes('KAPHA') ? 'bg-teal-50 text-teal-900 border-teal-200' :
                                                                     booking.patientDominantDosha.includes('PITTA') && booking.patientDominantDosha.includes('KAPHA') ? 'bg-orange-50 text-orange-900 border-orange-200' :
                                                                     booking.patientDominantDosha === 'VATA' ? 'bg-blue-50 text-blue-900 border-blue-200' :
-                                                                    booking.patientDominantDosha === 'PITTA' ? 'bg-amber-50 text-amber-900 border-amber-200' :
+                                                                    booking.patientDominantDosha === 'PITTA' ? 'bg-amber-50/80 text-amber-900 border-amber-200/80' :
                                                                     booking.patientDominantDosha === 'KAPHA' ? 'bg-emerald-50 text-emerald-900 border-emerald-200' :
                                                                     booking.patientDominantDosha === 'TRIDOSHA' ? 'bg-violet-50 text-violet-900 border-violet-200' :
                                                                     'bg-gray-50 text-gray-700 border-gray-200'
@@ -806,22 +1047,21 @@ function TherapistDashboard({ activeTab, onTabChange, auth, sidebarOffset = 0 })
                                                                 </span>
                                                             )}
                                                         </td>
-                                                        <td className="py-4 px-5 text-sm text-gray-600 font-medium whitespace-nowrap">
-                                                             {booking.bookingDate ? new Date(booking.bookingDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '11 Aug 2026'}
-                                                             <div className="text-xs text-gray-400 font-normal">{booking.bookingTime || '10:30 AM'}</div>
+                                                        <td className="py-4 px-5 text-sm text-gray-700 font-semibold whitespace-nowrap">
+                                                             <div>{booking.bookingDate ? new Date(booking.bookingDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '11 Aug 2026'}</div>
+                                                             <div className="text-xs text-gray-400 font-normal mt-0.5">{formatTime12h(booking.bookingTime)}</div>
                                                              {(booking.rescheduleRequested || booking.bookingStatus === 'RESCHEDULE_REQUESTED' || booking.proposedDate) && (
                                                                  <div className="text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-1.5 mt-1 whitespace-normal max-w-xs">
-                                                                     🔄 Reschedule to: <strong>{booking.proposedDate}</strong> at <strong>{booking.proposedTime}</strong>
-                                                                     {booking.rescheduleReason && <div className="font-normal italic text-[10px] text-amber-700 mt-0.5">"{booking.rescheduleReason}"</div>}
+                                                                     🔄 Reschedule to: <strong>{booking.proposedDate}</strong> at <strong>{formatTime12h(booking.proposedTime)}</strong>
                                                                  </div>
                                                              )}
                                                          </td>
-                                                         <td className="py-4 px-5 text-sm">
-                                                             {/* 6. STATUS BADGES */}
-                                                             <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${
+                                                         <td className="py-4 px-5 text-sm whitespace-nowrap">
+                                                             {/* STATUS BADGES */}
+                                                             <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${
                                                                  (booking.rescheduleRequested || booking.bookingStatus === 'RESCHEDULE_REQUESTED') ? 'bg-amber-100 text-amber-900 border-amber-300' :
-                                                                 booking.bookingStatus === 'COMPLETED' ? 'bg-green-50 text-green-800 border-green-200' :
-                                                                 booking.bookingStatus === 'CONFIRMED' ? 'bg-sky-50 text-sky-800 border-sky-200' :
+                                                                 booking.bookingStatus === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                                                 booking.bookingStatus === 'CONFIRMED' ? 'bg-sky-50 text-sky-700 border-sky-200' :
                                                                  booking.bookingStatus === 'PENDING' ? 'bg-amber-50 text-amber-800 border-amber-200' :
                                                                  booking.bookingStatus === 'CANCELLED' ? 'bg-rose-50 text-rose-800 border-rose-200' :
                                                                  'bg-gray-50 text-gray-800 border-gray-200'
@@ -830,82 +1070,61 @@ function TherapistDashboard({ activeTab, onTabChange, auth, sidebarOffset = 0 })
                                                                  {(booking.rescheduleRequested || booking.bookingStatus === 'RESCHEDULE_REQUESTED') ? 'RESCHEDULE REQUESTED' : booking.bookingStatus}
                                                              </span>
                                                          </td>
-                                                         <td className="py-4 px-5 text-sm text-right">
-                                                             <div className="flex flex-wrap items-center justify-end gap-2">
-                                                                 {(booking.rescheduleRequested || booking.bookingStatus === 'RESCHEDULE_REQUESTED') && (
-                                                                     <>
-                                                                         <button
-                                                                             type="button"
-                                                                             onClick={() => handleReschedule(booking.bookingId || booking.id, true)}
-                                                                             className="rounded-full px-3.5 py-1.5 text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition cursor-pointer shadow-2xs inline-flex items-center gap-1"
-                                                                             title="Accept requested date and time"
-                                                                         >
-                                                                             <Check size={13} /> Accept Reschedule
-                                                                         </button>
-                                                                         <button
-                                                                             type="button"
-                                                                             onClick={() => handleReschedule(booking.bookingId || booking.id, false)}
-                                                                             className="rounded-full px-3.5 py-1.5 text-xs font-bold bg-rose-600 text-white hover:bg-rose-700 transition cursor-pointer shadow-2xs inline-flex items-center gap-1"
-                                                                             title="Decline and suggest alternative slots"
-                                                                         >
-                                                                             <X size={13} /> Decline / Alt Slots
-                                                                         </button>
-                                                                     </>
-                                                                 )}
+                                                        <td className="py-4 px-5 text-sm text-right whitespace-nowrap pr-6">
+                                                            <div className="flex items-center justify-end gap-2 whitespace-nowrap">
+                                                                {(booking.rescheduleRequested || booking.bookingStatus === 'RESCHEDULE_REQUESTED') && (
+                                                                    <>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => handleReschedule(booking.bookingId || booking.id, true)}
+                                                                            className="rounded-xl px-3 py-1.5 text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition cursor-pointer shadow-2xs inline-flex items-center gap-1"
+                                                                            title="Accept requested date and time"
+                                                                        >
+                                                                            <Check size={13} /> Accept
+                                                                        </button>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => handleReschedule(booking.bookingId || booking.id, false)}
+                                                                            className="rounded-xl px-3 py-1.5 text-xs font-bold bg-rose-600 text-white hover:bg-rose-700 transition cursor-pointer shadow-2xs inline-flex items-center gap-1"
+                                                                            title="Decline and suggest alternative slots"
+                                                                        >
+                                                                            <X size={13} /> Decline
+                                                                        </button>
+                                                                    </>
+                                                                )}
 
-                                                                 {(booking.meetLink || booking.consultationType === 'ONLINE' || (booking.therapyName && booking.therapyName.toLowerCase().includes('consultation'))) && (
-                                                                     <a
-                                                                         href={booking.meetLink || 'https://meet.google.com/new'}
-                                                                         target="_blank"
-                                                                         rel="noopener noreferrer"
-                                                                         className="rounded-full px-3.5 py-1.5 text-xs font-bold bg-blue-600 text-white hover:bg-blue-700 transition cursor-pointer shadow-2xs inline-flex items-center gap-1.5"
-                                                                         title="Join Google Meet Call with Patient"
-                                                                     >
-                                                                         📹 Join Google Meet
-                                                                     </a>
-                                                                 )}
+                                                                {(booking.bookingStatus !== 'COMPLETED' && booking.bookingStatus !== 'CANCELLED' && (booking.meetLink || booking.consultationType === 'ONLINE' || (booking.therapyName && booking.therapyName.toLowerCase().includes('consultation')))) && (
+                                                                    <a
+                                                                        href={booking.meetLink || 'https://meet.google.com/new'}
+                                                                        target="_blank"
+                                                                        rel="noopener noreferrer"
+                                                                        className="rounded-xl px-3.5 py-1.5 text-xs font-bold bg-[#2563EB] text-white hover:bg-blue-700 transition cursor-pointer shadow-2xs inline-flex items-center gap-1.5 shrink-0"
+                                                                        title="Join Google Meet Call with Patient"
+                                                                    >
+                                                                        📹 Join Meet
+                                                                    </a>
+                                                                )}
 
-                                                                 <button
-                                                                     type="button"
-                                                                     onClick={() => {
-                                                                         setSelectedPatientForDetails(booking);
-                                                                         setPatientDetailsModalOpen(true);
-                                                                     }}
-                                                                     className="rounded-full px-3.5 py-1.5 text-xs font-semibold bg-[#1F4D3A] text-white hover:bg-[#183d2e] transition cursor-pointer shadow-2xs inline-flex items-center gap-1.5"
-                                                                 >
-                                                                     <FileText size={13} /> View Patient
-                                                                 </button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        setSelectedPatientForDetails(booking);
+                                                                        setPatientDetailsModalOpen(true);
+                                                                    }}
+                                                                    className="rounded-xl px-3.5 py-1.5 text-xs font-bold bg-[#1F4D3A] text-white hover:bg-[#183d2e] transition cursor-pointer shadow-2xs inline-flex items-center gap-1.5 shrink-0"
+                                                                >
+                                                                    <FileText size={13} /> View
+                                                                </button>
 
-                                                                 {booking.bookingStatus !== 'CANCELLED' && booking.bookingStatus !== 'COMPLETED' && !booking.rescheduleRequested && (
-                                                                     <button
-                                                                         type="button"
-                                                                         onClick={() => {
-                                                                             setSelectedPatientForPrescription(booking);
-                                                                             setClinicalPrescriptionModalOpen(true);
-                                                                         }}
-                                                                         className={`rounded-full px-3.5 py-1.5 text-xs font-semibold text-white transition cursor-pointer shadow-2xs inline-flex items-center gap-1.5 ${
-                                                                             booking.consultationCategory === 'NORMAL'
-                                                                                 ? 'bg-blue-600 hover:bg-blue-700'
-                                                                                 : 'bg-emerald-600 hover:bg-emerald-700'
-                                                                         }`}
-                                                                     >
-                                                                         <Check size={13} />
-                                                                         {booking.consultationCategory === 'NORMAL'
-                                                                             ? 'Complete Session'
-                                                                             : 'Complete & Prescribe Therapy'}
-                                                                     </button>
-                                                                 )}
-
-                                                                 {booking.bookingStatus === 'COMPLETED' && (
-                                                                     <button
-                                                                         onClick={() => openViewNotes(booking)}
-                                                                         className="rounded-full border border-gray-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition cursor-pointer inline-flex items-center gap-1.5"
-                                                                     >
-                                                                         <FileText size={13} /> Notes
-                                                                     </button>
-                                                                 )}
-                                                             </div>
-                                                         </td>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => openViewNotes(booking)}
+                                                                    className="rounded-xl border border-gray-200 bg-white px-3.5 py-1.5 text-xs font-bold text-gray-700 hover:bg-gray-50 transition cursor-pointer inline-flex items-center gap-1.5 shrink-0"
+                                                                >
+                                                                    <FileText size={13} /> Notes
+                                                                </button>
+                                                            </div>
+                                                        </td>
                                                     </tr>
                                                 );
                                             })
@@ -931,8 +1150,21 @@ function TherapistDashboard({ activeTab, onTabChange, auth, sidebarOffset = 0 })
                                                             {booking.patientFullName || 'Registered Patient'}
                                                         </h3>
                                                         <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1.5 flex-wrap">
-                                                            <span>{booking.therapyName || 'Abhyanga Therapy'}</span>
-                                                            {booking.type === 'CONSULTATION' ? (
+                                                            {(() => {
+                                                                const info = getTherapyDisplayInfo(booking);
+                                                                const isConsultationBooking = booking.therapyName === 'CONSULTATION' || booking.bookingType === 'CONSULTATION' || (booking.therapyDescription && booking.therapyDescription.toLowerCase().includes('consultation'));
+                                                                return (
+                                                                    <>
+                                                                        <span className="font-bold text-gray-900">{info.title}</span>
+                                                                        {showSessionColumn && !isConsultationBooking && info.sessionTag && (
+                                                                            <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-md">
+                                                                                {info.sessionTag}
+                                                                            </span>
+                                                                        )}
+                                                                    </>
+                                                                );
+                                                            })()}
+                                                            {(booking.therapyName === 'CONSULTATION' || booking.bookingType === 'CONSULTATION' || (booking.therapyDescription && booking.therapyDescription.toLowerCase().includes('consultation'))) ? (
                                                                 booking.consultationCategory === 'NORMAL' ? (
                                                                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#e8f0fe] text-[#1a73e8] border border-[#aecbfa]">
                                                                     🩺 Normal Consultation
@@ -992,7 +1224,7 @@ function TherapistDashboard({ activeTab, onTabChange, auth, sidebarOffset = 0 })
                                                          )}
                                                     </div>
 
-                                                    {(booking.meetLink || booking.consultationType === 'ONLINE' || (booking.therapyName && booking.therapyName.toLowerCase().includes('consultation'))) && (
+                                                    {(booking.bookingStatus !== 'COMPLETED' && booking.bookingStatus !== 'CANCELLED' && (booking.meetLink || booking.consultationType === 'ONLINE' || (booking.therapyName && booking.therapyName.toLowerCase().includes('consultation')))) && (
                                                         <a
                                                             href={booking.meetLink || 'https://meet.google.com/new'}
                                                             target="_blank"
@@ -1097,30 +1329,111 @@ function TherapistDashboard({ activeTab, onTabChange, auth, sidebarOffset = 0 })
                 ) : viewMode === 'PRESCRIBED_PLANS' ? (
                     /* PRESCRIBED TREATMENT PLANS & CLINICAL FORMULATIONS VIEW */
                     <div className="space-y-6 motion-fade-in-up">
-                        {/* Clinical Herbal Prescriptions Section */}
-                        <div className="space-y-3">
-                            <div className="flex items-center justify-between">
-                                <h3 className="font-display text-lg font-bold text-forest flex items-center gap-2">
-                                    <FileText size={18} className="text-emerald-700" /> Prescribed Herbal Formulations &amp; Pharmacist Status
-                                </h3>
-                                <button
-                                    onClick={() => setClinicalPrescriptionModalOpen(true)}
-                                    className="inline-flex items-center gap-1.5 rounded-2xl bg-[#1F4D3A] px-3.5 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-[#163a2c] transition cursor-pointer"
-                                >
-                                    <Plus size={14} /> Create Prescription
-                                </button>
-                            </div>
-
-                            {therapistPrescriptions.length === 0 ? (
-                                <div className="bg-white/95 border border-sand/40 p-6 rounded-3xl text-center text-xs text-forest/60">
-                                    No clinical prescriptions created yet. Click above to prescribe Ayurvedic formulations.
+                        {/* 1. PRESCRIPTIONS SEARCH & FILTER BAR */}
+                        <div className="bg-white border border-emerald-900/10 p-4 rounded-2xl shadow-sm space-y-3">
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                                {/* Search Input */}
+                                <div className="relative flex-1 min-w-[240px]">
+                                    <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                                    <input
+                                        type="text"
+                                        value={rxSearchQuery}
+                                        onChange={(e) => setRxSearchQuery(e.target.value)}
+                                        placeholder="Search by patient, medicine, prescription ID or diagnosis..."
+                                        className="w-full pl-10 pr-4 py-2 text-sm text-gray-800 bg-gray-50/60 border border-gray-200 rounded-full outline-none focus:bg-white focus:border-emerald-500 transition"
+                                    />
                                 </div>
-                            ) : (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {therapistPrescriptions.map((rx) => {
+
+                                {/* Filter Controls */}
+                                <div className="flex flex-wrap items-center gap-2">
+                                    {/* Category Filter */}
+                                    <select
+                                        value={rxCategoryFilter}
+                                        onChange={(e) => setRxCategoryFilter(e.target.value)}
+                                        className={`border rounded-full px-4 py-2 text-xs font-semibold outline-none transition cursor-pointer ${
+                                            rxCategoryFilter !== 'ALL'
+                                                ? 'border-emerald-500 text-emerald-800 bg-emerald-50/60 font-bold ring-2 ring-emerald-400/20'
+                                                : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                                        }`}
+                                    >
+                                        <option value="ALL">All Categories ▼</option>
+                                        <option value="ALL">All Prescription Records</option>
+                                        <option value="PRESCRIPTIONS">💊 Herbal Formulations</option>
+                                        <option value="COURSES">🌿 Therapy Courses</option>
+                                    </select>
+
+                                    {/* Pharmacist Status Filter */}
+                                    <select
+                                        value={rxStatusFilter}
+                                        onChange={(e) => setRxStatusFilter(e.target.value)}
+                                        className={`border rounded-full px-4 py-2 text-xs font-semibold outline-none transition cursor-pointer ${
+                                            rxStatusFilter !== 'ALL'
+                                                ? 'border-emerald-500 text-emerald-800 bg-emerald-50/60 font-bold ring-2 ring-emerald-400/20'
+                                                : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                                        }`}
+                                    >
+                                        <option value="ALL">Status ▼</option>
+                                        <option value="ALL">All Statuses</option>
+                                        <option value="PENDING">Pending Dispensing</option>
+                                        <option value="DISPENSED">✓ Dispensed by Pharmacy</option>
+                                        <option value="NO_MEDICINES">No Medicines Prescribed</option>
+                                    </select>
+
+                                    {/* Clear Button */}
+                                    {(rxSearchQuery.trim() !== '' || rxStatusFilter !== 'ALL' || rxCategoryFilter !== 'ALL') && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setRxSearchQuery('');
+                                                setRxStatusFilter('ALL');
+                                                setRxCategoryFilter('ALL');
+                                            }}
+                                            className="px-4 py-2 text-xs font-bold text-rose-500 bg-rose-50 border border-rose-200 rounded-full hover:bg-rose-100 transition cursor-pointer flex items-center gap-1.5 shrink-0"
+                                        >
+                                            <RotateCcw size={13} /> Clear
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* 2. CLINICAL HERBAL PRESCRIPTIONS SECTION */}
+                        {(rxCategoryFilter === 'ALL' || rxCategoryFilter === 'PRESCRIPTIONS') && (
+                            <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <h3 className="font-display text-lg font-bold text-forest flex items-center gap-2">
+                                        <FileText size={18} className="text-emerald-700" /> Prescribed Herbal Formulations &amp; Pharmacist Status
+                                    </h3>
+                                    <button
+                                        onClick={() => setClinicalPrescriptionModalOpen(true)}
+                                        className="inline-flex items-center gap-1.5 rounded-2xl bg-[#1F4D3A] px-3.5 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-[#163a2c] transition cursor-pointer"
+                                    >
+                                        <Plus size={14} /> Create Prescription
+                                    </button>
+                                </div>
+
+                                {filteredPrescriptions.length === 0 ? (
+                                    <div className="bg-white/95 border border-sand/40 p-6 rounded-3xl text-center text-xs text-forest/60">
+                                        No clinical prescriptions found matching your filter criteria.
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {filteredPrescriptions.map((rx) => {
+                                        const hasMedicines = Array.isArray(rx.medicines) && rx.medicines.length > 0;
                                         const isDispensed = rx.dispensed || rx.status === 'DISPENSED';
-                                        const statusLabel = isDispensed ? '✓ DISPENSED BY PHARMACY' : 'PENDING PHARMACIST DISPENSING';
-                                        const statusColor = isDispensed ? 'bg-emerald-100 text-emerald-950 border-emerald-300' : 'bg-amber-100 text-amber-900 border-amber-300';
+                                        
+                                        let statusLabel = '';
+                                        let statusColor = '';
+                                        if (isDispensed) {
+                                            statusLabel = '✓ DISPENSED BY PHARMACY';
+                                            statusColor = 'bg-emerald-100 text-emerald-950 border-emerald-300';
+                                        } else if (hasMedicines) {
+                                            statusLabel = 'PENDING PHARMACIST DISPENSING';
+                                            statusColor = 'bg-amber-100 text-amber-900 border-amber-300';
+                                        } else {
+                                            statusLabel = 'NO MEDICINES PRESCRIBED';
+                                            statusColor = 'bg-slate-100 text-slate-700 border-slate-300';
+                                        }
 
                                         return (
                                             <div key={rx.id} className="bg-white/95 border border-emerald-900/10 p-5 rounded-3xl shadow-xs space-y-3 hover:border-emerald-300 transition duration-200">
@@ -1144,14 +1457,20 @@ function TherapistDashboard({ activeTab, onTabChange, auth, sidebarOffset = 0 })
                                                     </p>
                                                     <div className="pt-1">
                                                         <span className="text-[10px] font-extrabold uppercase text-emerald-900/70 block mb-1">Prescribed Medicines:</span>
-                                                        <ul className="space-y-1 pl-2 text-[11px] font-medium">
-                                                            {(rx.medicines || []).map((m, i) => (
-                                                                <li key={i} className="flex items-center justify-between bg-[#f6faf3] p-1.5 rounded-xl border border-emerald-900/5">
-                                                                    <span>• <strong>{m.medicineName}</strong> ({m.dosage})</span>
-                                                                    <span className="text-[10px] font-semibold text-emerald-900">{m.frequency}</span>
-                                                                </li>
-                                                            ))}
-                                                        </ul>
+                                                        {hasMedicines ? (
+                                                            <ul className="space-y-1 pl-2 text-[11px] font-medium">
+                                                                {rx.medicines.map((m, i) => (
+                                                                    <li key={i} className="flex items-center justify-between bg-[#f6faf3] p-1.5 rounded-xl border border-emerald-900/5">
+                                                                        <span>• <strong>{m.medicineName}</strong> ({m.dosage})</span>
+                                                                        <span className="text-[10px] font-semibold text-emerald-900">{m.frequency}</span>
+                                                                    </li>
+                                                                ))}
+                                                            </ul>
+                                                        ) : (
+                                                            <p className="text-[11px] italic text-gray-500 bg-gray-50 p-2 rounded-xl border border-gray-200/60">
+                                                                No herbal medicines prescribed (Therapy / Advice Only)
+                                                            </p>
+                                                        )}
                                                     </div>
                                                 </div>
 
@@ -1167,27 +1486,29 @@ function TherapistDashboard({ activeTab, onTabChange, auth, sidebarOffset = 0 })
                                 </div>
                             )}
                         </div>
+                        )}
 
-                        {/* Panchakarma Treatment Plans Section */}
-                        <div className="space-y-3 pt-4 border-t border-sand/40">
-                            <h3 className="font-display text-lg font-bold text-forest flex items-center gap-2">
-                                <Sparkles size={18} className="text-emerald-700" /> Prescribed Panchakarma Therapy Courses
-                            </h3>
+                        {/* 3. PANCHAKARMA TREATMENT PLANS SECTION */}
+                        {(rxCategoryFilter === 'ALL' || rxCategoryFilter === 'COURSES') && (
+                            <div className="space-y-3 pt-4 border-t border-sand/40">
+                                <h3 className="font-display text-lg font-bold text-forest flex items-center gap-2">
+                                    <Sparkles size={18} className="text-emerald-700" /> Prescribed Panchakarma Therapy Courses
+                                </h3>
 
-                            {treatmentPlans.length === 0 ? (
-                                <div className="bg-white/95 border border-sand/40 p-8 rounded-3xl text-center space-y-3">
-                                    <Sparkles size={32} className="mx-auto text-forest/30" />
-                                    <h4 className="font-display text-base font-bold text-forest">No Prescribed Therapy Courses Yet</h4>
-                                    <button
-                                        onClick={() => { setPrescribePatient(null); setPrescribeModalOpen(true); }}
-                                        className="inline-flex items-center gap-1.5 rounded-2xl bg-forest px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-forest/90 transition cursor-pointer"
-                                    >
-                                        <Sparkles size={14} /> Prescribe Therapy Course Now
-                                    </button>
-                                </div>
-                            ) : (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {treatmentPlans.map((plan) => (
+                                {filteredTreatmentPlans.length === 0 ? (
+                                    <div className="bg-white/95 border border-sand/40 p-8 rounded-3xl text-center space-y-3">
+                                        <Sparkles size={32} className="mx-auto text-forest/30" />
+                                        <h4 className="font-display text-base font-bold text-forest">No Prescribed Therapy Courses Found</h4>
+                                        <button
+                                            onClick={() => { setPrescribePatient(null); setPrescribeModalOpen(true); }}
+                                            className="inline-flex items-center gap-1.5 rounded-2xl bg-forest px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-forest/90 transition cursor-pointer"
+                                        >
+                                            <Sparkles size={14} /> Prescribe Therapy Course Now
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {filteredTreatmentPlans.map((plan) => (
                                         <div key={plan.id} className="bg-white/95 border border-emerald-900/10 p-6 rounded-3xl shadow-sm space-y-3.5 hover:border-emerald-300 transition duration-200">
                                             <div className="flex items-start justify-between">
                                                 <div>
@@ -1198,23 +1519,17 @@ function TherapistDashboard({ activeTab, onTabChange, auth, sidebarOffset = 0 })
                                                         {plan.patientName || 'Registered Patient'}
                                                     </h3>
                                                 </div>
-                                                <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
-                                                    plan.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-900 border border-emerald-200' :
-                                                    plan.status === 'COMPLETED' ? 'bg-blue-100 text-blue-900 border border-blue-200' :
-                                                    'bg-amber-100 text-amber-900 border border-amber-200'
-                                                }`}>
-                                                    {plan.status || 'ACTIVE'}
-                                                </span>
+
                                             </div>
 
                                             <div className="space-y-2 text-xs text-forest/80 border-t border-b border-sand/30 py-3">
                                                 <div className="flex justify-between">
                                                     <span className="font-semibold text-forest/60">Prescribed Therapy:</span>
-                                                    <span className="font-bold text-forest">{plan.therapyName}</span>
+                                                    <span className="font-bold text-forest">{getCleanTherapyTitle({ therapyDescription: plan.therapyName })}</span>
                                                 </div>
                                                 <div className="flex justify-between">
                                                     <span className="font-semibold text-forest/60">Total Sessions:</span>
-                                                    <span className="font-bold text-forest">{plan.totalSessions} Sessions ({plan.completedSessions || 0} Completed)</span>
+                                                    <span className="font-bold text-forest">{plan.totalSessions} Sessions</span>
                                                 </div>
                                                 <div className="flex justify-between">
                                                     <span className="font-semibold text-forest/60">Prescribed Frequency:</span>
@@ -1226,12 +1541,7 @@ function TherapistDashboard({ activeTab, onTabChange, auth, sidebarOffset = 0 })
                                                         <span className="font-bold text-forest">{new Date(plan.prescribedStartDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                                                     </div>
                                                 )}
-                                                {plan.assignedTherapistName && (
-                                                    <div className="flex justify-between">
-                                                        <span className="font-semibold text-forest/60">Assigned Practitioner:</span>
-                                                        <span className="font-bold text-emerald-950">{plan.assignedTherapistName}</span>
-                                                    </div>
-                                                )}
+
                                             </div>
 
                                             {plan.clinicalNotes && (
@@ -1256,6 +1566,7 @@ function TherapistDashboard({ activeTab, onTabChange, auth, sidebarOffset = 0 })
                                 </div>
                             )}
                         </div>
+                        )}
                     </div>
                 ) : viewMode === 'COMPLAINTS' ? (
                     /* COMPLAINTS VIEW MODE */

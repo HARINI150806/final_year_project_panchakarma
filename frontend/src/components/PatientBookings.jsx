@@ -223,21 +223,8 @@ const PatientBookings = ({ categoryFilter: propCategory }) => {
     return b.status || 'CONFIRMED';
   };
 
-  const totalCount = bookings.length;
-  const upcomingCount = bookings.filter((b) => {
-    const s = getEffectiveStatus(b);
-    return s === 'CONFIRMED' || s === 'PENDING';
-  }).length;
-  const completedCount = bookings.filter((b) => getEffectiveStatus(b) === 'COMPLETED').length;
-  const cancelledCount = bookings.filter((b) => getEffectiveStatus(b) === 'CANCELLED').length;
-
-  const filteredBookings = bookings.filter((b) => {
-    const s = getEffectiveStatus(b);
-    if (statusFilter === 'UPCOMING' && !(s === 'CONFIRMED' || s === 'PENDING')) return false;
-    if (statusFilter === 'COMPLETED' && s !== 'COMPLETED') return false;
-    if (statusFilter === 'CANCELLED' && s !== 'CANCELLED') return false;
-
-    // Category Filter (Consultations vs Therapies)
+  // 1. Filter bookings by selected Category first
+  const categoryBookings = bookings.filter((b) => {
     const isConsultation = Boolean(
       (b.bookingType || b.type || '').toUpperCase() === 'CONSULTATION' ||
       (b.purpose || b.therapyName || '').toLowerCase().includes('consultation') ||
@@ -248,6 +235,24 @@ const PatientBookings = ({ categoryFilter: propCategory }) => {
     if (activeCategory === 'CONSULTATION' && !isConsultation) return false;
     if (activeCategory === 'THERAPY' && isConsultation) return false;
 
+    return true;
+  });
+
+  // 2. Real counts for selected Category
+  const totalCount = categoryBookings.length;
+  const upcomingCount = categoryBookings.filter((b) => {
+    const s = getEffectiveStatus(b);
+    return s === 'CONFIRMED' || s === 'PENDING';
+  }).length;
+  const completedCount = categoryBookings.filter((b) => getEffectiveStatus(b) === 'COMPLETED').length;
+  const cancelledCount = categoryBookings.filter((b) => getEffectiveStatus(b) === 'CANCELLED').length;
+
+  // 3. Filter by Status within selected Category
+  const filteredBookings = categoryBookings.filter((b) => {
+    const s = getEffectiveStatus(b);
+    if (statusFilter === 'UPCOMING' && !(s === 'CONFIRMED' || s === 'PENDING')) return false;
+    if (statusFilter === 'COMPLETED' && s !== 'COMPLETED') return false;
+    if (statusFilter === 'CANCELLED' && s !== 'CANCELLED') return false;
     return true;
   });
 
