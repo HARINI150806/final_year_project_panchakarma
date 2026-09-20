@@ -1,10 +1,16 @@
 {
   "name": "Panchakarma Management",
   "short_name": "Panchakarma",
+  "id": "/",
+  "description": "Panchakarma and Ayurveda care management for patients, doctors, and therapists.",
+  "lang": "en",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "orientation": "portrait-primary",
   "background_color": "#ffffff",
   "theme_color": "#0f766e",
+  "categories": ["health", "lifestyle"],
   "icons": [
     {
       "src": "/logo192.png",
