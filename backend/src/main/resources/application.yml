@@ -1,5 +1,5 @@
 server:
-  port: 8080
+  port: ${PORT:8080}
 
 spring:
   servlet:
@@ -58,3 +58,8 @@ razorpay:
   key-id: ${RAZORPAY_KEY_ID}
   key-secret: ${RAZORPAY_KEY_SECRET}
   consultation-amount: ${RAZORPAY_CONSULTATION_AMOUNT}
+
+rag:
+  service:
+    url: ${RAG_SERVICE_URL:http://localhost:8000/api/chat}
+    prediction-url: ${RAG_PREDICTION_URL:http://localhost:8000/api/predict-recovery}
