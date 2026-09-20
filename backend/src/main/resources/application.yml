@@ -38,7 +38,7 @@ app:
     expiration-ms: 86400000
 
 cors:
-  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:5174}
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:5174,https://panchakarma-psht.onrender.com}
 
 google:
   client-id: ${GOOGLE_CLIENT_ID}
@@ -49,6 +49,8 @@ google:
     client-id: ${GOOGLE_CALENDAR_CLIENT_ID}
     client-secret: ${GOOGLE_CALENDAR_CLIENT_SECRET}
     refresh-token: ${GOOGLE_CALENDAR_REFRESH_TOKEN:}
+  oauth:
+    redirect-uri: ${GOOGLE_OAUTH_REDIRECT_URI:https://final-year-project-panchakarma.onrender.com/api/google/oauth/callback}
 
 gemini:
   api-key: ${GEMINI_API_KEY:}

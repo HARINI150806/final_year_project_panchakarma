@@ -23,9 +23,11 @@ public class GoogleOAuthController {
     @Value("${google.calendar.client-secret}")
     private String clientSecret;
 
+    @Value("${google.oauth.redirect-uri:https://final-year-project-panchakarma.onrender.com/api/google/oauth/callback}")
+    private String redirectUri;
+
     @GetMapping("/authorize")
     public void authorize(HttpServletResponse response) throws IOException {
-        String redirectUri = "http://localhost:8080/api/google/oauth/callback";
         String scope = "https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events";
         
         String authUrl = "https://accounts.google.com/o/oauth2/v2/auth" +
@@ -49,7 +51,6 @@ public class GoogleOAuthController {
             return ResponseEntity.badRequest().body("Missing authorization code");
         }
 
-        String redirectUri = "http://localhost:8080/api/google/oauth/callback";
         RestTemplate restTemplate = new RestTemplate();
         
         HttpHeaders headers = new HttpHeaders();

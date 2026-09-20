@@ -354,7 +354,7 @@ function ConsultationForm({ onSuccess }) {
   useEffect(() => {
     if (!form.date) return;
 
-    const apiURL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+    const apiURL = api.defaults.baseURL;
     let wsURL = apiURL.replace(/^http/, 'ws');
     if (wsURL.endsWith('/api')) {
       wsURL = wsURL.substring(0, wsURL.length - 4) + '/ws/bookings';
@@ -999,7 +999,7 @@ function TherapyForm({ onSuccess, onSwitchToConsultation, onStatusChange }) {
   useEffect(() => {
     if (!form.date) return;
 
-    const apiURL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+    const apiURL = api.defaults.baseURL;
     let wsURL = apiURL.replace(/^http/, 'ws');
     if (wsURL.endsWith('/api')) {
       wsURL = wsURL.substring(0, wsURL.length - 4) + '/ws/bookings';

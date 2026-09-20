@@ -459,7 +459,7 @@ export default function PatientDetailsViewModal({ isOpen, onClose, patientData, 
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <a
-                        href={`http://localhost:8080/api/medical-documents/${doc.documentId || doc.id}/view`}
+                        href={`${api.defaults.baseURL}/medical-documents/${doc.documentId || doc.id}/view`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="rounded-lg bg-emerald-100 hover:bg-emerald-200 px-2.5 py-1 text-[11px] font-bold text-emerald-900 transition"
@@ -467,7 +467,7 @@ export default function PatientDetailsViewModal({ isOpen, onClose, patientData, 
                         👁️ View
                       </a>
                       <a
-                        href={`http://localhost:8080/api/medical-documents/${doc.documentId || doc.id}/download`}
+                        href={`${api.defaults.baseURL}/medical-documents/${doc.documentId || doc.id}/download`}
                         download
                         className="rounded-lg bg-white border border-emerald-300 hover:bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-[#1F4D3A] transition"
                       >
