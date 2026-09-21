@@ -19,22 +19,7 @@ api.interceptors.request.use((config) => {
 
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
-    const requestUrl = error.config?.url || '';
-    const isPublicAuthRequest = [
-      '/auth/login',
-      '/auth/register',
-      '/auth/send-verification',
-      '/auth/forgot-password',
-      '/auth/reset-password',
-    ].some((path) => requestUrl.includes(path));
-
-    if (error.response?.status === 401 && !isPublicAuthRequest) {
-      localStorage.removeItem('panchakarma-auth');
-      window.location.href = '/';
-    }
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
 export default api;
