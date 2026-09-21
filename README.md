@@ -44,6 +44,19 @@ Password for all demo users: `Password@123`
    in the backend service's Environment settings; do not commit the `.env` file.
    The frontend must use `VITE_API_URL` pointing to the backend URL, ending in
    `/api`, in both local and production environments.
+
+   On Render, configure `DB_URL`, `DB_USERNAME`, and `DB_PASSWORD` in the
+   **backend Web Service** (not only in the frontend service). For Supabase,
+   `DB_URL` should be the pooler JDBC URL, for example:
+
+   ```text
+   jdbc:postgresql://<pooler-host>:5432/postgres?sslmode=require
+   ```
+
+   Do not surround Render variable values with quotes. If the backend logs
+   `Unable to determine Dialect without JDBC metadata`, check the preceding
+   `HikariPool`/`JDBC connection` error: it means the database URL, credentials,
+   network access, or SSL configuration is invalid or unavailable.
 3. Run:
 
 ```bash
