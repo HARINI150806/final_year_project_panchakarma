@@ -14,7 +14,7 @@ public class EmailService {
 
     private final JavaMailSender mailSender;
 
-    @Value("${spring.mail.username:1586harini@gmail.com}")
+    @Value("${spring.mail.username:}")
     private String fromEmail;
 
     public EmailService(JavaMailSender mailSender) {
@@ -321,13 +321,15 @@ public class EmailService {
 
         try {
             SimpleMailMessage message = new SimpleMailMessage();
+            setSender(message);
             message.setTo(recipientEmail);
             message.setSubject(subject);
             message.setText(body);
             mailSender.send(message);
             log.info("Password reset email successfully sent to {}", recipientEmail);
         } catch (Exception e) {
-            log.error("Failed to send password reset email to {}. Error: {}", recipientEmail, e.getMessage());
+            log.error("Failed to send password reset email to {}. Error: {}", recipientEmail, e.getMessage(), e);
+            throw new RuntimeException("Failed to send password reset email. Please check the mail configuration and recipient address.", e);
         }
     }
 
@@ -351,6 +353,7 @@ public class EmailService {
 
         try {
             SimpleMailMessage message = new SimpleMailMessage();
+            setSender(message);
             message.setTo(recipientEmail);
             message.setSubject(subject);
             message.setText(body);
@@ -359,6 +362,12 @@ public class EmailService {
         } catch (Exception e) {
             log.error("Failed to send verification email to {}. Error: {}", recipientEmail, e.getMessage());
             throw new RuntimeException("Failed to send verification email. Please check if your email address is correct.");
+        }
+    }
+
+    private void setSender(SimpleMailMessage message) {
+        if (fromEmail != null && !fromEmail.isBlank()) {
+            message.setFrom(fromEmail.trim());
         }
     }
 
@@ -625,4 +634,3 @@ public class EmailService {
         sendSimpleEmail(recipientEmail, subject, body);
     }
 }
-

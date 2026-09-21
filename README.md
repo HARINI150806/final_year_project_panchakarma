@@ -34,6 +34,16 @@ Password for all demo users: `Password@123`
    - `DB_PASSWORD`
    - `JWT_SECRET`
    - `CORS_ALLOWED_ORIGINS`
+   - `MAIL_HOST`
+   - `MAIL_PORT`
+   - `MAIL_USERNAME`
+   - `MAIL_PASSWORD` (a Gmail App Password, without spaces)
+
+   For local development, copy `backend/.env.example` to `backend/.env`.
+   Spring Boot loads that file automatically. For Render, add the same variables
+   in the backend service's Environment settings; do not commit the `.env` file.
+   The frontend must use `VITE_API_URL` pointing to the backend URL, ending in
+   `/api`, in both local and production environments.
 3. Run:
 
 ```bash
