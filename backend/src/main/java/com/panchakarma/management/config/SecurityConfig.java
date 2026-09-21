@@ -16,6 +16,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -45,8 +46,25 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .exceptionHandling(exceptions -> exceptions
+                        .authenticationEntryPoint((request, response, exception) -> {
+                            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Authentication is required");
+                        })
+                        .accessDeniedHandler((request, response, exception) -> {
+                            response.sendError(HttpServletResponse.SC_FORBIDDEN, "Access denied");
+                        }))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/**", "/api/health", "/api/google/oauth/**", "/ws/**", "/api/public/**").permitAll()
+                        .requestMatchers(
+                                "/api/auth/login",
+                                "/api/auth/register",
+                                "/api/auth/send-verification",
+                                "/api/auth/forgot-password",
+                                "/api/auth/reset-password",
+                                "/api/health",
+                                "/api/google/oauth/**",
+                                "/ws/**",
+                                "/api/public/**"
+                        ).permitAll()
                         .requestMatchers("/api/therapists", "/api/therapists/availability", "/api/therapists/*/availability").authenticated()
                         .requestMatchers(
                             "/api/therapists/my-bookings", 
