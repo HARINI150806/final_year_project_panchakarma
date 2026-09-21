@@ -2,6 +2,10 @@ server:
   port: ${PORT:8080}
 
 spring:
+  # Start the HTTP server before database-heavy beans are initialized.
+  # This lets Render detect the port while JPA connects to Supabase.
+  main:
+    lazy-initialization: true
   config:
     # Load local development values when running from either the repository root
     # or the backend directory. Deployment values supplied by the platform take precedence.
