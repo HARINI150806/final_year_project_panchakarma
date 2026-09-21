@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import jakarta.annotation.security.PermitAll;
 
 import java.util.Map;
 
@@ -32,6 +33,7 @@ public class AuthController {
     }
 
     @PostMapping("/auth/send-verification")
+    @PermitAll
     public ResponseEntity<Map<String, String>> sendVerificationCode(@RequestBody Map<String, String> body) {
         String email = body.getOrDefault("email", "");
         if (email.isBlank()) {
