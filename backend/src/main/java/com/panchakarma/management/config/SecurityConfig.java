@@ -55,11 +55,7 @@ public class SecurityConfig {
                         }))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
-                                "/api/auth/login",
-                                "/api/auth/register",
-                                "/api/auth/send-verification",
-                                "/api/auth/forgot-password",
-                                "/api/auth/reset-password",
+                                "/api/auth/**",
                                 "/api/health",
                                 "/api/google/oauth/**",
                                 "/ws/**",
