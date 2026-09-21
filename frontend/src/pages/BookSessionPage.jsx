@@ -415,6 +415,9 @@ function ConsultationForm({ onSuccess }) {
       });
 
       const orderData = orderRes.data;
+      if (!orderData?.keyId || !orderData?.orderId || !orderData?.amountInPaise || !orderData?.currency) {
+        throw new Error('Razorpay order details are incomplete. Please check the backend payment configuration.');
+      }
 
       const bookingPayload = {
         patientId: auth?.userId,
@@ -453,12 +456,12 @@ function ConsultationForm({ onSuccess }) {
       }
 
       const options = {
-        key: orderData?.keyId || 'rzp_test_1DP5hB15W9Z38Q',
-        amount: orderData?.amountInPaise || 50000,
-        currency: orderData?.currency || 'INR',
+        key: orderData.keyId,
+        amount: orderData.amountInPaise,
+        currency: orderData.currency,
         name: 'Panchakarma Care Center',
         description: 'Clinical Consultation Fee (₹500)',
-        ...(orderData?.orderId && !orderData.orderId.startsWith('order_test_') ? { order_id: orderData.orderId } : {}),
+        order_id: orderData.orderId,
         prefill: {
           name: auth?.fullName || auth?.username || 'Patient',
           email: auth?.email || 'patient@panchakarma.com',
@@ -467,9 +470,9 @@ function ConsultationForm({ onSuccess }) {
         theme: { color: '#355c39' },
         handler: async function (paymentResponse) {
           await handleConfirmPaymentVerification({
-            razorpay_order_id: paymentResponse.razorpay_order_id || orderData?.orderId || `order_test_${Date.now()}`,
-            razorpay_payment_id: paymentResponse.razorpay_payment_id || `pay_rzp_${Date.now()}`,
-            razorpay_signature: paymentResponse.razorpay_signature || 'test_signature',
+            razorpay_order_id: paymentResponse.razorpay_order_id,
+            razorpay_payment_id: paymentResponse.razorpay_payment_id,
+            razorpay_signature: paymentResponse.razorpay_signature,
           }, bookingPayload);
         },
         modal: {

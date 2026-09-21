@@ -12,6 +12,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/payments")
@@ -29,5 +32,11 @@ public class PaymentController {
     public ResponseEntity<Object> verifyAndBook(@Valid @RequestBody VerifyPaymentRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(paymentService.verifyAndConfirmBooking(request));
+    }
+
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<Map<String, String>> handlePaymentConfigurationError(IllegalStateException exception) {
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                .body(Map.of("message", exception.getMessage()));
     }
 }

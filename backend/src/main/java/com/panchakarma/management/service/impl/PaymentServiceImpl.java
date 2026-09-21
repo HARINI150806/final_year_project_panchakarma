@@ -51,6 +51,10 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     public CreateOrderResponse createOrder(CreateOrderRequest request) {
+        if (keyId == null || keyId.isBlank() || keySecret == null || keySecret.isBlank()) {
+            throw new IllegalStateException("Razorpay is not configured. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in the backend environment.");
+        }
+
         Double amount = (request != null && request.amount() != null && request.amount() > 0)
                 ? request.amount()
                 : consultationAmount;
@@ -74,23 +78,19 @@ public class PaymentServiceImpl implements PaymentService {
                 }
             }
         } catch (Exception e) {
-            System.err.println("Razorpay API order creation notice: " + e.getMessage());
+            throw new IllegalStateException("Unable to create a Razorpay order. Check the Razorpay credentials and backend logs.", e);
         }
 
         if (orderId == null || orderId.isBlank()) {
-            orderId = "order_test_" + System.currentTimeMillis();
+            throw new IllegalStateException("Razorpay did not return an order ID.");
         }
-
-        String activeKeyId = (keyId != null && !keyId.isBlank())
-                ? keyId
-                : "rzp_test_1DP5hB15W9Z38Q";
 
         return new CreateOrderResponse(
                 orderId,
                 amount,
                 amountInPaise,
                 currency,
-                activeKeyId
+                keyId
         );
     }
 
