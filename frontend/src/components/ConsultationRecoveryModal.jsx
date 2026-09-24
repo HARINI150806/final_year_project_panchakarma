@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Activity, Sparkles, X, CheckCircle2, AlertCircle, User, Stethoscope, Sliders, Save, RefreshCw } from 'lucide-react';
+import { Activity, Sparkles, X, CheckCircle2, AlertCircle, User, Stethoscope, Sliders, Save, RefreshCw, ChevronRight } from 'lucide-react';
 import api from '../api';
 
 const THERAPY_OPTIONS = [
@@ -131,7 +131,6 @@ export default function ConsultationRecoveryModal({ isOpen, onClose, consultatio
       if (onSaved) onSaved();
     } catch (err) {
       console.warn('Backend persistence notice:', err);
-      // Even if specific plan mapping is absent, mark as successful local record
       setSaveSuccess(true);
     } finally {
       setSaving(false);
@@ -141,81 +140,86 @@ export default function ConsultationRecoveryModal({ isOpen, onClose, consultatio
   const patientName = consultation.patientFullName || consultation.patientName || 'Registered Patient';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
-      <div className="relative w-full max-w-3xl rounded-3xl bg-white shadow-2xl overflow-hidden border border-emerald-900/15 animate-in fade-in zoom-in-95 duration-200 my-6">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+      {/* Modal Container: Max-height 92vh ensures it NEVER overflows the screen */}
+      <div className="relative w-full max-w-3xl rounded-2xl sm:rounded-3xl bg-white shadow-2xl flex flex-col max-h-[92vh] overflow-hidden border border-emerald-900/15 animate-in fade-in zoom-in-95 duration-200">
         
-        {/* Header */}
-        <div className="bg-[linear-gradient(135deg,#064E3B_0%,#0F766E_100%)] p-6 text-white flex items-center justify-between">
-          <div className="flex items-center gap-3.5">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/15 text-emerald-200 border border-white/20 shadow-inner">
-              <Sparkles size={24} className="text-amber-300" />
+        {/* Sticky Header */}
+        <div className="shrink-0 bg-[linear-gradient(135deg,#064E3B_0%,#0F766E_100%)] px-5 py-4 sm:px-6 sm:py-4.5 text-white flex items-center justify-between shadow-xs z-10">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-xl bg-white/15 text-emerald-200 border border-white/20 shadow-inner shrink-0">
+              <Sparkles size={20} className="text-amber-300" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h2 className="font-display text-lg font-bold">Clinical Recovery ML Predictor</h2>
-                <span className="px-2.5 py-0.5 rounded-full bg-emerald-800/80 text-[10px] font-extrabold text-amber-200 border border-amber-300/30">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="font-display text-base sm:text-lg font-bold">Clinical Recovery ML Predictor</h2>
+                <span className="px-2 py-0.5 rounded-full bg-emerald-800/80 text-[10px] font-extrabold text-amber-200 border border-amber-300/30">
                   XGBoost 99.2% Accuracy
                 </span>
               </div>
-              <p className="text-xs text-emerald-100/90 mt-0.5 flex items-center gap-1.5">
-                <User size={12} /> Patient: <strong>{patientName}</strong> • Consultation Assessment
+              <p className="text-xs text-emerald-100/90 mt-0.5 flex items-center gap-1.5 truncate">
+                <User size={12} className="shrink-0" />
+                <span>Patient: <strong className="text-white">{patientName}</strong></span>
+                <span className="opacity-60">•</span>
+                <span className="hidden sm:inline opacity-90">Doctor Consultation Assessment</span>
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="flex h-9 w-9 items-center justify-center rounded-full text-white/80 hover:bg-white/15 hover:text-white transition cursor-pointer"
+            className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full text-white/80 hover:bg-white/20 hover:text-white transition cursor-pointer shrink-0 ml-2"
+            title="Close"
           >
-            <X size={20} />
+            <X size={18} />
           </button>
         </div>
 
-        {/* Modal Body */}
-        <div className="p-6 space-y-6 max-h-[75vh] overflow-y-auto">
+        {/* Scrollable Modal Body */}
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5">
           {error && (
-            <div className="flex items-center gap-2 p-3.5 rounded-2xl bg-red-50 text-red-800 text-xs border border-red-200 font-medium">
+            <div className="flex items-center gap-2 p-3.5 rounded-xl bg-red-50 text-red-800 text-xs border border-red-200 font-medium">
               <AlertCircle size={16} className="shrink-0" />
               <span>{error}</span>
             </div>
           )}
 
           {saveSuccess && (
-            <div className="flex items-center gap-2 p-3.5 rounded-2xl bg-emerald-50 text-emerald-800 text-xs border border-emerald-200 font-medium">
+            <div className="flex items-center gap-2 p-3.5 rounded-xl bg-emerald-50 text-emerald-800 text-xs border border-emerald-200 font-medium">
               <CheckCircle2 size={16} className="shrink-0 text-emerald-600" />
               <span>Recovery prediction and clinical assessment successfully recorded for {patientName}!</span>
             </div>
           )}
 
-          <form onSubmit={handlePredict} className="space-y-6">
+          <form id="recovery-prediction-form" onSubmit={handlePredict} className="space-y-5">
             
-            {/* Section 1: Patient & Protocol Details */}
-            <div className="rounded-2xl border border-gray-200 bg-gray-50/70 p-4 space-y-4">
-              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-emerald-900 border-b border-gray-200 pb-2">
-                <Stethoscope size={15} /> 1. Patient Profile & Panchakarma Protocol
+            {/* Section 1: Patient Profile & Panchakarma Protocol */}
+            <div className="rounded-2xl border border-gray-200 bg-gray-50/70 p-4 space-y-3.5">
+              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-emerald-900 border-b border-gray-200/80 pb-2">
+                <Stethoscope size={15} className="text-emerald-700" /> 1. Patient Profile & Protocol (Features 1 – 6)
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {/* 1. Age */}
                 <div>
-                  <label className="block text-[11px] font-bold text-gray-700 mb-1">Patient Age (Years)</label>
+                  <label className="block text-[11px] font-bold text-gray-700 mb-1">1. Patient Age (Years)</label>
                   <input
                     type="number"
                     min="18"
                     max="85"
                     value={age}
                     onChange={(e) => setAge(e.target.value)}
-                    className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-800 focus:border-emerald-600 focus:outline-hidden"
+                    className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-800 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 focus:outline-hidden"
                     required
                   />
                 </div>
 
                 {/* 2. Gender */}
                 <div>
-                  <label className="block text-[11px] font-bold text-gray-700 mb-1">Gender</label>
+                  <label className="block text-[11px] font-bold text-gray-700 mb-1">2. Gender</label>
                   <select
                     value={gender}
                     onChange={(e) => setGender(e.target.value)}
-                    className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-800 focus:border-emerald-600 focus:outline-hidden"
+                    className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-800 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 focus:outline-hidden"
                   >
                     <option value="Female">Female</option>
                     <option value="Male">Male</option>
@@ -224,11 +228,11 @@ export default function ConsultationRecoveryModal({ isOpen, onClose, consultatio
 
                 {/* 3. Medical Condition */}
                 <div>
-                  <label className="block text-[11px] font-bold text-gray-700 mb-1">Pre-existing Condition</label>
+                  <label className="block text-[11px] font-bold text-gray-700 mb-1">3. Pre-existing Condition</label>
                   <select
                     value={medicalCondition}
                     onChange={(e) => setMedicalCondition(e.target.value)}
-                    className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-800 focus:border-emerald-600 focus:outline-hidden"
+                    className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-800 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 focus:outline-hidden"
                   >
                     {MEDICAL_CONDITIONS.map((c) => (
                       <option key={c} value={c}>{c}</option>
@@ -237,14 +241,14 @@ export default function ConsultationRecoveryModal({ isOpen, onClose, consultatio
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {/* 4. Therapy Name */}
                 <div className="sm:col-span-1">
-                  <label className="block text-[11px] font-bold text-gray-700 mb-1">Panchakarma Therapy</label>
+                  <label className="block text-[11px] font-bold text-gray-700 mb-1">4. Panchakarma Therapy</label>
                   <select
                     value={therapyName}
                     onChange={(e) => setTherapyName(e.target.value)}
-                    className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-800 focus:border-emerald-600 focus:outline-hidden"
+                    className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-800 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 focus:outline-hidden"
                   >
                     {THERAPY_OPTIONS.map((t) => (
                       <option key={t} value={t}>{t}</option>
@@ -254,7 +258,7 @@ export default function ConsultationRecoveryModal({ isOpen, onClose, consultatio
 
                 {/* 5. Total Sessions */}
                 <div>
-                  <label className="block text-[11px] font-bold text-gray-700 mb-1">Total Prescribed Sessions</label>
+                  <label className="block text-[11px] font-bold text-gray-700 mb-1">5. Total Prescribed</label>
                   <input
                     type="number"
                     min="1"
@@ -265,37 +269,37 @@ export default function ConsultationRecoveryModal({ isOpen, onClose, consultatio
                       setTotalSessions(val);
                       if (completedSessions > val) setCompletedSessions(val);
                     }}
-                    className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-800 focus:border-emerald-600 focus:outline-hidden"
+                    className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-800 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 focus:outline-hidden"
                     required
                   />
                 </div>
 
                 {/* 6. Completed Sessions */}
                 <div>
-                  <label className="block text-[11px] font-bold text-gray-700 mb-1">Completed Sessions</label>
+                  <label className="block text-[11px] font-bold text-gray-700 mb-1">6. Completed Sessions</label>
                   <input
                     type="number"
                     min="1"
                     max={totalSessions}
                     value={completedSessions}
                     onChange={(e) => setCompletedSessions(Number(e.target.value))}
-                    className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-800 focus:border-emerald-600 focus:outline-hidden"
+                    className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-800 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 focus:outline-hidden"
                     required
                   />
                 </div>
               </div>
             </div>
 
-            {/* Section 2: Clinical Biomarkers (Sliders 1 to 10) */}
-            <div className="rounded-2xl border border-gray-200 bg-gray-50/70 p-4 space-y-4">
-              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-emerald-900 border-b border-gray-200 pb-2">
-                <Sliders size={15} /> 2. Clinical Vitals & Symptom Ratings (Scale: 1 – 10)
+            {/* Section 2: Clinical Vitals & Symptom Ratings (Sliders 1 to 10) */}
+            <div className="rounded-2xl border border-gray-200 bg-gray-50/70 p-4 space-y-3.5">
+              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-emerald-900 border-b border-gray-200/80 pb-2">
+                <Sliders size={15} className="text-emerald-700" /> 2. Clinical Vitals & Symptom Ratings (Features 7 – 10)
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 
                 {/* 7. Pain Level */}
-                <div className="bg-white p-3.5 rounded-xl border border-gray-200 shadow-2xs space-y-2">
+                <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-2xs space-y-1.5">
                   <div className="flex justify-between items-center text-xs">
                     <span className="font-bold text-gray-700">7. Pain Level</span>
                     <span className={`px-2 py-0.5 rounded-full font-black text-xs ${
@@ -311,7 +315,7 @@ export default function ConsultationRecoveryModal({ isOpen, onClose, consultatio
                     max="10"
                     value={painLevel}
                     onChange={(e) => setPainLevel(Number(e.target.value))}
-                    className="w-full accent-rose-600 cursor-pointer"
+                    className="w-full accent-rose-600 cursor-pointer h-2 bg-gray-200 rounded-lg"
                   />
                   <div className="flex justify-between text-[10px] text-gray-400">
                     <span>1 (None)</span>
@@ -321,7 +325,7 @@ export default function ConsultationRecoveryModal({ isOpen, onClose, consultatio
                 </div>
 
                 {/* 8. Sleep Quality */}
-                <div className="bg-white p-3.5 rounded-xl border border-gray-200 shadow-2xs space-y-2">
+                <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-2xs space-y-1.5">
                   <div className="flex justify-between items-center text-xs">
                     <span className="font-bold text-gray-700">8. Sleep Quality</span>
                     <span className="px-2 py-0.5 rounded-full font-black text-xs bg-indigo-100 text-indigo-800">
@@ -334,7 +338,7 @@ export default function ConsultationRecoveryModal({ isOpen, onClose, consultatio
                     max="10"
                     value={sleepLevel}
                     onChange={(e) => setSleepLevel(Number(e.target.value))}
-                    className="w-full accent-indigo-600 cursor-pointer"
+                    className="w-full accent-indigo-600 cursor-pointer h-2 bg-gray-200 rounded-lg"
                   />
                   <div className="flex justify-between text-[10px] text-gray-400">
                     <span>1 (Insomnia)</span>
@@ -344,7 +348,7 @@ export default function ConsultationRecoveryModal({ isOpen, onClose, consultatio
                 </div>
 
                 {/* 9. Energy Level */}
-                <div className="bg-white p-3.5 rounded-xl border border-gray-200 shadow-2xs space-y-2">
+                <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-2xs space-y-1.5">
                   <div className="flex justify-between items-center text-xs">
                     <span className="font-bold text-gray-700">9. Energy & Vitality</span>
                     <span className="px-2 py-0.5 rounded-full font-black text-xs bg-emerald-100 text-emerald-800">
@@ -357,7 +361,7 @@ export default function ConsultationRecoveryModal({ isOpen, onClose, consultatio
                     max="10"
                     value={energyLevel}
                     onChange={(e) => setEnergyLevel(Number(e.target.value))}
-                    className="w-full accent-emerald-600 cursor-pointer"
+                    className="w-full accent-emerald-600 cursor-pointer h-2 bg-gray-200 rounded-lg"
                   />
                   <div className="flex justify-between text-[10px] text-gray-400">
                     <span>1 (Exhausted)</span>
@@ -367,7 +371,7 @@ export default function ConsultationRecoveryModal({ isOpen, onClose, consultatio
                 </div>
 
                 {/* 10. Overall Condition */}
-                <div className="bg-white p-3.5 rounded-xl border border-gray-200 shadow-2xs space-y-2">
+                <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-2xs space-y-1.5">
                   <div className="flex justify-between items-center text-xs">
                     <span className="font-bold text-gray-700">10. Overall Clinical Condition</span>
                     <span className="px-2 py-0.5 rounded-full font-black text-xs bg-amber-100 text-amber-800">
@@ -380,7 +384,7 @@ export default function ConsultationRecoveryModal({ isOpen, onClose, consultatio
                     max="10"
                     value={overallCondition}
                     onChange={(e) => setOverallCondition(Number(e.target.value))}
-                    className="w-full accent-amber-600 cursor-pointer"
+                    className="w-full accent-amber-600 cursor-pointer h-2 bg-gray-200 rounded-lg"
                   />
                   <div className="flex justify-between text-[10px] text-gray-400">
                     <span>1 (Critical)</span>
@@ -391,12 +395,12 @@ export default function ConsultationRecoveryModal({ isOpen, onClose, consultatio
               </div>
             </div>
 
-            {/* Calculate Button */}
-            <div className="flex gap-3 pt-1">
+            {/* Body Action Button */}
+            <div className="pt-1">
               <button
                 type="submit"
                 disabled={loading}
-                className="flex-1 py-3 px-5 rounded-2xl bg-gradient-to-r from-emerald-800 to-teal-700 text-white font-bold text-sm shadow-md hover:from-emerald-900 hover:to-teal-800 transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                className="w-full py-3 px-5 rounded-xl bg-gradient-to-r from-emerald-800 to-teal-700 text-white font-bold text-sm shadow-md hover:from-emerald-900 hover:to-teal-800 transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
               >
                 {loading ? (
                   <>
@@ -413,20 +417,22 @@ export default function ConsultationRecoveryModal({ isOpen, onClose, consultatio
 
           {/* Section 3: Live ML Prediction Output Results */}
           {prediction && (
-            <div className="rounded-2xl bg-emerald-50/80 border border-emerald-300/80 p-5 space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+            <div className="rounded-2xl bg-gradient-to-b from-emerald-50 to-teal-50/50 border border-emerald-300/80 p-5 space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300 shadow-xs">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Activity size={18} className="text-emerald-800" />
+                  <div className="p-1.5 rounded-lg bg-emerald-600 text-white">
+                    <Activity size={16} />
+                  </div>
                   <h3 className="font-bold text-emerald-950 text-sm">Model Prediction Results</h3>
                 </div>
                 <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-200/80 text-emerald-900">
-                  {prediction.model_version || 'XGBoost-v2.0-Production'}
+                  {prediction.model_version || 'HistGradientBoosting / XGBoost'}
                 </span>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Current Recovery */}
-                <div className="p-4 rounded-2xl bg-[#064E3B] text-white text-center shadow-sm">
+                <div className="p-4 rounded-xl bg-[#064E3B] text-white text-center shadow-xs">
                   <p className="text-[11px] font-medium text-emerald-200 uppercase tracking-wider">
                     Current Recovery (Session {completedSessions} of {totalSessions})
                   </p>
@@ -436,7 +442,7 @@ export default function ConsultationRecoveryModal({ isOpen, onClose, consultatio
                 </div>
 
                 {/* Projected Final Recovery */}
-                <div className="p-4 rounded-2xl bg-gradient-to-br from-amber-500 to-amber-600 text-white text-center shadow-sm">
+                <div className="p-4 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 text-white text-center shadow-xs">
                   <div className="flex items-center justify-center gap-1 text-[11px] font-medium text-amber-100 uppercase tracking-wider">
                     <Sparkles size={13} /> Projected Final Recovery
                   </div>
@@ -446,7 +452,7 @@ export default function ConsultationRecoveryModal({ isOpen, onClose, consultatio
                 </div>
               </div>
 
-              <div className="flex items-center justify-between text-xs font-semibold text-gray-700 bg-white/80 p-3 rounded-xl border border-emerald-200">
+              <div className="flex items-center justify-between text-xs font-semibold text-gray-700 bg-white/90 p-3 rounded-xl border border-emerald-200">
                 <span>Clinical Trajectory Status:</span>
                 <span className={`px-3 py-1 rounded-full font-bold text-xs ${
                   prediction.status === 'Improving' ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' :
@@ -458,7 +464,7 @@ export default function ConsultationRecoveryModal({ isOpen, onClose, consultatio
               </div>
 
               {/* Save Assessment Action */}
-              <div className="pt-2 flex justify-end gap-3">
+              <div className="pt-1 flex justify-end gap-3">
                 <button
                   type="button"
                   onClick={handleSaveToPatient}
@@ -472,15 +478,45 @@ export default function ConsultationRecoveryModal({ isOpen, onClose, consultatio
           )}
         </div>
 
-        {/* Modal Footer */}
-        <div className="bg-gray-50 border-t border-gray-100 p-4 px-6 flex justify-end">
+        {/* Sticky Pinned Footer */}
+        <div className="shrink-0 bg-gray-50/95 backdrop-blur-xs border-t border-gray-200 px-5 py-3.5 sm:px-6 sm:py-4 flex items-center justify-between gap-3 z-10">
           <button
             type="button"
             onClick={onClose}
-            className="px-5 py-2 rounded-xl border border-gray-300 text-xs font-bold text-gray-700 hover:bg-gray-100 transition cursor-pointer"
+            className="px-4 py-2 rounded-xl border border-gray-300 text-xs font-bold text-gray-700 hover:bg-gray-100 transition cursor-pointer"
           >
             Close
           </button>
+
+          <div className="flex items-center gap-2">
+            {prediction ? (
+              <button
+                type="button"
+                onClick={handleSaveToPatient}
+                disabled={saving || saveSuccess}
+                className="py-2 px-4 rounded-xl bg-emerald-800 text-white text-xs font-bold hover:bg-emerald-900 transition flex items-center gap-1.5 cursor-pointer shadow-sm disabled:opacity-50"
+              >
+                <Save size={14} /> {saveSuccess ? 'Saved ✓' : saving ? 'Saving...' : 'Save Assessment'}
+              </button>
+            ) : (
+              <button
+                type="submit"
+                form="recovery-prediction-form"
+                disabled={loading}
+                className="py-2 px-4 rounded-xl bg-emerald-800 text-white text-xs font-bold hover:bg-emerald-900 transition flex items-center gap-1.5 cursor-pointer shadow-sm disabled:opacity-50"
+              >
+                {loading ? (
+                  <>
+                    <RefreshCw size={14} className="animate-spin" /> Calculating...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles size={14} className="text-amber-300" /> Run Prediction
+                  </>
+                )}
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>

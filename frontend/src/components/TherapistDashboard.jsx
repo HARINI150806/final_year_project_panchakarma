@@ -27,7 +27,7 @@ import TherapistAvailabilityManager from './TherapistAvailabilityManager';
 import TherapistFollowUpsView from './TherapistFollowUpsView';
 import TherapistWalletView from './TherapistWalletView';
 import RecoveryTrackingModal from './RecoveryTrackingModal';
-import ConsultationRecoveryModal from './ConsultationRecoveryModal';
+import FullPageRecoveryPredictor from './FullPageRecoveryPredictor';
 
 const getTherapyDisplayInfo = (booking) => {
     if (!booking) return { title: 'Panchakarma Session', sessionTag: '1 of 1' };
@@ -89,9 +89,8 @@ function TherapistDashboard({ activeTab, onTabChange, auth, sidebarOffset = 0 })
     const [recoveryModalOpen, setRecoveryModalOpen] = useState(false);
     const [selectedRecoveryPlan, setSelectedRecoveryPlan] = useState(null);
 
-    // Consultation 10-Parameter ML Prediction Modal State
-    const [consultationPredictionModalOpen, setConsultationPredictionModalOpen] = useState(false);
-    const [selectedConsultationForPrediction, setSelectedConsultationForPrediction] = useState(null);
+    // Full Page Recovery ML Predictor State
+    const [activePredictionSession, setActivePredictionSession] = useState(null);
 
     // Patient Details & Clinical Prescription Form Modals
     const [patientDetailsModalOpen, setPatientDetailsModalOpen] = useState(false);
@@ -757,6 +756,20 @@ function TherapistDashboard({ activeTab, onTabChange, auth, sidebarOffset = 0 })
         return <div className="p-8 text-center text-rose-500 font-semibold">{error}</div>;
     }
 
+    if (activePredictionSession) {
+        return (
+            <div id="therapist-prediction-fullpage-section" className="w-full">
+                <FullPageRecoveryPredictor
+                    consultation={activePredictionSession}
+                    onBack={() => setActivePredictionSession(null)}
+                    onSaved={() => {
+                        fetchData();
+                    }}
+                />
+            </div>
+        );
+    }
+
     return (
         <div id="therapist-bookings-section" className="space-y-5">
             {/* 2. STAT CARDS (Dashboard & Sessions Tabs) */}
@@ -1129,14 +1142,13 @@ function TherapistDashboard({ activeTab, onTabChange, auth, sidebarOffset = 0 })
                                                                     <FileText size={13} /> Notes
                                                                 </button>
 
-                                                                <button
+                                                                 <button
                                                                     type="button"
                                                                     onClick={() => {
-                                                                        setSelectedConsultationForPrediction(booking);
-                                                                        setConsultationPredictionModalOpen(true);
+                                                                        setActivePredictionSession(booking);
                                                                     }}
-                                                                    className="rounded-xl px-3.5 py-1.5 text-xs font-bold bg-[#05603A] text-white hover:bg-[#044c2e] transition cursor-pointer shadow-2xs inline-flex items-center gap-1.5 shrink-0"
-                                                                    title="Enter 10 clinical parameters and calculate Recovery Score with XGBoost ML"
+                                                                    className="rounded-xl px-3.5 py-1.5 text-xs font-bold bg-[#05603A] text-white hover:bg-[#044c2e] transition cursor-pointer shadow-sm inline-flex items-center gap-1.5 shrink-0"
+                                                                    title="Enter 10 clinical parameters and calculate Recovery Score with XGBoost ML in Full Page"
                                                                 >
                                                                     <Sparkles size={13} className="text-amber-300" /> Predict Recovery
                                                                 </button>
@@ -1293,11 +1305,10 @@ function TherapistDashboard({ activeTab, onTabChange, auth, sidebarOffset = 0 })
                                                     <button
                                                         type="button"
                                                         onClick={() => {
-                                                            setSelectedConsultationForPrediction(booking);
-                                                            setConsultationPredictionModalOpen(true);
+                                                            setActivePredictionSession(booking);
                                                         }}
-                                                        className="rounded-full px-3.5 py-1.5 text-xs font-semibold bg-[#05603A] text-white shadow-2xs inline-flex items-center gap-1.5"
-                                                        title="Predict Recovery Score with XGBoost ML Model"
+                                                        className="rounded-full px-3.5 py-1.5 text-xs font-semibold bg-[#05603A] text-white shadow-sm inline-flex items-center gap-1.5"
+                                                        title="Predict Recovery Score with XGBoost ML Model in Full Page"
                                                     >
                                                         <Sparkles size={13} className="text-amber-300" /> Predict Recovery
                                                     </button>
@@ -2187,14 +2198,6 @@ function TherapistDashboard({ activeTab, onTabChange, auth, sidebarOffset = 0 })
                 isOpen={recoveryModalOpen}
                 onClose={() => setRecoveryModalOpen(false)}
                 therapyPlan={selectedRecoveryPlan}
-                onSaved={() => fetchData()}
-            />
-
-            {/* Consultation 10-Parameter Recovery ML Predictor Modal */}
-            <ConsultationRecoveryModal
-                isOpen={consultationPredictionModalOpen}
-                onClose={() => setConsultationPredictionModalOpen(false)}
-                consultation={selectedConsultationForPrediction}
                 onSaved={() => fetchData()}
             />
         </div>

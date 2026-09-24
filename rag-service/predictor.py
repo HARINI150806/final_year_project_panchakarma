@@ -117,7 +117,7 @@ def predict_recovery_xgboost(
             }])
             
             raw_current_pred = float(pipeline.predict(input_df)[0])
-            current_pred = round(max(10.0, min(99.0, raw_current_pred)), 1)
+            current_pred = round(max(10.0, min(100.0, raw_current_pred)), 1)
             
             # 2. Projected final recovery at total sessions completion
             if session_number >= total_sessions:
@@ -144,7 +144,7 @@ def predict_recovery_xgboost(
                 }])
                 raw_final_pred = float(pipeline.predict(projected_df)[0])
                 # Ensure monotonic improvement over current prediction
-                predicted_final = round(max(current_pred, min(98.5, raw_final_pred)), 1)
+                predicted_final = round(max(current_pred, min(100.0, raw_final_pred)), 1)
 
             # Determine clinical recovery status
             if predicted_final >= 75.0:
