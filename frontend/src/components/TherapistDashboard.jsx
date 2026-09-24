@@ -1142,7 +1142,7 @@ function TherapistDashboard({ activeTab, onTabChange, auth, sidebarOffset = 0 })
                                                                     <FileText size={13} /> Notes
                                                                 </button>
 
-                                                                 <button
+                                                                <button
                                                                     type="button"
                                                                     onClick={() => {
                                                                         setActivePredictionSession(booking);
