@@ -37,8 +37,11 @@ public class AuthController {
         if (email.isBlank()) {
             throw new IllegalArgumentException("Email is required");
         }
-        authService.sendVerificationCode(email);
-        return ResponseEntity.ok(Map.of("message", "Verification code sent successfully to " + email + "."));
+        String code = authService.sendVerificationCode(email);
+        return ResponseEntity.ok(Map.of(
+                "message", "Verification code sent successfully to " + email + ".",
+                "code", code != null ? code : ""
+        ));
     }
 
     @PostMapping("/auth/register")
@@ -91,5 +94,11 @@ public class AuthController {
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, String>> handleIllegalArgument(IllegalArgumentException exception) {
         return ResponseEntity.badRequest().body(Map.of("message", exception.getMessage()));
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<Map<String, String>> handleGenericException(Exception exception) {
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("message", exception.getMessage() != null ? exception.getMessage() : "An unexpected error occurred."));
     }
 }

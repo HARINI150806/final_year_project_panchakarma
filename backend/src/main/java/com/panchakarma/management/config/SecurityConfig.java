@@ -44,7 +44,7 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/**", "/api/health", "/api/google/oauth/**", "/ws/**", "/api/public/**").permitAll()
+                        .requestMatchers("/api/auth/**", "/api/health", "/api/google/oauth/**", "/ws/**", "/api/public/**", "/error").permitAll()
                         .requestMatchers("/api/therapists", "/api/therapists/availability", "/api/therapists/*/availability").authenticated()
                         .requestMatchers(
                             "/api/therapists/my-bookings", 

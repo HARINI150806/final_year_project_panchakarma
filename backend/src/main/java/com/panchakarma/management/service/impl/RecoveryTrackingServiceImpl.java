@@ -152,13 +152,19 @@ public class RecoveryTrackingServiceImpl implements RecoveryTrackingService {
 
             Double predictedVal = null;
             String status = "Improving";
-            String modelVer = "XGBoost-v1.0";
+            String modelVer = "XGBoost-v2.0-Production";
 
             // Call Python RAG ML Service FastAPI /api/predict-recovery
             try {
+                String condition = "None";
+                if (patient != null && patient.getPatient() != null && patient.getPatient().getHealthConditions() != null && !patient.getPatient().getHealthConditions().isEmpty()) {
+                    condition = patient.getPatient().getHealthConditions().get(0).getName();
+                }
+
                 Map<String, Object> reqBody = new HashMap<>();
-                reqBody.put("age", 35);
+                reqBody.put("age", patient != null && patient.getAge() != null ? patient.getAge() : 35);
                 reqBody.put("gender", patient != null && patient.getGender() != null ? patient.getGender().toString() : "FEMALE");
+                reqBody.put("medical_condition", condition);
                 reqBody.put("therapy_type", plan.getTherapyName() != null ? plan.getTherapyName() : "Abhyanga");
                 reqBody.put("session_number", sessNum);
                 reqBody.put("total_sessions", totalSess);

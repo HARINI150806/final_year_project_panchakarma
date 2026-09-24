@@ -160,15 +160,12 @@ public class AuthService {
         // Generate a 6-digit random code
         String code = String.valueOf((int) (Math.random() * 900000 + 100000));
 
-        // Clear existing reset requests for this email to avoid duplicates
-        passwordResetRepository.findByEmail(trimmedEmail).ifPresent(passwordResetRepository::delete);
-
-        // Save new password reset record (valid for 10 minutes)
-        PasswordReset passwordReset = new PasswordReset(
-                trimmedEmail,
-                code,
-                LocalDateTime.now().plusMinutes(10)
-        );
+        // Upsert password reset record (valid for 10 minutes)
+        PasswordReset passwordReset = passwordResetRepository.findByEmail(trimmedEmail)
+                .orElse(new PasswordReset());
+        passwordReset.setEmail(trimmedEmail);
+        passwordReset.setOtpCode(code);
+        passwordReset.setExpiresAt(LocalDateTime.now().plusMinutes(10));
         passwordResetRepository.save(passwordReset);
 
         // Send real email containing recovery code
@@ -207,7 +204,7 @@ public class AuthService {
 
 
     @org.springframework.transaction.annotation.Transactional
-    public void sendVerificationCode(String email) {
+    public String sendVerificationCode(String email) {
         String trimmedEmail = email.trim().toLowerCase();
         
         // 1. Check if email is already registered
@@ -218,18 +215,17 @@ public class AuthService {
         // 2. Generate a 6-digit random code
         String code = String.valueOf((int) (Math.random() * 900000 + 100000));
 
-        // 3. Clear existing verifications for this email to avoid duplicates
-        emailVerificationRepository.findByEmail(trimmedEmail).ifPresent(emailVerificationRepository::delete);
-
-        // 4. Save new verification code valid for 10 minutes
-        EmailVerification verification = new EmailVerification(
-                trimmedEmail,
-                code,
-                LocalDateTime.now().plusMinutes(10)
-        );
+        // 3. Upsert verification code valid for 10 minutes
+        EmailVerification verification = emailVerificationRepository.findByEmail(trimmedEmail)
+                .orElse(new EmailVerification());
+        verification.setEmail(trimmedEmail);
+        verification.setOtpCode(code);
+        verification.setExpiresAt(LocalDateTime.now().plusMinutes(10));
         emailVerificationRepository.save(verification);
 
-        // 5. Send code via EmailService
+        // 4. Send code via EmailService
         emailService.sendVerificationCodeEmail(trimmedEmail, code);
+
+        return code;
     }
 }

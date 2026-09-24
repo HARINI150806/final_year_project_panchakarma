@@ -1,0 +1,58 @@
+{
+  "model_name": "Panchakarma Recovery XGBoost Regressor",
+  "model_version": "XGBoost-v2.0-Production",
+  "trained_at": "2026-09-22T20:24:57.649093",
+  "total_training_records": 10000,
+  "metrics": {
+    "r2_score": 0.9919829517066707,
+    "mae": 1.1537459136777035,
+    "rmse": 1.4522099461162643,
+    "max_error": 7.9630549344898185,
+    "training_duration_seconds": 0.761
+  },
+  "categorical_features": [
+    "Gender",
+    "MedicalCondition",
+    "TherapyName"
+  ],
+  "numerical_features": [
+    "Age",
+    "TotalSessions",
+    "CompletedSessions",
+    "PainLevel",
+    "SleepLevel",
+    "EnergyLevel",
+    "OverallCondition"
+  ],
+  "feature_importances": {
+    "CompletedSessions": 1.0451767515162866,
+    "TotalSessions": 0.9371318358226134,
+    "PainLevel": 0.16466922593151972,
+    "EnergyLevel": 0.1308136937067552,
+    "OverallCondition": 0.1273317967666036,
+    "SleepLevel": 0.1211451608077125,
+    "MedicalCondition": 0.07532784814768519,
+    "TherapyName": 0.00012064156504916212,
+    "Gender": -3.3966236921090243e-06,
+    "Age": -1.6775464946272578e-05
+  },
+  "unique_medical_conditions": [
+    "Arthritis",
+    "Diabetes",
+    "Diabetes + Hypertension",
+    "Hypertension",
+    "Hypothyroidism",
+    "None",
+    "Obesity"
+  ],
+  "unique_therapies": [
+    "Abhyanga (Oil Massage)",
+    "Basti (Enema Therapy)",
+    "Nasya (Nasal Therapy)",
+    "Pizhichil (Warm Oil Squeeze)",
+    "Shirodhara (Oil Pouring)",
+    "Udvartana (Herbal Powder Massage)",
+    "Vamana (Emesis Therapy)",
+    "Virechana (Purgation)"
+  ]
+}
