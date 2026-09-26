@@ -44,9 +44,14 @@ export default function PatientTreatmentHistory({ auth }) {
         // Helper to extract clean practitioner name
         const resolvePractitioner = (b) => {
           let name = b.assignedTo?.fullName || b.assignedTo?.name || b.therapistName || b.assignedToName || b.doctorName;
+          const role = b.assignedTo?.role || b.practitionerRole;
           if (!name || name === 'Ayurvedic Specialist' || name === 'null' || name === 'nil') {
             name = 'Assigned Practitioner';
-          } else if (!name.toLowerCase().startsWith('dr.') && !name.toLowerCase().startsWith('therapist') && !name.toLowerCase().startsWith('vaidya')) {
+          } else if (role === 'THERAPIST' || name.toLowerCase().startsWith('therapist')) {
+            if (!name.toLowerCase().startsWith('therapist')) {
+              name = `Therapist ${name}`;
+            }
+          } else if (!name.toLowerCase().startsWith('dr.') && !name.toLowerCase().startsWith('vaidya')) {
             name = `Dr. ${name}`;
           }
           return name;

@@ -11,6 +11,9 @@ import {
   Sparkles,
   User,
   Wind,
+  Edit3,
+  X,
+  CheckCircle2
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
@@ -231,6 +234,17 @@ export default function PatientProfilePage({ auth, onLogout }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  // Edit Profile Form State
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editAge, setEditAge] = useState('');
+  const [editGender, setEditGender] = useState('Female');
+  const [editHeight, setEditHeight] = useState('');
+  const [editWeight, setEditWeight] = useState('');
+  const [editOccupation, setEditOccupation] = useState('');
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const [saveSuccess, setSaveSuccess] = useState('');
+
   useEffect(() => {
     async function fetchProfile() {
       try {
@@ -251,6 +265,51 @@ export default function PatientProfilePage({ auth, onLogout }) {
     }
     fetchProfile();
   }, [auth]);
+
+  const openEditModal = () => {
+    setEditAge(profile?.age ? String(profile.age) : '');
+    setEditGender(profile?.gender || 'Female');
+    setEditHeight(profile?.height ? String(profile.height) : '');
+    setEditWeight(profile?.weight ? String(profile.weight) : '');
+    setEditOccupation(profile?.occupation || '');
+    setSaveError('');
+    setIsEditModalOpen(true);
+  };
+
+  const handleSaveProfile = async (e) => {
+    e.preventDefault();
+    setSavingProfile(true);
+    setSaveError('');
+    try {
+      const payload = {
+        age: editAge ? Number(editAge) : null,
+        gender: editGender,
+        height: editHeight ? Number(editHeight) : null,
+        weight: editWeight ? Number(editWeight) : null,
+        occupation: editOccupation
+      };
+
+      await api.put('/patient/profile', payload);
+
+      setProfile(prev => ({
+        ...prev,
+        age: editAge ? Number(editAge) : prev?.age,
+        gender: editGender,
+        height: editHeight || prev?.height,
+        weight: editWeight || prev?.weight,
+        occupation: editOccupation || prev?.occupation
+      }));
+
+      setIsEditModalOpen(false);
+      setSaveSuccess('Profile details updated successfully!');
+      setTimeout(() => setSaveSuccess(''), 4000);
+    } catch (err) {
+      console.error('Failed to update profile:', err);
+      setSaveError('Failed to save profile changes. Please try again.');
+    } finally {
+      setSavingProfile(false);
+    }
+  };
 
   const doshaType = inferDoshaType(profile);
   const dosha = doshaType ? doshaDisplay[doshaType] : null;
@@ -297,6 +356,13 @@ export default function PatientProfilePage({ auth, onLogout }) {
           </p>
         )}
 
+        {saveSuccess && (
+          <div className="mb-4 flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">
+            <CheckCircle2 size={18} className="text-emerald-600" />
+            <span>{saveSuccess}</span>
+          </div>
+        )}
+
         {/* Avatar hero */}
         <div className="panel-frost mb-6 overflow-hidden rounded-[2.4rem] p-6">
           <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
@@ -332,15 +398,24 @@ export default function PatientProfilePage({ auth, onLogout }) {
         <div className="grid gap-6 md:grid-cols-2">
           {/* Personal details */}
           <div className="panel-frost rounded-[2.2rem] p-5">
-            <div className="mb-4 flex items-center gap-3">
-              <div className="rounded-2xl bg-[#e6efdf] p-2.5 text-sage"><User size={16} /></div>
-              <p className="text-sm font-bold text-forest">Personal Details</p>
+            <div className="mb-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="rounded-2xl bg-[#e6efdf] p-2.5 text-sage"><User size={16} /></div>
+                <p className="text-sm font-bold text-forest">Personal Details</p>
+              </div>
+              <button
+                type="button"
+                onClick={openEditModal}
+                className="flex items-center gap-1.5 rounded-xl border border-forest/20 bg-forest/5 px-3 py-1.5 text-xs font-bold text-forest transition hover:bg-forest/15 cursor-pointer"
+              >
+                <Edit3 size={13} /> Edit Profile
+              </button>
             </div>
             <div className="divide-y divide-forest/8">
-              <InfoRow label="Age" value={profile?.age ? `${profile.age} years` : null} />
-              <InfoRow label="Gender" value={profile?.gender} />
-              <InfoRow label="Height" value={profile?.height} />
-              <InfoRow label="Weight" value={profile?.weight} />
+              <InfoRow label="Age" value={profile?.age ? `${profile.age} years` : 'Not Specified'} />
+              <InfoRow label="Gender" value={profile?.gender || 'Not Specified'} />
+              <InfoRow label="Height" value={profile?.height ? `${profile.height} cm` : null} />
+              <InfoRow label="Weight" value={profile?.weight ? `${profile.weight} kg` : null} />
               <InfoRow label="Occupation" value={profile?.occupation} />
             </div>
           </div>
@@ -443,6 +518,133 @@ export default function PatientProfilePage({ auth, onLogout }) {
                 <InfoRow label="Walking Style" value={profile.walkingStyle} />
                 <InfoRow label="Personality" value={profile.personality} />
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* EDIT PROFILE MODAL */}
+        {isEditModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
+            <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-200">
+              <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                <div className="flex items-center gap-2 font-display text-lg font-bold text-forest">
+                  <User size={18} className="text-sage" />
+                  <span>Update Personal Profile</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsEditModalOpen(false)}
+                  className="rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition cursor-pointer"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {saveError && (
+                <p className="rounded-xl bg-red-50 p-3 text-xs font-semibold text-red-700 border border-red-200">
+                  {saveError}
+                </p>
+              )}
+
+              <form onSubmit={handleSaveProfile} className="space-y-4 text-xs">
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Age */}
+                  <div>
+                    <label className="block font-bold text-forest mb-1">
+                      Age (Years) <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="120"
+                      required
+                      placeholder="e.g. 35"
+                      value={editAge}
+                      onChange={(e) => setEditAge(e.target.value)}
+                      className="w-full rounded-xl border border-gray-300 bg-gray-50/50 px-3.5 py-2.5 text-sm font-semibold text-forest focus:bg-white focus:border-sage focus:outline-none transition"
+                    />
+                  </div>
+
+                  {/* Biological Gender */}
+                  <div>
+                    <label className="block font-bold text-forest mb-1">
+                      Biological Gender <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={editGender}
+                      onChange={(e) => setEditGender(e.target.value)}
+                      className="w-full rounded-xl border border-gray-300 bg-gray-50/50 px-3.5 py-2.5 text-sm font-semibold text-forest focus:bg-white focus:border-sage focus:outline-none transition cursor-pointer"
+                    >
+                      <option value="Female">Female</option>
+                      <option value="Male">Male</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Height */}
+                  <div>
+                    <label className="block font-bold text-forest mb-1">
+                      Height (cm)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      placeholder="e.g. 165"
+                      value={editHeight}
+                      onChange={(e) => setEditHeight(e.target.value)}
+                      className="w-full rounded-xl border border-gray-300 bg-gray-50/50 px-3.5 py-2.5 text-sm font-semibold text-forest focus:bg-white focus:border-sage focus:outline-none transition"
+                    />
+                  </div>
+
+                  {/* Weight */}
+                  <div>
+                    <label className="block font-bold text-forest mb-1">
+                      Weight (kg)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      placeholder="e.g. 62"
+                      value={editWeight}
+                      onChange={(e) => setEditWeight(e.target.value)}
+                      className="w-full rounded-xl border border-gray-300 bg-gray-50/50 px-3.5 py-2.5 text-sm font-semibold text-forest focus:bg-white focus:border-sage focus:outline-none transition"
+                    />
+                  </div>
+                </div>
+
+                {/* Occupation */}
+                <div>
+                  <label className="block font-bold text-forest mb-1">
+                    Occupation
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Software Engineer / Accountant"
+                    value={editOccupation}
+                    onChange={(e) => setEditOccupation(e.target.value)}
+                    className="w-full rounded-xl border border-gray-300 bg-gray-50/50 px-3.5 py-2.5 text-sm font-semibold text-forest focus:bg-white focus:border-sage focus:outline-none transition"
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-100">
+                  <button
+                    type="button"
+                    onClick={() => setIsEditModalOpen(false)}
+                    className="px-4 py-2 rounded-xl border border-gray-300 text-xs font-bold text-gray-600 hover:bg-gray-50 transition cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={savingProfile}
+                    className="px-5 py-2 rounded-xl bg-[linear-gradient(135deg,#355c39_0%,#5a8553_100%)] text-white text-xs font-bold hover:shadow-md transition cursor-pointer disabled:opacity-50"
+                  >
+                    {savingProfile ? 'Saving...' : 'Save Changes'}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}

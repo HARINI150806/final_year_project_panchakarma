@@ -13,6 +13,7 @@ import java.util.List;
 public class PatientProfileRequest {
 
     private LocalDate dateOfBirth;
+    private Integer age;
     private String gender;
     private Double height;
     private Double weight;

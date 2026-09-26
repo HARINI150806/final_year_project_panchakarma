@@ -18,6 +18,7 @@ public class SaveRecoveryAssessmentRequest {
     private Integer sleepQuality;  // 0 - 10
     private Integer energyLevel;   // 0 - 10
     private Integer overallCondition; // 0 - 10
+    private Double currentRecoveryPercentage;
     private String clinicalObservation;
     private String therapistRemarks;
 }

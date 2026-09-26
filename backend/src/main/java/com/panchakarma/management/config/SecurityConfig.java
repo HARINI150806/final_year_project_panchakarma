@@ -65,7 +65,8 @@ public class SecurityConfig {
                                 "/api/health",
                                 "/api/google/oauth/**",
                                 "/ws/**",
-                                "/api/public/**"
+                                "/api/public/**",
+                                "/error"
                         ).permitAll()
                         .requestMatchers("/api/therapists", "/api/therapists/availability", "/api/therapists/*/availability").authenticated()
                         .requestMatchers(

@@ -38,6 +38,30 @@ public class DataInitializer {
                         35,
                         UserRole.ADMIN));
             }
+
+            // 2. Seed Therapist User if missing
+            if (!userRepository.existsByEmail("therapist@panchakarma.com")) {
+                User therapist = buildUser(
+                        "Lead Therapist",
+                        "therapist@panchakarma.com",
+                        "9876543211",
+                        "Female",
+                        32,
+                        UserRole.THERAPIST);
+                therapist.setSeniorTherapist(true);
+                userRepository.save(therapist);
+            }
+
+            // 3. Seed Patient User if missing
+            if (!userRepository.existsByEmail("patient@panchakarma.com")) {
+                userRepository.save(buildUser(
+                        "Panchakarma Patient",
+                        "patient@panchakarma.com",
+                        "9876543212",
+                        "Female",
+                        35,
+                        UserRole.PATIENT));
+            }
         };
     }
 

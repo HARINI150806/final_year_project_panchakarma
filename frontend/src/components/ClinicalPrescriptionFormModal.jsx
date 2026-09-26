@@ -449,6 +449,7 @@ export default function ClinicalPrescriptionFormModal({ isOpen, onClose, patient
                     >
                       <option value={1}>1 Single Session</option>
                       <option value={3}>3 Sessions (Introductory)</option>
+                      <option value={5}>5 Sessions (Spaced over 12 Days)</option>
                       <option value={7}>7 Sessions (Standard Panchakarma Course)</option>
                       <option value={14}>14 Sessions (Intensive Healing Track)</option>
                     </select>

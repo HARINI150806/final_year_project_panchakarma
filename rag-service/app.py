@@ -58,20 +58,24 @@ class ChatResponse(BaseModel):
     source: str = "gemini-rag"
     retrieved_chunks: int = 0
 
+from typing import Optional
+
 class PredictRequest(BaseModel):
     age: int = 35
     gender: str = "FEMALE"
     therapy_type: str = "Abhyanga"
+    medical_condition: Optional[str] = "None"
     session_number: int = 1
     total_sessions: int = 7
     pain_level: int = 5
     sleep_quality: int = 6
     energy_level: int = 6
     overall_condition: int = 7
-    current_recovery_percentage: float = 47.0
+    current_recovery_percentage: Optional[float] = 47.0
 
 class PredictResponse(BaseModel):
     predicted_final_recovery: float
+    predicted_current_recovery: Optional[float] = None
     model_version: str
     status: str
 
@@ -109,6 +113,7 @@ def predict_recovery_endpoint(request: PredictRequest):
             age=request.age,
             gender=request.gender,
             therapy_type=request.therapy_type,
+            medical_condition=request.medical_condition or "None",
             session_number=request.session_number,
             total_sessions=request.total_sessions,
             pain_level=request.pain_level,

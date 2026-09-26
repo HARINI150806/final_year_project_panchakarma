@@ -41,7 +41,15 @@ public class PatientProfileServiceImpl implements PatientProfileService {
         log.info("Patient found with id: {}", patientId);
 
         patient.setDateOfBirth(request.getDateOfBirth());
-        patient.setGender(request.getGender());
+        if (request.getGender() != null) {
+            patient.setGender(request.getGender());
+            if (patient.getUser() != null) {
+                patient.getUser().setGender(request.getGender());
+            }
+        }
+        if (request.getAge() != null && patient.getUser() != null) {
+            patient.getUser().setAge(request.getAge());
+        }
         patient.setHeight(request.getHeight());
         patient.setWeight(request.getWeight());
         patient.setOccupation(request.getOccupation());

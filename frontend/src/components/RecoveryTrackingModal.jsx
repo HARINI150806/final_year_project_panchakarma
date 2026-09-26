@@ -26,7 +26,7 @@ export default function RecoveryTrackingModal({ isOpen, onClose, therapyPlan, on
   const fetchLatestRecovery = async () => {
     if (!therapyPlan?.id) return;
     try {
-      const res = await api.get(`/api/recovery/plan/${therapyPlan.id}`);
+      const res = await api.get(`/recovery/plan/${therapyPlan.id}`);
       if (res.data) {
         const nextSess = (res.data.completedSessions || 0) + 1;
         setSessionNumber(nextSess);
@@ -59,7 +59,7 @@ export default function RecoveryTrackingModal({ isOpen, onClose, therapyPlan, on
         therapistRemarks: therapistRemarks,
       };
 
-      const res = await api.post('/api/recovery/assessment', payload);
+      const res = await api.post('/recovery/assessment', payload);
       setResult(res.data);
       if (onSaved) onSaved(res.data);
     } catch (err) {

@@ -37,8 +37,8 @@ public class TreatmentJourneyNodeDto {
 
     // Follow-up & Recovery fields
     private Boolean hasFollowup;
-    private Integer currentRecoveryPercent;
-    private Integer predictedRecoveryPercent;
+    private Double currentRecoveryPercent;
+    private Double predictedRecoveryPercent;
     private String recoveryStatus;
     private String recoveryPlanNotes;
     private String therapistRemarks;

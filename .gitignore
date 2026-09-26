@@ -2,15 +2,18 @@
 # ENVIRONMENT & SECRETS (NEVER COMMIT THESE)
 # ============================================================
 .env
-.env.local
-.env.production
-.env.staging
-backend/.env
+.env.*
+*.env
+!.env.example
 backend/.env.*
 !backend/.env.example
 frontend/.env
-frontend/.env.local
-frontend/.env.production
+
+# Application config / secrets
+application.properties
+application-*.properties
+**/application.properties
+**/application-*.properties
 
 # ============================================================
 # JAVA / MAVEN (Backend)
