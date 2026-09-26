@@ -1,15 +1,7 @@
 server:
-  port: ${PORT:10000}
+  port: 8080
 
 spring:
-  # Start the HTTP server before database-heavy beans are initialized.
-  # This lets Render detect the port while JPA connects to Supabase.
-  main:
-    lazy-initialization: true
-  config:
-    # Load local development values when running from either the repository root
-    # or the backend directory. Deployment values supplied by the platform take precedence.
-    import: optional:file:.env[.properties],optional:file:backend/.env[.properties]
   servlet:
     multipart:
       max-file-size: 15MB
@@ -18,19 +10,9 @@ spring:
     url: ${DB_URL}
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
-    hikari:
-      # Supabase session pooler limits each pooler pool to 15 clients.
-      # Keep this service small so deploys and other services can connect.
-      maximum-pool-size: ${DB_POOL_MAX_SIZE:5}
-      minimum-idle: ${DB_POOL_MIN_IDLE:1}
-      idle-timeout: ${DB_POOL_IDLE_TIMEOUT:30000}
-      max-lifetime: ${DB_POOL_MAX_LIFETIME:840000}
-      connection-timeout: 10000
-      validation-timeout: 5000
-      initialization-fail-timeout: 1
   jpa:
     hibernate:
-      ddl-auto: ${JPA_DDL_AUTO:validate}
+      ddl-auto: update
     show-sql: false
     properties:
       hibernate:
@@ -49,9 +31,6 @@ spring:
           auth: true
           starttls:
             enable: true
-          connectiontimeout: 10000
-          timeout: 10000
-          writetimeout: 10000
 
 app:
   jwt:
@@ -59,7 +38,7 @@ app:
     expiration-ms: 86400000
 
 cors:
-  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:5174,https://panchakarma-psht.onrender.com,https://final-year-project-panchakarma.onrender.com}
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:5174}
 
 google:
   client-id: ${GOOGLE_CLIENT_ID}
@@ -70,8 +49,6 @@ google:
     client-id: ${GOOGLE_CALENDAR_CLIENT_ID}
     client-secret: ${GOOGLE_CALENDAR_CLIENT_SECRET}
     refresh-token: ${GOOGLE_CALENDAR_REFRESH_TOKEN:}
-  oauth:
-    redirect-uri: ${GOOGLE_OAUTH_REDIRECT_URI:https://final-year-project-panchakarma.onrender.com/api/google/oauth/callback}
 
 gemini:
   api-key: ${GEMINI_API_KEY:}
@@ -81,8 +58,3 @@ razorpay:
   key-id: ${RAZORPAY_KEY_ID}
   key-secret: ${RAZORPAY_KEY_SECRET}
   consultation-amount: ${RAZORPAY_CONSULTATION_AMOUNT}
-
-rag:
-  service:
-    url: ${RAG_SERVICE_URL:http://localhost:8000/api/chat}
-    prediction-url: ${RAG_PREDICTION_URL:http://localhost:8000/api/predict-recovery}

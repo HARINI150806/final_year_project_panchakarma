@@ -153,29 +153,6 @@ export default function FloatingChatbot({ auth }) {
   const [copiedId, setCopiedId] = useState(null);
   const [activeCategory, setActiveCategory] = useState('ALL');
 
-  const [messages, setMessages] = useState(() => {
-    const stored = sessionStorage.getItem('ayurveda-rag-chat-messages');
-    if (stored) {
-      try {
-        return JSON.parse(stored);
-      } catch (e) {
-        console.error('Failed to parse stored chat history:', e);
-      }
-    }
-    return [
-      {
-        id: 1,
-        sender: 'bot',
-        text: `Namaste ${auth?.fullName || 'Patient'}! 🌿 Welcome to the **Ayurveda Educational Study Assistant**.\n\nI can help answer your questions about classical Ayurvedic texts, Panchakarma therapies, Vata-Pitta-Kapha Doshas, and healthy daily routines (Dinacharya & Ritucharya).`,
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      },
-    ];
-  });
-
-  const [input, setInput] = useState('');
-  const [loading, setLoading] = useState(false);
-  const messagesEndRef = useRef(null);
-
   const topicCategories = [
     { id: 'ALL', label: 'Popular Topics', icon: Sparkles },
     { id: 'PANCHAKARMA', label: 'Panchakarma', icon: Leaf },
@@ -184,43 +161,55 @@ export default function FloatingChatbot({ auth }) {
     { id: 'DIET', label: 'Diet & Pathya', icon: Apple },
   ];
 
-  const suggestedQuestions = {
-    ALL: [
-      'What is Panchakarma?',
-      'Explain Abhyanga.',
-      'Explain Vata Dosha.',
-      'Benefits of Shirodhara.',
-      'Diet after Panchakarma.',
-    ],
-    PANCHAKARMA: [
-      'What is Panchakarma?',
-      'Explain 5 Shodhana therapies.',
-      'Preparation before Panchakarma (Purvakarma).',
-      'What is Samsarjana Krama post-diet?',
-    ],
-    DOSHAS: [
-      'Explain Vata Dosha.',
-      'Explain Pitta Dosha.',
-      'Explain Kapha Dosha.',
-      'How to determine Prakriti body type?',
-    ],
-    THERAPIES: [
-      'Explain Abhyanga therapy.',
-      'Benefits of Shirodhara.',
-      'What is Swedana herbal steam?',
-      'What is Basti therapy used for?',
-    ],
-    DIET: [
-      'Diet after Panchakarma.',
-      'What are Pathya & Apathya food rules?',
-      'Ayurvedic food combining principles.',
-      'Best daily habits (Dinacharya).',
-    ],
-  };
+  // Compute patient-specific storage key so chat history is isolated per patient
+  const userId = auth?.id || auth?.email || auth?.username || 'guest';
+  const storageKey = `ayurveda-rag-chat-messages-${userId}`;
 
+  const getInitialWelcomeMsg = () => [
+    {
+      id: 1,
+      sender: 'bot',
+      text: `Namaste ${auth?.fullName || 'Patient'}! 🌿 Welcome to the **Ayurveda Educational Study Assistant**.\n\nI can help answer your questions about classical Ayurvedic texts, Panchakarma therapies, Vata-Pitta-Kapha Doshas, and healthy daily routines (Dinacharya & Ritucharya).`,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    },
+  ];
+
+  const [messages, setMessages] = useState(() => {
+    const stored = localStorage.getItem(storageKey) || sessionStorage.getItem(storageKey);
+    if (stored) {
+      try {
+        return JSON.parse(stored);
+      } catch (e) {
+        console.error('Failed to parse stored chat history:', e);
+      }
+    }
+    return getInitialWelcomeMsg();
+  });
+
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const messagesEndRef = useRef(null);
+
+  // Sync messages whenever userId changes (patient logs out / logs in as another user)
   useEffect(() => {
-    sessionStorage.setItem('ayurveda-rag-chat-messages', JSON.stringify(messages));
-  }, [messages]);
+    const stored = localStorage.getItem(storageKey) || sessionStorage.getItem(storageKey);
+    if (stored) {
+      try {
+        setMessages(JSON.parse(stored));
+        return;
+      } catch (e) {
+        console.error('Failed to parse patient chat history:', e);
+      }
+    }
+    setMessages(getInitialWelcomeMsg());
+  }, [userId, auth?.fullName]);
+
+  // Persist messages to patient-specific storage key
+  useEffect(() => {
+    if (storageKey && messages.length > 0) {
+      localStorage.setItem(storageKey, JSON.stringify(messages));
+    }
+  }, [messages, storageKey]);
 
   useEffect(() => {
     if (isOpen) {
@@ -242,15 +231,13 @@ export default function FloatingChatbot({ auth }) {
 
   const handleClearChat = () => {
     if (window.confirm('Clear conversation history?')) {
-      const initialMsg = [
-        {
-          id: 1,
-          sender: 'bot',
-          text: `Namaste ${auth?.fullName || 'Patient'}! 🌿 How can I assist your Ayurveda studies today?`,
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        },
-      ];
+      const initialMsg = getInitialWelcomeMsg();
       setMessages(initialMsg);
+      if (storageKey) {
+        localStorage.removeItem(storageKey);
+        sessionStorage.removeItem(storageKey);
+        sessionStorage.removeItem('ayurveda-rag-chat-messages');
+      }
     }
   };
 

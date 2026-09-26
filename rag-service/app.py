@@ -55,6 +55,8 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     answer: str
+    source: str = "gemini-rag"
+    retrieved_chunks: int = 0
 
 class PredictRequest(BaseModel):
     age: int = 35
@@ -90,8 +92,9 @@ def chat_endpoint(request: ChatRequest):
         if chatbot_instance is None:
             chatbot_instance = AyurvedaChatbot()
 
-        answer = chatbot_instance.get_answer(request.question)
-        return ChatResponse(answer=answer)
+        res_details = chatbot_instance.get_answer_details(request.question)
+        logger.info(f"Chat answer generated via source: '{res_details['source']}' ({res_details['retrieved_chunks']} FAISS chunks grounded)")
+        return ChatResponse(**res_details)
     except Exception as e:
         logger.error(f"Error processing chat request: {e}")
         raise HTTPException(

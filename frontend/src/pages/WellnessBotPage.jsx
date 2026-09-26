@@ -86,14 +86,31 @@ function formatBotMessage(text) {
 
 export default function WellnessBotPage({ auth, onLogout }) {
   const navigate = useNavigate();
-  const [messages, setMessages] = useState([
+
+  const userId = auth?.id || auth?.email || auth?.username || 'guest';
+  const storageKey = `ayurbot-chat-messages-${userId}`;
+
+  const getInitialWelcomeMsg = () => [
     {
       id: 1,
       sender: 'bot',
       text: `Hello ${auth?.fullName || 'there'}! 🌿 I am AyurBot, your AI Ayurvedic Wellness Companion. I see your dominant Dosha is ${auth?.dominantDosha || 'not assessed yet'}. How can I assist you with your health, diet, daily routine, or Panchakarma therapies today?`,
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     },
-  ]);
+  ];
+
+  const [messages, setMessages] = useState(() => {
+    const stored = localStorage.getItem(storageKey);
+    if (stored) {
+      try {
+        return JSON.parse(stored);
+      } catch (e) {
+        console.error('Failed to parse AyurBot stored chat history:', e);
+      }
+    }
+    return getInitialWelcomeMsg();
+  });
+
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef(null);
@@ -104,6 +121,23 @@ export default function WellnessBotPage({ auth, onLogout }) {
     'Give me a basic morning Ayurvedic routine.',
     'What should I eat before a therapy session?',
   ];
+
+  useEffect(() => {
+    const stored = localStorage.getItem(storageKey);
+    if (stored) {
+      try {
+        setMessages(JSON.parse(stored));
+        return;
+      } catch (e) {}
+    }
+    setMessages(getInitialWelcomeMsg());
+  }, [userId, auth?.fullName, auth?.dominantDosha]);
+
+  useEffect(() => {
+    if (storageKey && messages.length > 0) {
+      localStorage.setItem(storageKey, JSON.stringify(messages));
+    }
+  }, [messages, storageKey]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });

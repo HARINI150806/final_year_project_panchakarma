@@ -79,30 +79,45 @@ def synthesize_fallback_answer(question: str, docs: List[Dict[str, Any]]) -> str
 
     return " ".join(result_text)
 
+import requests
+
+def call_gemini_rest_api(prompt: str, api_key: str, model_name: str = "gemini-2.5-flash") -> str:
+    """Calls Gemini REST API directly using x-goog-api-key header to support both AIzaSy and AQ. API key formats."""
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent"
+    headers = {
+        "x-goog-api-key": api_key,
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "contents": [{"parts": [{"text": prompt}]}]
+    }
+    try:
+        resp = requests.post(url, headers=headers, json=payload, timeout=25)
+        if resp.status_code == 200:
+            data = resp.json()
+            candidates = data.get("candidates", [])
+            if candidates:
+                parts = candidates[0].get("content", {}).get("parts", [])
+                if parts:
+                    return parts[0].get("text", "")
+        else:
+            logger.error(f"Gemini REST API Error ({resp.status_code}): {resp.text[:250]}")
+    except Exception as e:
+        logger.error(f"Gemini REST request exception: {e}")
+    return ""
+
 class AyurvedaChatbot:
     def __init__(self):
         self.embedding_mgr = EmbeddingManager()
         self.vector_store = VectorStore()
         self.vector_store.load()
-        
-        self.gemini_model = None
+        self.model_name = "gemini-2.5-flash"
         if GEMINI_API_KEY:
-            try:
-                import google.generativeai as genai
-                genai.configure(api_key=GEMINI_API_KEY)
-                for model_name in ["gemini-2.5-flash", "gemini-3.6-flash", "gemini-flash-latest"]:
-                    try:
-                        self.gemini_model = genai.GenerativeModel(model_name)
-                        logger.info(f"Initialized Gemini model: {model_name}")
-                        break
-                    except Exception:
-                        continue
-            except Exception as e:
-                logger.warning(f"Failed to initialize Gemini model: {e}")
+            logger.info(f"AyurvedaChatbot initialized with Gemini model: {self.model_name}")
 
-    def get_answer(self, question: str) -> str:
+    def get_answer_details(self, question: str) -> Dict[str, Any]:
         if not question or not question.strip():
-            return "Please provide a valid question."
+            return {"answer": "Please provide a valid question.", "source": "none", "retrieved_chunks": 0}
 
         # Retrieve Top 5 relevant chunks
         query_emb = self.embedding_mgr.embed_query(question)
@@ -119,24 +134,37 @@ class AyurvedaChatbot:
 
         prompt = f"{SYSTEM_PROMPT}\n\nRetrieved Reference Context:\n{context_str}\n\nUser Question: {question}\n\nAnswer:"
 
-        if self.gemini_model:
-            try:
-                response = self.gemini_model.generate_content(prompt)
-                if response and response.text and response.text.strip():
-                    return response.text.strip()
-            except Exception as e:
-                logger.error(f"Gemini API generation error: {e}")
+        if GEMINI_API_KEY:
+            gemini_ans = call_gemini_rest_api(prompt, GEMINI_API_KEY, self.model_name)
+            if gemini_ans and gemini_ans.strip():
+                return {
+                    "answer": gemini_ans.strip(),
+                    "source": "gemini-rag",
+                    "retrieved_chunks": len(context_blocks)
+                }
 
         # Fallback synthesis if Gemini is unreachable
         if docs:
             fallback = synthesize_fallback_answer(question, docs)
             if fallback:
-                return fallback
+                return {
+                    "answer": fallback,
+                    "source": "local-rag-fallback",
+                    "retrieved_chunks": len(context_blocks)
+                }
 
         # Default informative Ayurvedic AI response if question is about post-Panchakarma diet or general Ayurveda
-        return ("After Panchakarma therapy, the digestive fire (Agni) is sensitive and restored through Samsarjana Krama (post-therapy dietary progression):\n\n"
-                "• **Stage 1 (Peya - Warm Rice Water / Thin Soup):** Hydrates the body and gently awakens the digestive fire.\n"
-                "• **Stage 2 (Vilepi - Thick Rice Gruel):** Provides mild nourishment and stabilizes bowel function.\n"
-                "• **Stage 3 (Krita Yusha - Seasoned Mung Bean Soup):** Light protein with digestive spices like cumin, ginger, and ghee.\n"
-                "• **Stage 4 (Normal Light Diet):** Gradual return to warm, freshly cooked foods like Kitchari, cooked vegetables, and herbal teas.\n\n"
-                "**Foods to Avoid (Apathya):** Heavy, fried, cold, raw, or leftover foods, spicy meals, and chilled beverages during the recovery phase.")
+        default_msg = ("After Panchakarma therapy, the digestive fire (Agni) is sensitive and restored through Samsarjana Krama (post-therapy dietary progression):\n\n"
+                       "• **Stage 1 (Peya - Warm Rice Water / Thin Soup):** Hydrates the body and gently awakens the digestive fire.\n"
+                       "• **Stage 2 (Vilepi - Thick Rice Gruel):** Provides mild nourishment and stabilizes bowel function.\n"
+                       "• **Stage 3 (Krita Yusha - Seasoned Mung Bean Soup):** Light protein with digestive spices like cumin, ginger, and ghee.\n"
+                       "• **Stage 4 (Normal Light Diet):** Gradual return to warm, freshly cooked foods like Kitchari, cooked vegetables, and herbal teas.\n\n"
+                       "**Foods to Avoid (Apathya):** Heavy, fried, cold, raw, or leftover foods, spicy meals, and chilled beverages during the recovery phase.")
+        return {
+            "answer": default_msg,
+            "source": "default-fallback",
+            "retrieved_chunks": 0
+        }
+
+    def get_answer(self, question: str) -> str:
+        return self.get_answer_details(question)["answer"]
