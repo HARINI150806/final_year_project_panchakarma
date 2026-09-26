@@ -9,6 +9,7 @@ import java.util.List;
 @Repository
 public interface TreatmentPlanRepository extends JpaRepository<TreatmentPlan, Long> {
     List<TreatmentPlan> findByPatient_Id(Long patientId);
+    List<TreatmentPlan> findByPatient_IdOrderByIdDesc(Long patientId);
     List<TreatmentPlan> findByPrescribedBy_Id(Long doctorId);
     List<TreatmentPlan> findByAssignedTherapist_Id(Long therapistId);
     List<TreatmentPlan> findByStatus(String status);

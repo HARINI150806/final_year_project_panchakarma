@@ -83,11 +83,15 @@ public class PatientController {
         String name = (user != null) ? user.getFullName() : (patient != null ? patient.getFirstName() + " " + patient.getLastName() : "Patient");
         String email = (user != null) ? user.getEmail() : (patient != null ? patient.getEmail() : "");
         String phone = (patient != null) ? patient.getContactNumber() : null;
-        String gender = (patient != null && patient.getGender() != null) ? patient.getGender() : null;
+        String gender = (patient != null && patient.getGender() != null && !patient.getGender().isBlank()) 
+                ? patient.getGender() 
+                : (user != null ? user.getGender() : null);
 
         Integer age = null;
         if (patient != null && patient.getDateOfBirth() != null) {
             age = Period.between(patient.getDateOfBirth(), LocalDate.now()).getYears();
+        } else if (user != null && user.getAge() != null) {
+            age = user.getAge();
         }
 
         Double height = (patient != null && patient.getHeight() != null) ? patient.getHeight() : null;

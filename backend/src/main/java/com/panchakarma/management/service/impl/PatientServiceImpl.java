@@ -150,7 +150,7 @@ public class PatientServiceImpl implements PatientService {
                 .orElseThrow(() -> new ResourceNotFoundException("Patient profile not found for user id: " + userId));
 
         // Calculate age
-        Integer age = null;
+        Integer age = user.getAge();
         if (patient.getDateOfBirth() != null) {
             age = Period.between(patient.getDateOfBirth(), LocalDate.now()).getYears();
         }
@@ -200,7 +200,7 @@ public class PatientServiceImpl implements PatientService {
                 user.getRole(),
                 patient.getDateOfBirth(),
                 age,
-                patient.getGender(),
+                patient.getGender() != null ? patient.getGender() : user.getGender(),
                 patient.getHeight() != null ? patient.getHeight().toString() : null,
                 patient.getWeight() != null ? patient.getWeight().toString() : null,
                 patient.getOccupation(),

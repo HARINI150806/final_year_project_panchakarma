@@ -323,7 +323,7 @@ export default function TreatmentJourneyTimeline() {
                       </div>
                       <div className="flex items-center gap-2 pt-1">
                         <User size={14} className="text-gray-400 shrink-0" />
-                        <span className="font-semibold text-gray-800">Therapist: <strong>{node.assignedTherapist || 'Dr. Harini'}</strong></span>
+                        <span className="font-semibold text-gray-800">Doctor: <strong>{node.assignedTherapist || 'Doctor'}</strong></span>
                       </div>
                     </div>
 
@@ -359,7 +359,7 @@ export default function TreatmentJourneyTimeline() {
                       )}
                       <div className="flex items-center gap-2 pt-1">
                         <User size={14} className="text-gray-400 shrink-0" />
-                        <span className="font-semibold text-gray-800">Therapist: <strong>{node.assignedTherapist || 'Pending Assignment'}</strong></span>
+                        <span className="font-semibold text-gray-800">Specialist: <strong>{node.assignedTherapist || 'Assigned Specialist'}</strong></span>
                       </div>
                     </div>
 
@@ -428,7 +428,7 @@ export default function TreatmentJourneyTimeline() {
 
                       <div className="flex items-center gap-2 pt-1 border-t border-gray-100">
                         <User size={13} className="text-gray-400 shrink-0" />
-                        <span className="font-semibold text-gray-800">Therapist: <strong>{node.assignedTherapist || 'Dr. Harini'}</strong></span>
+                        <span className="font-semibold text-gray-800">Specialist: <strong>{node.assignedTherapist || 'Assigned Specialist'}</strong></span>
                       </div>
                     </div>
 

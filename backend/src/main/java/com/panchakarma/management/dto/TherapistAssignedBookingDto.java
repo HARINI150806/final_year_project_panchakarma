@@ -35,5 +35,7 @@ public record TherapistAssignedBookingDto(
     String paymentStatus,
     Double paymentAmount,
     String razorpayPaymentId,
-    String razorpayOrderId
+    String razorpayOrderId,
+    Integer patientAge,
+    String patientGender
 ) {}

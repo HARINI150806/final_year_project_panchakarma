@@ -315,15 +315,23 @@ public class TreatmentJourneyServiceImpl implements TreatmentJourneyService {
                             .build());
 
                     // STEP 4: Recovery Assessment
+                    RecoveryMetrics metrics1 = getSavedRecoveryMetrics(
+                            matchingPlan != null ? matchingPlan.getId() : null,
+                            patientId,
+                            isProgressDone,
+                            completedSess,
+                            isProgressDone ? "Therapy completed successfully." : (hasBookedSessions ? "Patient responding to treatment." : "Therapy plan prescribed by " + planTherapist + ". Awaiting patient therapy session booking.")
+                    );
+
                     cycleNodes.add(TreatmentJourneyNodeDto.builder()
                             .id("cycle-" + cycleNum + "-node-4")
                             .type("RECOVERY")
                             .title("Recovery Assessment")
-                            .currentRecoveryPercent(isProgressDone ? 100 : (completedSess > 0 ? Math.min(85, 20 + completedSess * 20) : 0))
-                            .predictedRecoveryPercent(isProgressDone ? 100 : 85)
-                            .recoveryStatus(isProgressDone ? "Fully Recovered" : (completedSess > 0 ? "Improving" : "Pending"))
+                            .currentRecoveryPercent(metrics1.currentRec)
+                            .predictedRecoveryPercent(metrics1.predRec)
+                            .recoveryStatus(metrics1.status)
                             .recoveryPlanNotes("Active Samsarjana Krama diet & lifestyle guidelines.")
-                            .therapistRemarks(isProgressDone ? "Therapy completed successfully." : (hasBookedSessions ? "Patient responding to treatment." : "Therapy plan prescribed by " + planTherapist + ". Awaiting patient therapy session booking."))
+                            .therapistRemarks(metrics1.remarks)
                             .status(isProgressDone ? "COMPLETED" : (isProgressActive ? "ACTIVE" : "PENDING"))
                             .eventOrder(eventOrder++)
                             .cycleNumber(cycleNum)
@@ -410,15 +418,23 @@ public class TreatmentJourneyServiceImpl implements TreatmentJourneyService {
                                 .cycleNumber(cycleNum)
                                 .build());
 
+                        RecoveryMetrics metrics2 = getSavedRecoveryMetrics(
+                                null,
+                                patientId,
+                                isPlanDone,
+                                completedSess,
+                                isPlanDone ? "Therapy completed successfully." : (hasBookedSessions ? "Patient responding to treatment." : "Awaiting patient therapy session booking.")
+                        );
+
                         cycleNodes.add(TreatmentJourneyNodeDto.builder()
                                 .id("cycle-" + cycleNum + "-node-4")
                                 .type("RECOVERY")
                                 .title("Recovery Assessment")
-                                .currentRecoveryPercent(isPlanDone ? 100 : (completedSess > 0 ? Math.min(85, 20 + completedSess * 20) : 0))
-                                .predictedRecoveryPercent(isPlanDone ? 100 : 85)
-                                .recoveryStatus(isPlanDone ? "Fully Recovered" : (completedSess > 0 ? "Improving" : "Pending"))
+                                .currentRecoveryPercent(metrics2.currentRec)
+                                .predictedRecoveryPercent(metrics2.predRec)
+                                .recoveryStatus(metrics2.status)
                                 .recoveryPlanNotes("Diet & herbal recommendations following consultation.")
-                                .therapistRemarks(isPlanDone ? "Therapy completed successfully." : (hasBookedSessions ? "Patient responding to treatment." : "Awaiting patient therapy session booking."))
+                                .therapistRemarks(metrics2.remarks)
                                 .status(isPlanDone ? "COMPLETED" : (isProgressActive ? "ACTIVE" : "PENDING"))
                                 .eventOrder(eventOrder++)
                                 .cycleNumber(cycleNum)
@@ -462,17 +478,25 @@ public class TreatmentJourneyServiceImpl implements TreatmentJourneyService {
                                 .cycleNumber(cycleNum)
                                 .build());
 
+                        RecoveryMetrics metrics3 = getSavedRecoveryMetrics(
+                                null,
+                                patientId,
+                                false,
+                                0,
+                                hasReqTherapy 
+                                        ? "Therapy requested (" + displayTherapyName + "). Awaiting doctor evaluation and session booking." 
+                                        : "Consultation in progress. Doctor will prescribe treatment plan after evaluation."
+                        );
+
                         cycleNodes.add(TreatmentJourneyNodeDto.builder()
                                 .id("cycle-" + cycleNum + "-node-4")
                                 .type("RECOVERY")
                                 .title("Recovery Assessment")
-                                .currentRecoveryPercent(0)
-                                .predictedRecoveryPercent(85)
-                                .recoveryStatus("Pending")
+                                .currentRecoveryPercent(metrics3.currentRec)
+                                .predictedRecoveryPercent(metrics3.predRec)
+                                .recoveryStatus(metrics3.status)
                                 .recoveryPlanNotes(hasReqTherapy ? "Diet & lifestyle recommendations following consultation." : "Awaiting doctor consultation and assessment.")
-                                .therapistRemarks(hasReqTherapy 
-                                        ? "Therapy requested (" + displayTherapyName + "). Awaiting doctor evaluation and session booking." 
-                                        : "Consultation in progress. Doctor will prescribe treatment plan after evaluation.")
+                                .therapistRemarks(metrics3.remarks)
                                 .status("PENDING")
                                 .eventOrder(eventOrder++)
                                 .cycleNumber(cycleNum)
@@ -584,15 +608,23 @@ public class TreatmentJourneyServiceImpl implements TreatmentJourneyService {
                         .cycleNumber(cycleIndex)
                         .build());
 
+                RecoveryMetrics metrics4 = getSavedRecoveryMetrics(
+                        plan.getId(),
+                        patientId,
+                        isPlanDone,
+                        completedSess,
+                        isPlanDone ? "Therapy completed successfully." : (!planSessions.isEmpty() ? "Patient responding to treatment." : "Therapy plan prescribed by " + planTherapist + ". Awaiting patient therapy session booking.")
+                );
+
                 cycleNodes.add(TreatmentJourneyNodeDto.builder()
                         .id("plan-cycle-" + cycleIndex + "-node-4")
                         .type("RECOVERY")
                         .title("Recovery Assessment")
-                        .currentRecoveryPercent(isPlanDone ? 100 : (completedSess > 0 ? Math.min(85, 20 + completedSess * 20) : 0))
-                        .predictedRecoveryPercent(isPlanDone ? 100 : 85)
-                        .recoveryStatus(isPlanDone ? "Fully Recovered" : (completedSess > 0 ? "Improving" : "Pending"))
+                        .currentRecoveryPercent(metrics4.currentRec)
+                        .predictedRecoveryPercent(metrics4.predRec)
+                        .recoveryStatus(metrics4.status)
                         .recoveryPlanNotes("Active Samsarjana Krama diet & lifestyle guidelines.")
-                        .therapistRemarks(isPlanDone ? "Therapy completed successfully." : (!planSessions.isEmpty() ? "Patient responding to treatment." : "Therapy plan prescribed by " + planTherapist + ". Awaiting patient therapy session booking."))
+                        .therapistRemarks(metrics4.remarks)
                         .status(isPlanDone ? "COMPLETED" : (isProgressActive ? "ACTIVE" : "PENDING"))
                         .eventOrder(eventOrder++)
                         .cycleNumber(cycleIndex)
@@ -777,11 +809,68 @@ public class TreatmentJourneyServiceImpl implements TreatmentJourneyService {
     }
 
     private String formatDoctorName(String name) {
-        if (name == null || name.isBlank()) return "Dr. Ayurvedic Specialist";
+        if (name == null || name.isBlank()) return "Ayurvedic Specialist";
         String clean = name.trim();
-        if (clean.toLowerCase().startsWith("dr.") || clean.toLowerCase().startsWith("dr ")) {
+        if (clean.toLowerCase().startsWith("dr.") || clean.toLowerCase().startsWith("dr ") || clean.toLowerCase().startsWith("therapist")) {
             return clean;
         }
         return "Dr. " + clean;
+    }
+
+    private static class RecoveryMetrics {
+        final Double currentRec;
+        final Double predRec;
+        final String status;
+        final String remarks;
+
+        RecoveryMetrics(Double currentRec, Double predRec, String status, String remarks) {
+            this.currentRec = currentRec;
+            this.predRec = predRec;
+            this.status = status;
+            this.remarks = remarks;
+        }
+    }
+
+    private RecoveryMetrics getSavedRecoveryMetrics(Long planId, Long patientId, boolean isProgressDone, int completedSess, String defaultRemarks) {
+        RecoveryTracking tracking = null;
+        if (planId != null) {
+            tracking = recoveryTrackingRepository.findFirstByTreatmentPlanIdOrderBySessionNumberDesc(planId).orElse(null);
+        }
+        if (tracking == null && patientId != null) {
+            List<RecoveryTracking> trackings = recoveryTrackingRepository.findByPatientIdOrderByAssessmentDateDesc(patientId);
+            if (!trackings.isEmpty()) tracking = trackings.get(0);
+        }
+
+        RecoveryPrediction prediction = null;
+        if (planId != null) {
+            prediction = recoveryPredictionRepository.findFirstByTreatmentPlanIdOrderByPredictionDateDesc(planId).orElse(null);
+        }
+        if (prediction == null && patientId != null) {
+            List<RecoveryPrediction> predictions = recoveryPredictionRepository.findByPatientIdOrderByPredictionDateDesc(patientId);
+            if (!predictions.isEmpty()) prediction = predictions.get(0);
+        }
+
+        Double currentRec = isProgressDone ? 100.0 : (completedSess > 0 ? Math.min(85.0, 20.0 + completedSess * 20.0) : 0.0);
+        Double predRec = isProgressDone ? 100.0 : 85.0;
+        String status = isProgressDone ? "Fully Recovered" : (completedSess > 0 ? "Improving" : "Pending");
+        String remarks = defaultRemarks;
+
+        if (tracking != null && tracking.getCurrentRecoveryPercentage() != null) {
+            currentRec = tracking.getCurrentRecoveryPercentage();
+            if (tracking.getTherapistRemarks() != null && !tracking.getTherapistRemarks().isBlank()) {
+                remarks = tracking.getTherapistRemarks();
+            }
+        }
+
+        if (prediction != null) {
+            if (prediction.getPredictedRecovery() != null) {
+                predRec = prediction.getPredictedRecovery();
+            }
+            if (prediction.getStatus() != null && !prediction.getStatus().isBlank()) {
+                status = prediction.getStatus();
+            }
+        }
+
+        return new RecoveryMetrics(currentRec, predRec, status, remarks);
     }
 }

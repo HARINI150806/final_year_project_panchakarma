@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Check, X, FileText, ClipboardList, Calendar, Sparkles, Search, ChevronLeft, ChevronRight, RotateCcw, Filter, Mail, Clock, BarChart3, BookOpen, Users, Activity, HeartPulse, ShieldAlert, Download, Plus, MoreVertical } from 'lucide-react';
+import { Check, CheckCircle2, X, FileText, ClipboardList, Calendar, Sparkles, Search, ChevronLeft, ChevronRight, RotateCcw, Filter, Mail, Clock, BarChart3, BookOpen, Users, Activity, HeartPulse, ShieldAlert, Download, Plus, MoreVertical } from 'lucide-react';
 
 const formatTime12h = (timeStr) => {
     if (!timeStr) return '09:45 AM';
@@ -91,6 +91,28 @@ function TherapistDashboard({ activeTab, onTabChange, auth, sidebarOffset = 0 })
 
     // Full Page Recovery ML Predictor State
     const [activePredictionSession, setActivePredictionSession] = useState(null);
+    const [predictedSessionIds, setPredictedSessionIds] = useState(() => {
+        try {
+            const saved = localStorage.getItem('panchakarma-predicted-sessions');
+            return saved ? JSON.parse(saved) : [];
+        } catch {
+            return [];
+        }
+    });
+
+    const markSessionAsPredicted = (booking) => {
+        const id = booking?.bookingId || booking?.id || booking?.consultationBookingId;
+        if (!id) return;
+        setPredictedSessionIds((prev) => {
+            const idStr = String(id);
+            if (prev.includes(idStr)) return prev;
+            const updated = [...prev, idStr];
+            try {
+                localStorage.setItem('panchakarma-predicted-sessions', JSON.stringify(updated));
+            } catch {}
+            return updated;
+        });
+    };
 
     // Patient Details & Clinical Prescription Form Modals
     const [patientDetailsModalOpen, setPatientDetailsModalOpen] = useState(false);
@@ -143,6 +165,8 @@ function TherapistDashboard({ activeTab, onTabChange, auth, sidebarOffset = 0 })
     // Synchronize Sidebar Clicks with Dashboard View Mode and Filters
     useEffect(() => {
         if (!activeTab) return;
+
+        setActivePredictionSession(null);
 
         if (activeTab === 'home' || activeTab === 'dashboard') {
             setViewMode('SESSIONS');
@@ -763,6 +787,7 @@ function TherapistDashboard({ activeTab, onTabChange, auth, sidebarOffset = 0 })
                     consultation={activePredictionSession}
                     onBack={() => setActivePredictionSession(null)}
                     onSaved={() => {
+                        markSessionAsPredicted(activePredictionSession);
                         fetchData();
                     }}
                 />
@@ -1134,24 +1159,48 @@ function TherapistDashboard({ activeTab, onTabChange, auth, sidebarOffset = 0 })
                                                                     <FileText size={13} /> View
                                                                 </button>
 
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => openViewNotes(booking)}
-                                                                    className="rounded-xl border border-gray-200 bg-white px-3.5 py-1.5 text-xs font-bold text-gray-700 hover:bg-gray-50 transition cursor-pointer inline-flex items-center gap-1.5 shrink-0"
-                                                                >
-                                                                    <FileText size={13} /> Notes
-                                                                </button>
+                                                                {booking.bookingStatus === 'CONFIRMED' || (booking.bookingStatus !== 'COMPLETED' && booking.bookingStatus !== 'CANCELLED' && !booking.rescheduleRequested) ? (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            setSelectedPatientForPrescription(booking);
+                                                                            setClinicalPrescriptionModalOpen(true);
+                                                                        }}
+                                                                        className="rounded-xl px-3.5 py-1.5 text-xs font-bold bg-emerald-700 text-white hover:bg-emerald-800 transition cursor-pointer shadow-2xs inline-flex items-center gap-1.5 shrink-0"
+                                                                    >
+                                                                        <Check size={13} /> Complete Session
+                                                                    </button>
+                                                                ) : (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => openViewNotes(booking)}
+                                                                        className="rounded-xl border border-gray-200 bg-white px-3.5 py-1.5 text-xs font-bold text-gray-700 hover:bg-gray-50 transition cursor-pointer inline-flex items-center gap-1.5 shrink-0"
+                                                                    >
+                                                                        <FileText size={13} /> Notes
+                                                                    </button>
+                                                                )}
 
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => {
-                                                                        setActivePredictionSession(booking);
-                                                                    }}
-                                                                    className="rounded-xl px-3.5 py-1.5 text-xs font-bold bg-[#05603A] text-white hover:bg-[#044c2e] transition cursor-pointer shadow-sm inline-flex items-center gap-1.5 shrink-0"
-                                                                    title="Enter 10 clinical parameters and calculate Recovery Score with XGBoost ML in Full Page"
-                                                                >
-                                                                    <Sparkles size={13} className="text-amber-300" /> Predict Recovery
-                                                                </button>
+                                                                {((String(booking.bookingId || booking.id || '') && predictedSessionIds.includes(String(booking.bookingId || booking.id || ''))) || Boolean(booking.hasAssessment || booking.hasPrediction || booking.recoveryPercentage != null)) ? (
+                                                                    <button
+                                                                        type="button"
+                                                                        disabled
+                                                                        className="rounded-xl px-3.5 py-1.5 text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200/80 cursor-not-allowed inline-flex items-center gap-1.5 shrink-0 opacity-90"
+                                                                        title="Recovery Assessment & ML Prediction saved for this session"
+                                                                    >
+                                                                        <CheckCircle2 size={13} className="text-emerald-600" /> Prediction Saved
+                                                                    </button>
+                                                                ) : (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            setActivePredictionSession(booking);
+                                                                        }}
+                                                                        className="rounded-xl px-3.5 py-1.5 text-xs font-bold bg-[#05603A] text-white hover:bg-[#044c2e] transition cursor-pointer shadow-sm inline-flex items-center gap-1.5 shrink-0"
+                                                                        title="Enter 10 clinical parameters and calculate Recovery Score with XGBoost ML in Full Page"
+                                                                    >
+                                                                        <Sparkles size={13} className="text-amber-300" /> Predict Recovery
+                                                                    </button>
+                                                                )}
                                                             </div>
                                                         </td>
                                                     </tr>
@@ -1302,16 +1351,27 @@ function TherapistDashboard({ activeTab, onTabChange, auth, sidebarOffset = 0 })
                                                             <FileText size={13} /> Notes
                                                         </button>
                                                     )}
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => {
-                                                            setActivePredictionSession(booking);
-                                                        }}
-                                                        className="rounded-full px-3.5 py-1.5 text-xs font-semibold bg-[#05603A] text-white shadow-sm inline-flex items-center gap-1.5"
-                                                        title="Predict Recovery Score with XGBoost ML Model in Full Page"
-                                                    >
-                                                        <Sparkles size={13} className="text-amber-300" /> Predict Recovery
-                                                    </button>
+                                                    {((String(booking.bookingId || booking.id || '') && predictedSessionIds.includes(String(booking.bookingId || booking.id || ''))) || Boolean(booking.hasAssessment || booking.hasPrediction || booking.recoveryPercentage != null)) ? (
+                                                        <button
+                                                            type="button"
+                                                            disabled
+                                                            className="rounded-full px-3.5 py-1.5 text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200/80 cursor-not-allowed inline-flex items-center gap-1.5 opacity-90"
+                                                            title="Recovery Assessment & ML Prediction saved for this session"
+                                                        >
+                                                            <CheckCircle2 size={13} className="text-emerald-600" /> Prediction Saved
+                                                        </button>
+                                                    ) : (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setActivePredictionSession(booking);
+                                                            }}
+                                                            className="rounded-full px-3.5 py-1.5 text-xs font-semibold bg-[#05603A] text-white shadow-sm inline-flex items-center gap-1.5"
+                                                            title="Predict Recovery Score with XGBoost ML Model in Full Page"
+                                                        >
+                                                            <Sparkles size={13} className="text-amber-300" /> Predict Recovery
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </div>
                                         );

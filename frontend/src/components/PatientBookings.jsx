@@ -652,10 +652,20 @@ const PatientBookings = ({ categoryFilter: propCategory }) => {
                 } catch (e) {}
               }
 
-              const therapistName = booking.assignedTo?.fullName || booking.therapistName || 'Harini';
               const isConsultationAppointment = (
                 (booking.type || booking.bookingType || '').toUpperCase() === 'CONSULTATION'
               );
+
+              const rawPractitionerName = booking.assignedTo?.fullName || booking.therapistName || 'Assigned Specialist';
+              const practitionerRole = booking.assignedTo?.role || (isConsultationAppointment ? 'DOCTOR' : 'THERAPIST');
+              
+              let practitionerLabel = isConsultationAppointment ? 'Doctor:' : 'Therapist:';
+              let formattedPractitionerName = rawPractitionerName;
+              if (practitionerRole === 'DOCTOR' && !rawPractitionerName.toLowerCase().startsWith('dr.') && !rawPractitionerName.toLowerCase().startsWith('therapist')) {
+                formattedPractitionerName = `Dr. ${rawPractitionerName}`;
+              } else if (practitionerRole === 'THERAPIST' && !rawPractitionerName.toLowerCase().startsWith('therapist') && !rawPractitionerName.toLowerCase().startsWith('dr.')) {
+                formattedPractitionerName = `Therapist ${rawPractitionerName}`;
+              }
 
               return (
                 <button
@@ -730,7 +740,7 @@ const PatientBookings = ({ categoryFilter: propCategory }) => {
                       </span>
                       <span className="flex items-center gap-1.5 truncate">
                         <User size={14} className="text-green-700 shrink-0" />
-                        Therapist: {therapistName}
+                        {practitionerLabel} {formattedPractitionerName}
                       </span>
                     </div>
                   </div>

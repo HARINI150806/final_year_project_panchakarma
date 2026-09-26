@@ -146,7 +146,9 @@ public class TherapistServiceImpl implements TherapistService {
                         booking.getPaymentStatus() != null ? booking.getPaymentStatus().toString() : "UNPAID",
                         booking.getPaymentAmount() != null ? booking.getPaymentAmount() : 0.0,
                         booking.getRazorpayPaymentId(),
-                        booking.getRazorpayOrderId()
+                        booking.getRazorpayOrderId(),
+                        booking.getPatient() != null ? booking.getPatient().getAge() : null,
+                        booking.getPatient() != null ? booking.getPatient().getGender() : null
                 ))
                 .collect(Collectors.toList());
     }
@@ -238,7 +240,9 @@ public class TherapistServiceImpl implements TherapistService {
                         booking.getPaymentStatus() != null ? booking.getPaymentStatus().toString() : "UNPAID",
                         booking.getPaymentAmount() != null ? booking.getPaymentAmount() : 0.0,
                         booking.getRazorpayPaymentId(),
-                        booking.getRazorpayOrderId()
+                        booking.getRazorpayOrderId(),
+                        booking.getPatient() != null ? booking.getPatient().getAge() : null,
+                        booking.getPatient() != null ? booking.getPatient().getGender() : null
                 ))
                 .collect(Collectors.toList());
     }

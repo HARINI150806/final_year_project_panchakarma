@@ -8,7 +8,8 @@ import {
   Stethoscope, 
   Sliders, 
   Save, 
-  RefreshCw 
+  RefreshCw,
+  Lock
 } from 'lucide-react';
 import api from '../api';
 
@@ -64,7 +65,88 @@ export default function FullPageRecoveryPredictor({ consultation, onBack, onSave
       setError(null);
       setSaveSuccess(false);
 
-      // Check if a saved prediction exists for this session
+      // 1. Precise Therapy Matching
+      const rawTherapyStr = `${consultation.therapyDescription || ''} ${consultation.purpose || ''} ${consultation.therapyName || ''} ${consultation.therapyTitle || ''}`.toLowerCase();
+      
+      const therapyKeywords = [
+        { key: 'abhyanga', option: 'Abhyanga (Oil Massage)' },
+        { key: 'basti', option: 'Basti (Enema Therapy)' },
+        { key: 'nasya', option: 'Nasya (Nasal Therapy)' },
+        { key: 'pizhichil', option: 'Pizhichil (Warm Oil Squeeze)' },
+        { key: 'shirodhara', option: 'Shirodhara (Oil Pouring)' },
+        { key: 'udvartana', option: 'Udvartana (Herbal Powder Massage)' },
+        { key: 'udwarthanam', option: 'Udvartana (Herbal Powder Massage)' },
+        { key: 'vamana', option: 'Vamana (Emesis Therapy)' },
+        { key: 'virechana', option: 'Virechana (Purgation)' }
+      ];
+
+      let matchedTherapy = null;
+      for (const item of therapyKeywords) {
+        if (rawTherapyStr.includes(item.key)) {
+          matchedTherapy = item.option;
+          break;
+        }
+      }
+      if (!matchedTherapy) {
+        matchedTherapy = 'Abhyanga (Oil Massage)';
+      }
+      setTherapyName(matchedTherapy);
+
+      // 2. Real Patient Age & Gender from DB Patient Profile
+      const pId = consultation.patientId || consultation.userId || consultation.patient?.id || consultation.patient?.userId;
+      
+      let pAge = consultation.patientAge || consultation.age || consultation.patient?.age;
+      let pGender = consultation.patientGender || consultation.gender || consultation.patient?.gender;
+
+      if (pAge) setAge(Number(pAge));
+      if (pGender) {
+        const gStr = String(pGender).toLowerCase();
+        setGender(gStr.includes('male') && !gStr.includes('fe') ? 'Male' : 'Female');
+      }
+
+      if (pId) {
+        api.get(`/patients/details/${pId}`)
+          .then(res => {
+            const data = res.data;
+            if (data) {
+              if (data.age != null) {
+                setAge(Number(data.age));
+              }
+              if (data.gender) {
+                const gStr = String(data.gender).toLowerCase();
+                setGender(gStr.includes('male') && !gStr.includes('fe') ? 'Male' : 'Female');
+              }
+            }
+          })
+          .catch(() => {
+            api.get(`/patient/profile`)
+              .then(res => {
+                if (res.data) {
+                  if (res.data.age != null) setAge(Number(res.data.age));
+                  if (res.data.gender) {
+                    const gStr = String(res.data.gender).toLowerCase();
+                    setGender(gStr.includes('male') && !gStr.includes('fe') ? 'Male' : 'Female');
+                  }
+                }
+              })
+              .catch(() => {});
+          });
+      }
+
+      // 3. Extract Session counts directly from DB booking
+      let dbCompleted = consultation.sessionNumber || consultation.completedSessions || 1;
+      let dbTotal = consultation.totalSessions || 7;
+
+      const rawDesc = `${consultation.therapyDescription || ''} ${consultation.purpose || ''}`;
+      const sessionMatch = rawDesc.match(/Session\s+(\d+)(\s+of\s+(\d+))?/i);
+      if (sessionMatch) {
+        if (sessionMatch[1]) dbCompleted = parseInt(sessionMatch[1], 10);
+        if (sessionMatch[3]) dbTotal = parseInt(sessionMatch[3], 10);
+      }
+      setCompletedSessions(Number(dbCompleted));
+      setTotalSessions(Number(dbTotal));
+
+      // 4. Saved prediction restoration for clinical parameters
       const key = getStorageKey();
       const saved = localStorage.getItem(key);
       if (saved) {
@@ -77,34 +159,15 @@ export default function FullPageRecoveryPredictor({ consultation, onBack, onSave
             setLastPredictedTime(parsed.predictedAt);
           }
           if (parsed.form) {
-            if (parsed.form.age !== undefined) setAge(parsed.form.age);
-            if (parsed.form.gender !== undefined) setGender(parsed.form.gender);
             if (parsed.form.medicalCondition !== undefined) setMedicalCondition(parsed.form.medicalCondition);
-            if (parsed.form.therapyName !== undefined) setTherapyName(parsed.form.therapyName);
-            if (parsed.form.totalSessions !== undefined) setTotalSessions(parsed.form.totalSessions);
-            if (parsed.form.completedSessions !== undefined) setCompletedSessions(parsed.form.completedSessions);
             if (parsed.form.painLevel !== undefined) setPainLevel(parsed.form.painLevel);
             if (parsed.form.sleepLevel !== undefined) setSleepLevel(parsed.form.sleepLevel);
             if (parsed.form.energyLevel !== undefined) setEnergyLevel(parsed.form.energyLevel);
             if (parsed.form.overallCondition !== undefined) setOverallCondition(parsed.form.overallCondition);
-            return;
           }
         } catch (e) {
           console.warn('Error reading saved prediction:', e);
         }
-      }
-
-      // If no saved prediction, set default pre-populated values
-      if (consultation.patientAge) setAge(consultation.patientAge);
-      if (consultation.patientGender) {
-        const g = consultation.patientGender.toLowerCase();
-        setGender(g.includes('male') && !g.includes('fe') ? 'Male' : 'Female');
-      }
-
-      const tName = (consultation.therapyName || consultation.therapyTitle || '').toLowerCase();
-      const matchedTherapy = THERAPY_OPTIONS.find(t => t.toLowerCase().includes(tName.split(' ')[0]));
-      if (matchedTherapy) {
-        setTherapyName(matchedTherapy);
       }
     }
   }, [consultation]);
@@ -175,6 +238,7 @@ export default function FullPageRecoveryPredictor({ consultation, onBack, onSave
     setError(null);
     try {
       const payload = {
+        therapyPlanId: consultation?.treatmentPlanId || consultation?.planId || consultation?.id || null,
         patientId: consultation?.patientId || consultation?.userId,
         therapyName,
         totalSessions: Number(totalSessions),
@@ -187,7 +251,7 @@ export default function FullPageRecoveryPredictor({ consultation, onBack, onSave
         therapistRemarks: `Clinical Assessment completed. Status: ${prediction?.status || 'Stable'}`
       };
 
-      await api.post('/api/recovery/assessment', payload);
+      await api.post('/recovery/assessment', payload);
       setSaveSuccess(true);
       if (onSaved) onSaved();
     } catch (err) {
@@ -248,25 +312,6 @@ export default function FullPageRecoveryPredictor({ consultation, onBack, onSave
             </p>
           </div>
         </div>
-
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={onBack}
-            className="px-4 py-2.5 rounded-xl border border-gray-300 text-xs font-bold text-gray-700 hover:bg-gray-50 transition cursor-pointer"
-          >
-            ← Back to Sessions
-          </button>
-          <button
-            type="button"
-            onClick={handlePredict}
-            disabled={loading}
-            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-800 to-teal-700 text-white text-xs font-bold hover:from-emerald-900 hover:to-teal-800 transition flex items-center gap-2 cursor-pointer shadow-sm disabled:opacity-50"
-          >
-            {loading ? <RefreshCw size={15} className="animate-spin" /> : <Sparkles size={15} className="text-amber-300" />}
-            {loading ? 'Calculating...' : 'Run ML Prediction'}
-          </button>
-        </div>
       </div>
 
       {/* FEEDBACK ALERTS */}
@@ -302,32 +347,29 @@ export default function FullPageRecoveryPredictor({ consultation, onBack, onSave
             {/* 1. Age */}
             <div>
               <label className="block text-xs font-bold text-gray-700 mb-1.5">
-                1. Patient Age (Years) <span className="text-red-500">*</span>
+                1. Patient Age (Years)
               </label>
               <input
                 type="number"
-                min="18"
-                max="85"
                 value={age}
-                onChange={(e) => setAge(e.target.value)}
-                className="w-full rounded-2xl border border-gray-300 bg-gray-50/50 px-4 py-2.5 text-sm font-semibold text-gray-800 focus:bg-white focus:border-emerald-600 focus:outline-none transition"
-                required
+                disabled
+                readOnly
+                className="w-full rounded-2xl border border-gray-200 bg-gray-100/90 px-4 py-2.5 text-sm font-bold text-gray-700 cursor-not-allowed shadow-inner"
               />
             </div>
 
             {/* 2. Gender */}
             <div>
               <label className="block text-xs font-bold text-gray-700 mb-1.5">
-                2. Biological Gender <span className="text-red-500">*</span>
+                2. Biological Gender
               </label>
-              <select
+              <input
+                type="text"
                 value={gender}
-                onChange={(e) => setGender(e.target.value)}
-                className="w-full rounded-2xl border border-gray-300 bg-gray-50/50 px-4 py-2.5 text-sm font-semibold text-gray-800 focus:bg-white focus:border-emerald-600 focus:outline-none transition cursor-pointer"
-              >
-                <option value="Female">Female</option>
-                <option value="Male">Male</option>
-              </select>
+                disabled
+                readOnly
+                className="w-full rounded-2xl border border-gray-200 bg-gray-100/90 px-4 py-2.5 text-sm font-bold text-gray-700 cursor-not-allowed shadow-inner"
+              />
             </div>
 
             {/* 3. Medical Condition */}
@@ -338,7 +380,7 @@ export default function FullPageRecoveryPredictor({ consultation, onBack, onSave
               <select
                 value={medicalCondition}
                 onChange={(e) => setMedicalCondition(e.target.value)}
-                className="w-full rounded-2xl border border-gray-300 bg-gray-50/50 px-4 py-2.5 text-sm font-semibold text-gray-800 focus:bg-white focus:border-emerald-600 focus:outline-none transition cursor-pointer"
+                className="w-full rounded-2xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-800 focus:border-emerald-600 focus:outline-none transition cursor-pointer shadow-xs"
               >
                 {MEDICAL_CONDITIONS.map((c) => (
                   <option key={c} value={c}>{c}</option>
@@ -351,52 +393,42 @@ export default function FullPageRecoveryPredictor({ consultation, onBack, onSave
             {/* 4. Therapy Name */}
             <div>
               <label className="block text-xs font-bold text-gray-700 mb-1.5">
-                4. Panchakarma Therapy <span className="text-red-500">*</span>
+                4. Panchakarma Therapy
               </label>
-              <select
+              <input
+                type="text"
                 value={therapyName}
-                onChange={(e) => setTherapyName(e.target.value)}
-                className="w-full rounded-2xl border border-gray-300 bg-gray-50/50 px-4 py-2.5 text-sm font-semibold text-gray-800 focus:bg-white focus:border-emerald-600 focus:outline-none transition cursor-pointer"
-              >
-                {THERAPY_OPTIONS.map((t) => (
-                  <option key={t} value={t}>{t}</option>
-                ))}
-              </select>
+                disabled
+                readOnly
+                className="w-full rounded-2xl border border-gray-200 bg-gray-100/90 px-4 py-2.5 text-sm font-bold text-gray-700 cursor-not-allowed shadow-inner truncate"
+              />
             </div>
 
             {/* 5. Total Sessions */}
             <div>
               <label className="block text-xs font-bold text-gray-700 mb-1.5">
-                5. Total Prescribed Sessions <span className="text-red-500">*</span>
+                5. Total Prescribed Sessions
               </label>
               <input
                 type="number"
-                min="1"
-                max="20"
                 value={totalSessions}
-                onChange={(e) => {
-                  const val = Number(e.target.value);
-                  setTotalSessions(val);
-                  if (completedSessions > val) setCompletedSessions(val);
-                }}
-                className="w-full rounded-2xl border border-gray-300 bg-gray-50/50 px-4 py-2.5 text-sm font-semibold text-gray-800 focus:bg-white focus:border-emerald-600 focus:outline-none transition"
-                required
+                disabled
+                readOnly
+                className="w-full rounded-2xl border border-gray-200 bg-gray-100/90 px-4 py-2.5 text-sm font-bold text-gray-700 cursor-not-allowed shadow-inner"
               />
             </div>
 
             {/* 6. Completed Sessions */}
             <div>
               <label className="block text-xs font-bold text-gray-700 mb-1.5">
-                6. Completed / Current Session <span className="text-red-500">*</span>
+                6. Completed / Current Session
               </label>
               <input
                 type="number"
-                min="1"
-                max={totalSessions}
                 value={completedSessions}
-                onChange={(e) => setCompletedSessions(Number(e.target.value))}
-                className="w-full rounded-2xl border border-gray-300 bg-gray-50/50 px-4 py-2.5 text-sm font-semibold text-gray-800 focus:bg-white focus:border-emerald-600 focus:outline-none transition"
-                required
+                disabled
+                readOnly
+                className="w-full rounded-2xl border border-gray-200 bg-gray-100/90 px-4 py-2.5 text-sm font-bold text-gray-700 cursor-not-allowed shadow-inner"
               />
             </div>
           </div>
@@ -605,24 +637,7 @@ export default function FullPageRecoveryPredictor({ consultation, onBack, onSave
           </div>
 
           {/* Action Row */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-emerald-200/60">
-            <div className="flex items-center gap-2.5 w-full sm:w-auto">
-              <button
-                type="button"
-                onClick={onBack}
-                className="flex-1 sm:flex-initial px-5 py-2.5 rounded-xl border border-gray-300 text-xs font-bold text-gray-700 hover:bg-gray-50 transition cursor-pointer"
-              >
-                ← Back to Consultations
-              </button>
-              <button
-                type="button"
-                onClick={handleClearPrediction}
-                className="px-4 py-2.5 rounded-xl border border-rose-200 text-xs font-bold text-rose-700 hover:bg-rose-50 transition cursor-pointer"
-                title="Clear current prediction and reset fields"
-              >
-                Clear / Reset
-              </button>
-            </div>
+          <div className="flex flex-col sm:flex-row items-center justify-end gap-3 pt-3 border-t border-emerald-200/60">
 
             <button
               type="button"

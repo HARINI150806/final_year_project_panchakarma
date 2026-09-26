@@ -830,8 +830,11 @@ function TherapyForm({ onSuccess, onSwitchToConsultation, onStatusChange }) {
 
           const allBookings = bookingsRes.data || [];
 
+          // Sort plans descending by ID (newest doctor-prescribed plan first)
+          const rawPlans = (plansRes.data || []).sort((a, b) => (b.id || 0) - (a.id || 0));
+
           // Only keep treatment plans where booked therapy sessions are less than total prescribed sessions
-          const planned = (plansRes.data || []).filter(p => {
+          const planned = rawPlans.filter(p => {
             if (!p || p.status === 'COMPLETED' || p.status === 'CANCELLED' || p.status === 'SCHEDULED') {
               return false;
             }
@@ -851,14 +854,15 @@ function TherapyForm({ onSuccess, onSwitchToConsultation, onStatusChange }) {
 
           setPlans(planned);
           if (planned.length > 0) {
-            setSelectedPlan(planned[0]);
-            const matchedTherapy = matchTherapyType(planned[0].therapyName);
+            const latestPlan = planned[0];
+            setSelectedPlan(latestPlan);
+            const matchedTherapy = matchTherapyType(latestPlan.therapyName);
             setForm(prev => ({
               ...prev,
               therapy: matchedTherapy,
-              totalSessions: planned[0].totalSessions || 7,
-              therapist: planned[0].assignedTherapistId || prev.therapist,
-              date: planned[0].prescribedStartDate || new Date(Date.now() + 86400000 * 2).toISOString().split('T')[0],
+              totalSessions: latestPlan.totalSessions != null ? Number(latestPlan.totalSessions) : 7,
+              therapist: latestPlan.assignedTherapistId || prev.therapist,
+              date: latestPlan.prescribedStartDate || new Date(Date.now() + 86400000 * 2).toISOString().split('T')[0],
             }));
           } else {
             setSelectedPlan(null);
@@ -1250,21 +1254,25 @@ function TherapyForm({ onSuccess, onSwitchToConsultation, onStatusChange }) {
         {/* Specialist / Therapist Selection */}
         <div>
           <label className={labelCls}>Assigned Specialist / Therapist</label>
-          {selectedPlan?.assignedTherapistId || selectedPlan?.assignedTherapistName ? (
+          {selectedPlan ? (
             <div className="flex items-center justify-between rounded-2xl border border-emerald-900/10 bg-[#faf8f4] p-3.5 shadow-xs">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-forest/10 font-bold text-forest text-sm">
-                  🌿
+                  🩺
                 </div>
                 <div>
-                  <p className="font-bold text-forest text-sm">
-                    {selectedPlan.assignedTherapistName || `Specialist #${selectedPlan.assignedTherapistId}`}
+                  {selectedPlan.prescribedByName && (
+                    <p className="text-xs font-bold text-emerald-950">
+                      Prescribed by: {selectedPlan.prescribedByName.toLowerCase().startsWith('dr.') || selectedPlan.prescribedByName.toLowerCase().startsWith('therapist') ? selectedPlan.prescribedByName : `Dr. ${selectedPlan.prescribedByName}`}
+                    </p>
+                  )}
+                  <p className="font-semibold text-forest text-xs mt-0.5">
+                    Assigned Therapist: {selectedPlan.assignedTherapistName || `Specialist #${selectedPlan.assignedTherapistId || 'Auto-Assigned'}`}
                   </p>
-                  <p className="text-[11px] text-forest/60">Doctor-assigned specialist for your treatment plan</p>
                 </div>
               </div>
               <span className="rounded-full bg-emerald-100 px-3 py-1 text-[10px] font-extrabold text-emerald-800 uppercase tracking-wider border border-emerald-200">
-                🔒 Assigned by Doctor
+                🔒 Doctor Prescribed
               </span>
             </div>
           ) : (

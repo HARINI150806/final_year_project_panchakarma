@@ -127,7 +127,7 @@ public class TreatmentPlanServiceImpl implements TreatmentPlanService {
 
     @Override
     public List<TreatmentPlanDto> getTreatmentPlansByPatientId(Long patientId) {
-        List<TreatmentPlan> plans = treatmentPlanRepository.findByPatient_Id(patientId);
+        List<TreatmentPlan> plans = treatmentPlanRepository.findByPatient_IdOrderByIdDesc(patientId);
         return plans.stream().map(this::mapToDto).collect(Collectors.toList());
     }
 
