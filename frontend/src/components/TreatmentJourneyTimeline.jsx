@@ -479,11 +479,8 @@ export default function TreatmentJourneyTimeline() {
                 {/* CARD 5: RECOVERY ASSESSMENT CARD */}
                 {node.type === 'RECOVERY' && (() => {
                   const hasEvaluated = Boolean(
-                    (node.currentRecoveryPercent != null && node.currentRecoveryPercent > 0) ||
-                    (node.predictedRecoveryPercent != null && node.predictedRecoveryPercent > 0) ||
-                    node.therapistRemarks ||
-                    node.hasAssessment ||
-                    (node.status === 'COMPLETED' && node.currentRecoveryPercent != null)
+                    node.status !== 'PENDING' &&
+                    (node.currentRecoveryPercent != null || node.predictedRecoveryPercent != null)
                   );
 
                   return (

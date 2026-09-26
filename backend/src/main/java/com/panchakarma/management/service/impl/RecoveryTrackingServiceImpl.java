@@ -325,51 +325,13 @@ public class RecoveryTrackingServiceImpl implements RecoveryTrackingService {
         }
 
         List<RecoveryTracking> trackings = trackingRepository.findByPatientIdOrderByAssessmentDateDesc(targetUserId);
-        if (trackings.isEmpty()) return null;
-
-        RecoveryTracking latest = trackings.get(0);
-        if (latest.getTreatmentPlan() != null) {
-            return getRecoverySummaryForPlan(latest.getTreatmentPlan().getId());
+        if (!trackings.isEmpty()) {
+            RecoveryTracking latest = trackings.get(0);
+            if (latest.getTreatmentPlan() != null) {
+                return getRecoverySummaryForPlan(latest.getTreatmentPlan().getId());
+            }
         }
 
-        Optional<RecoveryPrediction> predOpt = predictionRepository.findByPatientIdOrderByPredictionDateDesc(targetUserId).stream().findFirst();
-        RecoveryTracking baseline = trackings.stream().filter(r -> r.getSessionNumber() != null && r.getSessionNumber() == 0).findFirst().orElse(null);
-
-        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd MMM yyyy, hh:mm a");
-        List<RecoverySummaryDto.SessionAssessmentDto> history = trackings.stream()
-                .sorted(Comparator.comparing(RecoveryTracking::getSessionNumber, Comparator.nullsFirst(Comparator.naturalOrder())))
-                .map(r -> RecoverySummaryDto.SessionAssessmentDto.builder()
-                        .sessionNumber(r.getSessionNumber())
-                        .painLevel(r.getPainLevel())
-                        .sleepQuality(r.getSleepQuality())
-                        .energyLevel(r.getEnergyLevel())
-                        .overallCondition(r.getOverallCondition())
-                        .currentRecoveryPercentage(r.getCurrentRecoveryPercentage())
-                        .assessmentDate(r.getAssessmentDate() != null ? r.getAssessmentDate().format(fmt) : null)
-                        .remarks(r.getTherapistRemarks())
-                        .build())
-                .collect(Collectors.toList());
-
-        return RecoverySummaryDto.builder()
-                .therapyPlanId(null)
-                .therapyName("Panchakarma Therapy")
-                .totalSessions(3)
-                .completedSessions((int) trackings.stream().filter(r -> r.getSessionNumber() != null && r.getSessionNumber() > 0).count())
-                .baselinePain(baseline != null ? baseline.getPainLevel() : 8)
-                .baselineSleep(baseline != null ? baseline.getSleepQuality() : 3)
-                .baselineEnergy(baseline != null ? baseline.getEnergyLevel() : 4)
-                .baselineOverall(baseline != null ? baseline.getOverallCondition() : 5)
-                .currentPain(latest.getPainLevel() != null ? latest.getPainLevel() : 8)
-                .currentSleep(latest.getSleepQuality() != null ? latest.getSleepQuality() : 3)
-                .currentEnergy(latest.getEnergyLevel() != null ? latest.getEnergyLevel() : 4)
-                .currentOverall(latest.getOverallCondition() != null ? latest.getOverallCondition() : 5)
-                .currentRecoveryPercentage(latest.getCurrentRecoveryPercentage() != null ? latest.getCurrentRecoveryPercentage() : 0.0)
-                .predictedFinalRecovery(predOpt.isPresent() && predOpt.get().getPredictedRecovery() != null ? predOpt.get().getPredictedRecovery() : 85.0)
-                .modelVersion(predOpt.map(RecoveryPrediction::getModelVersion).orElse("XGBoost-v2.0"))
-                .status(predOpt.map(RecoveryPrediction::getStatus).orElse("Improving"))
-                .therapistRemarks(latest.getTherapistRemarks())
-                .clinicalObservation(latest.getClinicalObservation())
-                .sessionHistory(history)
-                .build();
+        return null;
     }
 }

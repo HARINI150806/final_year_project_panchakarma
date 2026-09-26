@@ -834,50 +834,29 @@ public class TreatmentJourneyServiceImpl implements TreatmentJourneyService {
     }
 
     private RecoveryMetrics getSavedRecoveryMetrics(Long planId, Long patientId, boolean isProgressDone, int completedSess, String defaultRemarks) {
-        RecoveryTracking tracking = null;
-        if (planId != null) {
-            tracking = recoveryTrackingRepository.findFirstByTreatmentPlanIdOrderBySessionNumberDesc(planId).orElse(null);
-        }
-        if (tracking == null && patientId != null) {
-            List<RecoveryTracking> trackings = recoveryTrackingRepository.findByPatientIdOrderByAssessmentDateDesc(patientId);
-            if (!trackings.isEmpty()) tracking = trackings.get(0);
+        if (planId == null) {
+            return new RecoveryMetrics(null, null, "Pending", defaultRemarks != null ? defaultRemarks : "Assessment & Prediction Pending", false);
         }
 
-        RecoveryPrediction prediction = null;
-        if (planId != null) {
-            prediction = recoveryPredictionRepository.findFirstByTreatmentPlanIdOrderByPredictionDateDesc(planId).orElse(null);
-        }
-        if (prediction == null && patientId != null) {
-            List<RecoveryPrediction> predictions = recoveryPredictionRepository.findByPatientIdOrderByPredictionDateDesc(patientId);
-            if (!predictions.isEmpty()) prediction = predictions.get(0);
-        }
+        RecoveryTracking tracking = recoveryTrackingRepository.findFirstByTreatmentPlanIdOrderBySessionNumberDesc(planId).orElse(null);
+        RecoveryPrediction prediction = recoveryPredictionRepository.findFirstByTreatmentPlanIdOrderByPredictionDateDesc(planId).orElse(null);
 
-        boolean hasActualData = (tracking != null && tracking.getCurrentRecoveryPercentage() != null) || (prediction != null && prediction.getPredictedRecovery() != null);
+        boolean hasActualData = (tracking != null && tracking.getCurrentRecoveryPercentage() != null) 
+                             || (prediction != null && prediction.getPredictedRecovery() != null);
 
-        Double currentRec = null;
-        Double predRec = null;
-        String status = "Pending";
-        String remarks = defaultRemarks != null ? defaultRemarks : "Recovery evaluation pending therapist assessment.";
-
-        if (hasActualData) {
-            if (tracking != null && tracking.getCurrentRecoveryPercentage() != null) {
-                currentRec = tracking.getCurrentRecoveryPercentage();
-                if (tracking.getTherapistRemarks() != null && !tracking.getTherapistRemarks().isBlank()) {
-                    remarks = tracking.getTherapistRemarks();
-                }
-            }
-            if (prediction != null) {
-                if (prediction.getPredictedRecovery() != null) {
-                    predRec = prediction.getPredictedRecovery();
-                }
-                if (prediction.getStatus() != null && !prediction.getStatus().isBlank()) {
-                    status = prediction.getStatus();
-                }
-            } else {
-                status = "Improving";
-            }
+        if (!hasActualData) {
+            return new RecoveryMetrics(null, null, "Pending", defaultRemarks != null ? defaultRemarks : "Assessment & Prediction Pending", false);
         }
 
-        return new RecoveryMetrics(currentRec, predRec, status, remarks, hasActualData);
+        Double currentRec = tracking != null ? tracking.getCurrentRecoveryPercentage() : null;
+        Double predRec = prediction != null ? prediction.getPredictedRecovery() : null;
+        String status = (prediction != null && prediction.getStatus() != null && !prediction.getStatus().isBlank())
+                ? prediction.getStatus()
+                : "Improving";
+        String remarks = (tracking != null && tracking.getTherapistRemarks() != null && !tracking.getTherapistRemarks().isBlank())
+                ? tracking.getTherapistRemarks()
+                : (defaultRemarks != null ? defaultRemarks : "Clinical evaluation completed.");
+
+        return new RecoveryMetrics(currentRec, predRec, status, remarks, true);
     }
 }
