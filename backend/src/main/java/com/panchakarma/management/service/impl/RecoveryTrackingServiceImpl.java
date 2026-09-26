@@ -26,6 +26,7 @@ public class RecoveryTrackingServiceImpl implements RecoveryTrackingService {
     private final RecoveryPredictionRepository predictionRepository;
     private final TreatmentPlanRepository treatmentPlanRepository;
     private final UserRepository userRepository;
+    private final PatientRepository patientRepository;
     private final RestTemplate restTemplate = new RestTemplate();
 
     @Override
@@ -237,8 +238,21 @@ public class RecoveryTrackingServiceImpl implements RecoveryTrackingService {
         TreatmentPlan plan = treatmentPlanRepository.findById(therapyPlanId).orElse(null);
         if (plan == null) return null;
 
-        List<RecoveryTracking> records = trackingRepository.findByTreatmentPlanIdOrderBySessionNumberAsc(therapyPlanId);
+        List<RecoveryTracking> records = new ArrayList<>(trackingRepository.findByTreatmentPlanIdOrderBySessionNumberAsc(therapyPlanId));
+        if (plan.getPatient() != null) {
+            List<RecoveryTracking> patientRecords = trackingRepository.findByPatientIdOrderByAssessmentDateDesc(plan.getPatient().getId());
+            for (RecoveryTracking pr : patientRecords) {
+                if (records.stream().noneMatch(r -> r.getSessionNumber() != null && r.getSessionNumber().equals(pr.getSessionNumber()))) {
+                    records.add(pr);
+                }
+            }
+            records.sort(Comparator.comparing(RecoveryTracking::getSessionNumber, Comparator.nullsFirst(Comparator.naturalOrder())));
+        }
+
         Optional<RecoveryPrediction> predOpt = predictionRepository.findFirstByTreatmentPlanIdOrderByPredictionDateDesc(therapyPlanId);
+        if (predOpt.isEmpty() && plan.getPatient() != null) {
+            predOpt = predictionRepository.findByPatientIdOrderByPredictionDateDesc(plan.getPatient().getId()).stream().findFirst();
+        }
 
         RecoveryTracking baseline = records.stream()
                 .filter(r -> r.getSessionNumber() == 0)
@@ -294,13 +308,23 @@ public class RecoveryTrackingServiceImpl implements RecoveryTrackingService {
     @Override
     @Transactional(readOnly = true)
     public RecoverySummaryDto getLatestRecoverySummaryForPatient(Long patientId) {
-        List<TreatmentPlan> plans = treatmentPlanRepository.findByPatient_Id(patientId);
+        Long targetUserId = patientId;
+        if (patientRepository.findByUser_Id(patientId).isPresent()) {
+            targetUserId = patientId;
+        } else {
+            Optional<Patient> pOpt = patientRepository.findById(patientId);
+            if (pOpt.isPresent() && pOpt.get().getUser() != null) {
+                targetUserId = pOpt.get().getUser().getId();
+            }
+        }
+
+        List<TreatmentPlan> plans = treatmentPlanRepository.findByPatient_Id(targetUserId);
         if (!plans.isEmpty()) {
             TreatmentPlan latestPlan = plans.get(plans.size() - 1);
             return getRecoverySummaryForPlan(latestPlan.getId());
         }
 
-        List<RecoveryTracking> trackings = trackingRepository.findByPatientIdOrderByAssessmentDateDesc(patientId);
+        List<RecoveryTracking> trackings = trackingRepository.findByPatientIdOrderByAssessmentDateDesc(targetUserId);
         if (trackings.isEmpty()) return null;
 
         RecoveryTracking latest = trackings.get(0);
@@ -308,7 +332,7 @@ public class RecoveryTrackingServiceImpl implements RecoveryTrackingService {
             return getRecoverySummaryForPlan(latest.getTreatmentPlan().getId());
         }
 
-        Optional<RecoveryPrediction> predOpt = predictionRepository.findByPatientIdOrderByPredictionDateDesc(patientId).stream().findFirst();
+        Optional<RecoveryPrediction> predOpt = predictionRepository.findByPatientIdOrderByPredictionDateDesc(targetUserId).stream().findFirst();
         RecoveryTracking baseline = trackings.stream().filter(r -> r.getSessionNumber() != null && r.getSessionNumber() == 0).findFirst().orElse(null);
 
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd MMM yyyy, hh:mm a");

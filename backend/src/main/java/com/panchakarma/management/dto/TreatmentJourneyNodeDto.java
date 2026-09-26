@@ -18,7 +18,7 @@ public class TreatmentJourneyNodeDto {
     private String time;
     private String status; // COMPLETED, ACTIVE, PENDING, CANCELLED
     private String assignedTherapist;
-    
+
     // Clinical & Complaint fields
     private String chiefComplaint;
     private String diagnosis;

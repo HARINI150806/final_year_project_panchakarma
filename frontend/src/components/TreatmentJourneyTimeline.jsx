@@ -477,45 +477,62 @@ export default function TreatmentJourneyTimeline() {
                 )}
 
                 {/* CARD 5: RECOVERY ASSESSMENT CARD */}
-                {node.type === 'RECOVERY' && (
-                  <div className="space-y-3 pt-2 border-t border-gray-100/80 text-xs">
-                    <div className="space-y-2 text-gray-600 font-medium">
-                      <div className="grid grid-cols-2 gap-2">
-                        <div className="flex flex-col items-center bg-emerald-50/80 p-2.5 rounded-xl border border-emerald-100/80">
-                          <span className="text-[10px] uppercase font-bold text-emerald-800">Current Recovery</span>
-                          <span className="font-black text-emerald-900 text-base mt-0.5">{node.currentRecoveryPercent ?? 0}%</span>
-                        </div>
-                        <div className="flex flex-col items-center bg-amber-50/80 p-2.5 rounded-xl border border-amber-100/80">
-                          <span className="text-[10px] uppercase font-bold text-amber-800">XGBoost Predicted</span>
-                          <span className="font-black text-amber-900 text-base mt-0.5">{node.predictedRecoveryPercent ?? 75}%</span>
-                        </div>
-                      </div>
+                {node.type === 'RECOVERY' && (() => {
+                  const hasEvaluated = Boolean(
+                    (node.currentRecoveryPercent != null && node.currentRecoveryPercent > 0) ||
+                    (node.predictedRecoveryPercent != null && node.predictedRecoveryPercent > 0) ||
+                    node.therapistRemarks ||
+                    node.hasAssessment ||
+                    (node.status === 'COMPLETED' && node.currentRecoveryPercent != null)
+                  );
 
-                      {node.therapistRemarks && (
-                        <div className="pt-1 text-[11px] text-gray-600 italic bg-gray-50 p-2 rounded-xl border border-gray-100">
-                          "{node.therapistRemarks}"
+                  return (
+                    <div className="space-y-3 pt-2 border-t border-gray-100/80 text-xs">
+                      {hasEvaluated ? (
+                        <div className="space-y-2 text-gray-600 font-medium">
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="flex flex-col items-center bg-emerald-50/80 p-2.5 rounded-xl border border-emerald-100/80">
+                              <span className="text-[10px] uppercase font-bold text-emerald-800">Current Recovery</span>
+                              <span className="font-black text-emerald-900 text-base mt-0.5">{node.currentRecoveryPercent ?? 0}%</span>
+                            </div>
+                            <div className="flex flex-col items-center bg-amber-50/80 p-2.5 rounded-xl border border-amber-100/80">
+                              <span className="text-[10px] uppercase font-bold text-amber-800">XGBoost Predicted</span>
+                              <span className="font-black text-amber-900 text-base mt-0.5">{node.predictedRecoveryPercent ?? 0}%</span>
+                            </div>
+                          </div>
+
+                          {node.therapistRemarks && (
+                            <div className="pt-1 text-[11px] text-gray-600 italic bg-gray-50 p-2 rounded-xl border border-gray-100">
+                              "{node.therapistRemarks}"
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="rounded-xl bg-amber-50/70 p-3 border border-amber-200/70 text-center text-xs text-amber-900">
+                          <p className="font-bold text-[11px]">Assessment & Prediction Pending</p>
+                          <p className="text-[10px] text-amber-800/80 mt-0.5">Therapist will evaluate recovery during session.</p>
+                        </div>
+                      )}
+
+                      {node.status === 'COMPLETED' && hasEvaluated ? (
+                        <div className="rounded-xl bg-emerald-50/80 p-2.5 flex items-center justify-between text-[11px] font-semibold text-emerald-900 border border-emerald-100">
+                          <span>Status</span>
+                          <span className="font-bold text-emerald-700">Completed</span>
+                        </div>
+                      ) : node.status === 'ACTIVE' && hasEvaluated ? (
+                        <div className="rounded-xl bg-emerald-50/80 p-2.5 flex items-center justify-between text-[11px] font-semibold text-emerald-900 border border-emerald-100">
+                          <span>Status</span>
+                          <span className="font-bold text-emerald-700">{node.recoveryStatus || 'Improving'}</span>
+                        </div>
+                      ) : (
+                        <div className="rounded-xl bg-gray-50/80 p-2.5 flex items-center justify-between text-[11px] font-semibold text-gray-700 border border-gray-200">
+                          <span>Status</span>
+                          <span className="font-bold text-gray-600">Pending</span>
                         </div>
                       )}
                     </div>
-
-                    {node.status === 'COMPLETED' ? (
-                      <div className="rounded-xl bg-emerald-50/80 p-2.5 flex items-center justify-between text-[11px] font-semibold text-emerald-900 border border-emerald-100">
-                        <span>Status</span>
-                        <span className="font-bold text-emerald-700">Completed</span>
-                      </div>
-                    ) : node.status === 'ACTIVE' ? (
-                      <div className="rounded-xl bg-emerald-50/80 p-2.5 flex items-center justify-between text-[11px] font-semibold text-emerald-900 border border-emerald-100">
-                        <span>Status</span>
-                        <span className="font-bold text-emerald-700">{node.recoveryStatus || 'Improving'}</span>
-                      </div>
-                    ) : (
-                      <div className="rounded-xl bg-gray-50/80 p-2.5 flex items-center justify-between text-[11px] font-semibold text-gray-700 border border-gray-200">
-                        <span>Status</span>
-                        <span className="font-bold text-gray-600">Pending</span>
-                      </div>
-                    )}
-                  </div>
-                )}
+                  );
+                })()}
               </div>
             );
           })}

@@ -13,7 +13,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import jakarta.annotation.security.PermitAll;
 
 import java.util.Map;
 
@@ -33,7 +32,6 @@ public class AuthController {
     }
 
     @PostMapping("/auth/send-verification")
-    @PermitAll
     public ResponseEntity<Map<String, String>> sendVerificationCode(@RequestBody Map<String, String> body) {
         String email = body.getOrDefault("email", "");
         if (email.isBlank()) {
@@ -42,8 +40,7 @@ public class AuthController {
         String code = authService.sendVerificationCode(email);
         return ResponseEntity.ok(Map.of(
                 "message", "Verification code sent successfully to " + email + ".",
-                "code", code != null ? code : ""
-        ));
+                "code", code != null ? code : ""));
     }
 
     @PostMapping("/auth/register")
@@ -62,8 +59,7 @@ public class AuthController {
         authService.forgotPassword(email);
         return ResponseEntity.ok(Map.of(
                 "message",
-                "A password reset code has been sent to " + email + "."
-        ));
+                "A password reset code has been sent to " + email + "."));
     }
 
     @PostMapping("/auth/reset-password")
@@ -79,18 +75,18 @@ public class AuthController {
         authService.resetPassword(email, otpCode, newPassword);
         return ResponseEntity.ok(Map.of(
                 "message",
-                "Password has been reset successfully. Please login with your new password."
-        ));
+                "Password has been reset successfully. Please login with your new password."));
     }
-
 
     @GetMapping("/auth/verify")
     public ResponseEntity<Map<String, Object>> verifyToken() {
         var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
-        if (auth != null && auth.isAuthenticated() && !(auth instanceof org.springframework.security.authentication.AnonymousAuthenticationToken)) {
+        if (auth != null && auth.isAuthenticated()
+                && !(auth instanceof org.springframework.security.authentication.AnonymousAuthenticationToken)) {
             return ResponseEntity.ok(Map.of("valid", true, "username", auth.getName()));
         }
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("valid", false, "message", "Invalid or expired token"));
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(Map.of("valid", false, "message", "Invalid or expired token"));
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
@@ -101,6 +97,7 @@ public class AuthController {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, String>> handleGenericException(Exception exception) {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("message", exception.getMessage() != null ? exception.getMessage() : "An unexpected error occurred."));
+                .body(Map.of("message",
+                        exception.getMessage() != null ? exception.getMessage() : "An unexpected error occurred."));
     }
 }

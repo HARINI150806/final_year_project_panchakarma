@@ -29,6 +29,9 @@ public class PatientProfileServiceImpl implements PatientProfileService {
     @Autowired
     private PreviousTreatmentRepository previousTreatmentRepository;
 
+    @Autowired
+    private UserRepository userRepository;
+
     @Override
     @Transactional
     public void updatePatientProfile(Long patientId, PatientProfileRequest request) {
@@ -40,19 +43,32 @@ public class PatientProfileServiceImpl implements PatientProfileService {
                 });
         log.info("Patient found with id: {}", patientId);
 
-        patient.setDateOfBirth(request.getDateOfBirth());
-        if (request.getGender() != null) {
+        if (request.getDateOfBirth() != null) {
+            patient.setDateOfBirth(request.getDateOfBirth());
+        }
+        if (request.getGender() != null && !request.getGender().isBlank()) {
             patient.setGender(request.getGender());
             if (patient.getUser() != null) {
                 patient.getUser().setGender(request.getGender());
             }
         }
-        if (request.getAge() != null && patient.getUser() != null) {
-            patient.getUser().setAge(request.getAge());
+        if (request.getAge() != null) {
+            if (patient.getUser() != null) {
+                patient.getUser().setAge(request.getAge());
+            }
+            if (patient.getDateOfBirth() == null) {
+                patient.setDateOfBirth(java.time.LocalDate.now().minusYears(request.getAge()));
+            }
         }
-        patient.setHeight(request.getHeight());
-        patient.setWeight(request.getWeight());
-        patient.setOccupation(request.getOccupation());
+        if (request.getHeight() != null) {
+            patient.setHeight(request.getHeight());
+        }
+        if (request.getWeight() != null) {
+            patient.setWeight(request.getWeight());
+        }
+        if (request.getOccupation() != null) {
+            patient.setOccupation(request.getOccupation());
+        }
 
         // Clear existing collections
         patient.getHealthConditions().clear();
@@ -93,6 +109,9 @@ public class PatientProfileServiceImpl implements PatientProfileService {
         }
 
         patient.setProfileCompleted(true);
+        if (patient.getUser() != null) {
+            userRepository.save(patient.getUser());
+        }
         patientRepository.save(patient);
         log.info("Patient profile updated successfully for patientId: {}", patientId);
     }

@@ -32,18 +32,24 @@ public class TherapistServiceImpl implements TherapistService {
     private final PatientRepository patientRepository;
     private final TherapistWeeklyScheduleRepository weeklyScheduleRepository;
     private final TherapistDateOverrideRepository dateOverrideRepository;
+    private final RecoveryTrackingRepository trackingRepository;
+    private final RecoveryPredictionRepository predictionRepository;
 
     public TherapistServiceImpl(
             BookingRepository bookingRepository,
             UserRepository userRepository,
             PatientRepository patientRepository,
             TherapistWeeklyScheduleRepository weeklyScheduleRepository,
-            TherapistDateOverrideRepository dateOverrideRepository) {
+            TherapistDateOverrideRepository dateOverrideRepository,
+            RecoveryTrackingRepository trackingRepository,
+            RecoveryPredictionRepository predictionRepository) {
         this.bookingRepository = bookingRepository;
         this.userRepository = userRepository;
         this.patientRepository = patientRepository;
         this.weeklyScheduleRepository = weeklyScheduleRepository;
         this.dateOverrideRepository = dateOverrideRepository;
+        this.trackingRepository = trackingRepository;
+        this.predictionRepository = predictionRepository;
     }
 
     public List<PatientSummaryResponse> getMyPatients() {
@@ -55,14 +61,19 @@ public class TherapistServiceImpl implements TherapistService {
                     Integer age = null;
                     if (patient.getDateOfBirth() != null) {
                         age = Period.between(patient.getDateOfBirth(), LocalDate.now()).getYears();
+                    } else if (patient.getUser() != null && patient.getUser().getAge() != null) {
+                        age = patient.getUser().getAge();
                     }
+                    String gender = (patient.getGender() != null && !patient.getGender().isBlank())
+                            ? patient.getGender()
+                            : (patient.getUser() != null ? patient.getUser().getGender() : null);
                     Long targetUserId = (patient.getUser() != null) ? patient.getUser().getId() : patient.getId();
                     return new PatientSummaryResponse(
                             targetUserId,
                             patient.getFirstName() + " " + patient.getLastName(),
                             patient.getEmail(),
                             patient.getContactNumber(),
-                            patient.getGender(),
+                            gender,
                             age,
                             patient.getDominantDosha(),
                             patient.isDoshaAssessmentCompleted(),
@@ -115,41 +126,70 @@ public class TherapistServiceImpl implements TherapistService {
         }
 
         return bookings.stream()
-                .map(booking -> new TherapistAssignedBookingDto(
-                        booking.getBookingId(),
-                        booking.getPatient() != null ? booking.getPatient().getId() : null,
-                        booking.getPatient() != null ? booking.getPatient().getFullName() : null,
-                        booking.getBookingType() != null ? booking.getBookingType().toString() : null,
-                        booking.getPurpose(),
-                        "",
-                        booking.getDate(),
-                        booking.getTime(),
-                        booking.getBookingStatus() != null ? booking.getBookingStatus().toString() : null,
-                        booking.getConsultationType(),
-                        booking.getConsultationCategory() != null ? booking.getConsultationCategory() : "NORMAL",
-                        booking.getMeetLink(),
-                        booking.getSessionNotes(),
-                        booking.getPatientAdvice(),
-                        booking.isRescheduleRequested(),
-                        booking.getProposedDate(),
-                        booking.getProposedTime(),
-                        booking.getRescheduleReason(),
-                        booking.isAltSlotsPending(),
-                        booking.getDeclineReason(),
-                        booking.getAltSlot1Date(),
-                        booking.getAltSlot1Time(),
-                        booking.getAltSlot2Date(),
-                        booking.getAltSlot2Time(),
-                        booking.getAltSlot3Date(),
-                        booking.getAltSlot3Time(),
-                        booking.getPatient() != null ? booking.getPatient().getDominantDosha() : null,
-                        booking.getPaymentStatus() != null ? booking.getPaymentStatus().toString() : "UNPAID",
-                        booking.getPaymentAmount() != null ? booking.getPaymentAmount() : 0.0,
-                        booking.getRazorpayPaymentId(),
-                        booking.getRazorpayOrderId(),
-                        booking.getPatient() != null ? booking.getPatient().getAge() : null,
-                        booking.getPatient() != null ? booking.getPatient().getGender() : null
-                ))
+                .map(booking -> {
+                    Long patUserId = booking.getPatient() != null ? booking.getPatient().getId() : null;
+                    if (patUserId == null && booking.getPatientEmail() != null && !booking.getPatientEmail().isBlank()) {
+                        Optional<User> uOpt = userRepository.findByEmail(booking.getPatientEmail());
+                        if (uOpt.isPresent()) {
+                            patUserId = uOpt.get().getId();
+                        }
+                    }
+
+                    boolean hasAssessment = false;
+                    boolean hasPrediction = false;
+                    Double recoveryPercentage = null;
+
+                    if (patUserId != null) {
+                        List<RecoveryTracking> trackings = trackingRepository.findByPatientIdOrderByAssessmentDateDesc(patUserId);
+                        if (!trackings.isEmpty()) {
+                            hasAssessment = true;
+                            recoveryPercentage = trackings.get(0).getCurrentRecoveryPercentage();
+                        }
+                        List<RecoveryPrediction> predictions = predictionRepository.findByPatientIdOrderByPredictionDateDesc(patUserId);
+                        if (!predictions.isEmpty()) {
+                            hasPrediction = true;
+                        }
+                    }
+
+                    return new TherapistAssignedBookingDto(
+                            booking.getBookingId(),
+                            booking.getPatient() != null ? booking.getPatient().getId() : null,
+                            booking.getPatient() != null ? booking.getPatient().getFullName() : null,
+                            booking.getBookingType() != null ? booking.getBookingType().toString() : null,
+                            booking.getPurpose(),
+                            "",
+                            booking.getDate(),
+                            booking.getTime(),
+                            booking.getBookingStatus() != null ? booking.getBookingStatus().toString() : null,
+                            booking.getConsultationType(),
+                            booking.getConsultationCategory() != null ? booking.getConsultationCategory() : "NORMAL",
+                            booking.getMeetLink(),
+                            booking.getSessionNotes(),
+                            booking.getPatientAdvice(),
+                            booking.isRescheduleRequested(),
+                            booking.getProposedDate(),
+                            booking.getProposedTime(),
+                            booking.getRescheduleReason(),
+                            booking.isAltSlotsPending(),
+                            booking.getDeclineReason(),
+                            booking.getAltSlot1Date(),
+                            booking.getAltSlot1Time(),
+                            booking.getAltSlot2Date(),
+                            booking.getAltSlot2Time(),
+                            booking.getAltSlot3Date(),
+                            booking.getAltSlot3Time(),
+                            booking.getPatient() != null ? booking.getPatient().getDominantDosha() : null,
+                            booking.getPaymentStatus() != null ? booking.getPaymentStatus().toString() : "UNPAID",
+                            booking.getPaymentAmount() != null ? booking.getPaymentAmount() : 0.0,
+                            booking.getRazorpayPaymentId(),
+                            booking.getRazorpayOrderId(),
+                            booking.getPatient() != null ? booking.getPatient().getAge() : null,
+                            booking.getPatient() != null ? booking.getPatient().getGender() : null,
+                            hasAssessment,
+                            hasPrediction,
+                            recoveryPercentage
+                    );
+                })
                 .collect(Collectors.toList());
     }
 
@@ -207,43 +247,72 @@ public class TherapistServiceImpl implements TherapistService {
         }
 
         return bookings.stream()
-                .map(booking -> new TherapistAssignedBookingDto(
-                        booking.getBookingId(),
-                        booking.getPatient() != null ? booking.getPatient().getId() : null,
-                        booking.getPatient() != null ? booking.getPatient().getFullName() : null,
-                        booking.getPurpose() != null && !booking.getPurpose().isBlank()
-                                ? booking.getPurpose()
-                                : (booking.getBookingType() != null ? booking.getBookingType().toString() : "Panchakarma Therapy"),
-                        booking.getPurpose(),
-                        "",
-                        booking.getDate(),
-                        booking.getTime(),
-                        booking.getBookingStatus() != null ? booking.getBookingStatus().toString() : null,
-                        booking.getConsultationType(),
-                        booking.getConsultationCategory() != null ? booking.getConsultationCategory() : "THERAPY_RECOMMENDATION",
-                        booking.getMeetLink(),
-                        booking.getSessionNotes(),
-                        booking.getPatientAdvice(),
-                        booking.isRescheduleRequested(),
-                        booking.getProposedDate(),
-                        booking.getProposedTime(),
-                        booking.getRescheduleReason(),
-                        booking.isAltSlotsPending(),
-                        booking.getDeclineReason(),
-                        booking.getAltSlot1Date(),
-                        booking.getAltSlot1Time(),
-                        booking.getAltSlot2Date(),
-                        booking.getAltSlot2Time(),
-                        booking.getAltSlot3Date(),
-                        booking.getAltSlot3Time(),
-                        booking.getPatient() != null ? booking.getPatient().getDominantDosha() : null,
-                        booking.getPaymentStatus() != null ? booking.getPaymentStatus().toString() : "UNPAID",
-                        booking.getPaymentAmount() != null ? booking.getPaymentAmount() : 0.0,
-                        booking.getRazorpayPaymentId(),
-                        booking.getRazorpayOrderId(),
-                        booking.getPatient() != null ? booking.getPatient().getAge() : null,
-                        booking.getPatient() != null ? booking.getPatient().getGender() : null
-                ))
+                .map(booking -> {
+                    Long patUserId = booking.getPatient() != null ? booking.getPatient().getId() : null;
+                    if (patUserId == null && booking.getPatientEmail() != null && !booking.getPatientEmail().isBlank()) {
+                        Optional<User> uOpt = userRepository.findByEmail(booking.getPatientEmail());
+                        if (uOpt.isPresent()) {
+                            patUserId = uOpt.get().getId();
+                        }
+                    }
+
+                    boolean hasAssessment = false;
+                    boolean hasPrediction = false;
+                    Double recoveryPercentage = null;
+
+                    if (patUserId != null) {
+                        List<RecoveryTracking> trackings = trackingRepository.findByPatientIdOrderByAssessmentDateDesc(patUserId);
+                        if (!trackings.isEmpty()) {
+                            hasAssessment = true;
+                            recoveryPercentage = trackings.get(0).getCurrentRecoveryPercentage();
+                        }
+                        List<RecoveryPrediction> predictions = predictionRepository.findByPatientIdOrderByPredictionDateDesc(patUserId);
+                        if (!predictions.isEmpty()) {
+                            hasPrediction = true;
+                        }
+                    }
+
+                    return new TherapistAssignedBookingDto(
+                            booking.getBookingId(),
+                            booking.getPatient() != null ? booking.getPatient().getId() : null,
+                            booking.getPatient() != null ? booking.getPatient().getFullName() : null,
+                            booking.getPurpose() != null && !booking.getPurpose().isBlank()
+                                    ? booking.getPurpose()
+                                    : (booking.getBookingType() != null ? booking.getBookingType().toString() : "Panchakarma Therapy"),
+                            booking.getPurpose(),
+                            "",
+                            booking.getDate(),
+                            booking.getTime(),
+                            booking.getBookingStatus() != null ? booking.getBookingStatus().toString() : null,
+                            booking.getConsultationType(),
+                            booking.getConsultationCategory() != null ? booking.getConsultationCategory() : "THERAPY_RECOMMENDATION",
+                            booking.getMeetLink(),
+                            booking.getSessionNotes(),
+                            booking.getPatientAdvice(),
+                            booking.isRescheduleRequested(),
+                            booking.getProposedDate(),
+                            booking.getProposedTime(),
+                            booking.getRescheduleReason(),
+                            booking.isAltSlotsPending(),
+                            booking.getDeclineReason(),
+                            booking.getAltSlot1Date(),
+                            booking.getAltSlot1Time(),
+                            booking.getAltSlot2Date(),
+                            booking.getAltSlot2Time(),
+                            booking.getAltSlot3Date(),
+                            booking.getAltSlot3Time(),
+                            booking.getPatient() != null ? booking.getPatient().getDominantDosha() : null,
+                            booking.getPaymentStatus() != null ? booking.getPaymentStatus().toString() : "UNPAID",
+                            booking.getPaymentAmount() != null ? booking.getPaymentAmount() : 0.0,
+                            booking.getRazorpayPaymentId(),
+                            booking.getRazorpayOrderId(),
+                            booking.getPatient() != null ? booking.getPatient().getAge() : null,
+                            booking.getPatient() != null ? booking.getPatient().getGender() : null,
+                            hasAssessment,
+                            hasPrediction,
+                            recoveryPercentage
+                    );
+                })
                 .collect(Collectors.toList());
     }
 

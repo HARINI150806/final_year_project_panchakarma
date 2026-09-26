@@ -79,12 +79,14 @@ public class PatientController {
             return ResponseEntity.notFound().build();
         }
 
-        Long targetUserId = (user != null) ? user.getId() : (patient != null && patient.getUser() != null ? patient.getUser().getId() : id);
-        String name = (user != null) ? user.getFullName() : (patient != null ? patient.getFirstName() + " " + patient.getLastName() : "Patient");
+        Long targetUserId = (user != null) ? user.getId()
+                : (patient != null && patient.getUser() != null ? patient.getUser().getId() : id);
+        String name = (user != null) ? user.getFullName()
+                : (patient != null ? patient.getFirstName() + " " + patient.getLastName() : "Patient");
         String email = (user != null) ? user.getEmail() : (patient != null ? patient.getEmail() : "");
         String phone = (patient != null) ? patient.getContactNumber() : null;
-        String gender = (patient != null && patient.getGender() != null && !patient.getGender().isBlank()) 
-                ? patient.getGender() 
+        String gender = (patient != null && patient.getGender() != null && !patient.getGender().isBlank())
+                ? patient.getGender()
                 : (user != null ? user.getGender() : null);
 
         Integer age = null;
@@ -100,7 +102,8 @@ public class PatientController {
 
         // Only return real dosha data — never use fallback defaults
         boolean doshaAssessed = patient != null && patient.isDoshaAssessmentCompleted();
-        String dominantDosha = (doshaAssessed && patient.getDominantDosha() != null) ? patient.getDominantDosha() : null;
+        String dominantDosha = (doshaAssessed && patient.getDominantDosha() != null) ? patient.getDominantDosha()
+                : null;
         Integer vata = (doshaAssessed && patient.getVataScore() != null) ? patient.getVataScore() : null;
         Integer pitta = (doshaAssessed && patient.getPittaScore() != null) ? patient.getPittaScore() : null;
         Integer kapha = (doshaAssessed && patient.getKaphaScore() != null) ? patient.getKaphaScore() : null;
@@ -126,8 +129,7 @@ public class PatientController {
                 null,
                 null,
                 null,
-                pastRx
-        );
+                pastRx);
 
         return ResponseEntity.ok(response);
     }
@@ -167,7 +169,8 @@ public class PatientController {
     }
 
     @PostMapping("/book-therapy")
-    public ResponseEntity<BookingResponse> bookTherapy(@RequestBody PatientBookingRequest patientBookingRequest, Principal principal) {
+    public ResponseEntity<BookingResponse> bookTherapy(@RequestBody PatientBookingRequest patientBookingRequest,
+            Principal principal) {
         if (principal == null) {
             return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
         }
@@ -181,15 +184,18 @@ public class PatientController {
         bookingRequest.setDate(patientBookingRequest.getDate());
         bookingRequest.setTime(patientBookingRequest.getTime());
         bookingRequest.setPurpose(patientBookingRequest.getNotes());
-        bookingRequest.setBookingType(patientBookingRequest.getType() != null ? patientBookingRequest.getType() : BookingType.THERAPY);
-        bookingRequest.setBookingStatus(com.panchakarma.management.model.BookingStatus.CONFIRMED); // Default to CONFIRMED
+        bookingRequest.setBookingType(
+                patientBookingRequest.getType() != null ? patientBookingRequest.getType() : BookingType.THERAPY);
+        bookingRequest.setBookingStatus(com.panchakarma.management.model.BookingStatus.CONFIRMED); // Default to
+                                                                                                   // CONFIRMED
 
         BookingResponse createdBooking = bookingService.createBooking(bookingRequest);
         return new ResponseEntity<>(createdBooking, HttpStatus.CREATED);
     }
 
     @PostMapping("/book-consultation")
-    public ResponseEntity<BookingResponse> bookConsultation(@RequestBody PatientBookingRequest patientBookingRequest, Principal principal) {
+    public ResponseEntity<BookingResponse> bookConsultation(@RequestBody PatientBookingRequest patientBookingRequest,
+            Principal principal) {
         if (principal == null) {
             return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
         }
@@ -202,9 +208,13 @@ public class PatientController {
         bookingRequest.setDate(patientBookingRequest.getDate());
         bookingRequest.setTime(patientBookingRequest.getTime());
         bookingRequest.setPurpose(patientBookingRequest.getNotes());
-        bookingRequest.setBookingType(patientBookingRequest.getType() != null ? patientBookingRequest.getType() : BookingType.CONSULTATION);
-        bookingRequest.setConsultationCategory(patientBookingRequest.getConsultationCategory() != null ? patientBookingRequest.getConsultationCategory() : "THERAPY_RECOMMENDATION");
-        bookingRequest.setBookingStatus(com.panchakarma.management.model.BookingStatus.CONFIRMED); // Default to CONFIRMED
+        bookingRequest.setBookingType(
+                patientBookingRequest.getType() != null ? patientBookingRequest.getType() : BookingType.CONSULTATION);
+        bookingRequest.setConsultationCategory(patientBookingRequest.getConsultationCategory() != null
+                ? patientBookingRequest.getConsultationCategory()
+                : "THERAPY_RECOMMENDATION");
+        bookingRequest.setBookingStatus(com.panchakarma.management.model.BookingStatus.CONFIRMED); // Default to
+                                                                                                   // CONFIRMED
 
         BookingResponse createdBooking = bookingService.createBooking(bookingRequest);
         return new ResponseEntity<>(createdBooking, HttpStatus.CREATED);
@@ -228,20 +238,26 @@ public class PatientController {
         return ResponseEntity.ok(response);
     }
 
-    /** GET /api/patient/notification-prefs — returns the current patient's notification preferences */
+    /**
+     * GET /api/patient/notification-prefs — returns the current patient's
+     * notification preferences
+     */
     @GetMapping("/notification-prefs")
     public ResponseEntity<?> getNotificationPrefs(Principal principal) {
         User user = userRepository.findByEmail(principal.getName())
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         return ResponseEntity.ok(java.util.Map.of(
                 "inAppNotif", user.isInAppNotifEnabled(),
-                "emailNotif", user.isEmailNotifEnabled()
-        ));
+                "emailNotif", user.isEmailNotifEnabled()));
     }
 
-    /** PATCH /api/patient/notification-prefs — saves the patient's notification preferences */
+    /**
+     * PATCH /api/patient/notification-prefs — saves the patient's notification
+     * preferences
+     */
     @PatchMapping("/notification-prefs")
-    public ResponseEntity<?> updateNotificationPrefs(@RequestBody java.util.Map<String, Boolean> prefs, Principal principal) {
+    public ResponseEntity<?> updateNotificationPrefs(@RequestBody java.util.Map<String, Boolean> prefs,
+            Principal principal) {
         User user = userRepository.findByEmail(principal.getName())
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         if (prefs.containsKey("inAppNotif")) {
@@ -253,8 +269,7 @@ public class PatientController {
         userRepository.save(user);
         return ResponseEntity.ok(java.util.Map.of(
                 "inAppNotif", user.isInAppNotifEnabled(),
-                "emailNotif", user.isEmailNotifEnabled()
-        ));
+                "emailNotif", user.isEmailNotifEnabled()));
     }
 
 }

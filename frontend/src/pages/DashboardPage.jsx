@@ -417,10 +417,11 @@ export default function DashboardPage({ auth, onLogout, onAuthUpdate }) {
   const [recoveryReportData, setRecoveryReportData] = useState(null);
 
   useEffect(() => {
-    if (isPatient && auth?.id) {
+    if (isPatient && (auth?.id || auth?.userId || auth?.patientId)) {
       const fetchReport = async () => {
         try {
-          const summaryRes = await api.get(`/recovery/patient/${auth.id}`).catch(() => null);
+          const targetId = auth?.patientId || auth?.id || auth?.userId;
+          const summaryRes = await api.get(`/recovery/patient/${targetId}`).catch(() => null);
           const journeyRes = await api.get('/patient/treatment-journey').catch(() => null);
           setRecoveryReportData({
             summary: summaryRes?.data || null,
@@ -432,7 +433,7 @@ export default function DashboardPage({ auth, onLogout, onAuthUpdate }) {
       };
       fetchReport();
     }
-  }, [isPatient, auth?.id, patientTab]);
+  }, [isPatient, auth?.id, auth?.userId, auth?.patientId, patientTab]);
 
   const fetchComplaints = () => {
     setComplaintsLoading(true);
@@ -527,44 +528,71 @@ export default function DashboardPage({ auth, onLogout, onAuthUpdate }) {
   );
 
   const rawCompleted = activeProgressNode?.completedSessions || summary?.completedSessions || 0;
+  const hasAssessments = history.length > 0;
+  const hasPlan = Boolean(summary || activeProgressNode || activeRecoveryNode);
 
   const currentRec = (activeRecoveryNode?.currentRecoveryPercent != null && activeRecoveryNode.currentRecoveryPercent > 0)
     ? activeRecoveryNode.currentRecoveryPercent
-    : (summary?.currentRecoveryPercentage ?? 69.3);
+    : (summary?.currentRecoveryPercentage != null ? summary.currentRecoveryPercentage : null);
 
   const targetRec = (activeRecoveryNode?.predictedRecoveryPercent != null && activeRecoveryNode.predictedRecoveryPercent > 0)
     ? activeRecoveryNode.predictedRecoveryPercent
-    : (summary?.predictedFinalRecovery ?? 98.0);
+    : (summary?.predictedFinalRecovery != null ? summary.predictedFinalRecovery : null);
 
-  const completedSess = isJourneyCompleted ? Math.max(totalSess, rawCompleted) : (rawCompleted > 0 ? rawCompleted : (currentRec > 0 ? totalSess : 0));
+  const completedSess = isJourneyCompleted
+    ? Math.max(totalSess, rawCompleted)
+    : (rawCompleted > 0 ? rawCompleted : history.filter(h => h.sessionNumber > 0).length);
 
   const chartData = [];
   const baselineRecord = history.find((h) => h.sessionNumber === 0);
 
+  const baselineMeasured = baselineRecord?.currentRecoveryPercentage != null
+    ? baselineRecord.currentRecoveryPercentage
+    : (hasAssessments || (currentRec != null && currentRec > 0) ? 0 : null);
+
   chartData.push({
     sessionLabel: 'Baseline',
-    measuredRecovery: baselineRecord?.currentRecoveryPercentage ?? 0,
-    predictedTarget: 0,
-    painLevel: baselineRecord?.painLevel ?? 8,
-    sleepQuality: baselineRecord?.sleepQuality ?? 3,
-    energyLevel: baselineRecord?.energyLevel ?? 4,
-    remarks: baselineRecord?.remarks || 'Initial baseline assessment',
+    measuredRecovery: baselineMeasured,
+    predictedTarget: (hasAssessments && targetRec != null) ? 0 : null,
+    painLevel: baselineRecord?.painLevel ?? summary?.baselinePain ?? null,
+    sleepQuality: baselineRecord?.sleepQuality ?? summary?.baselineSleep ?? null,
+    energyLevel: baselineRecord?.energyLevel ?? summary?.baselineEnergy ?? null,
+    remarks: baselineRecord?.remarks || (hasAssessments ? 'Initial baseline assessment' : 'Baseline evaluation pending'),
   });
 
-  for (let s = 1; s <= Math.max(3, totalSess); s++) {
-    const record = history.find((h) => h.sessionNumber === s);
-    let measured = null;
+  const evaluatedSessionNumbers = history
+    .filter((h) => h.sessionNumber > 0 && (h.currentRecoveryPercentage != null || h.remarks))
+    .map((h) => h.sessionNumber);
 
-    if (record?.currentRecoveryPercentage != null) {
-      measured = record.currentRecoveryPercentage;
-    } else if (currentRec > 0) {
-      const stepFrac = s / Math.max(1, totalSess);
-      measured = Math.round((20.0 + (currentRec - 20.0) * stepFrac) * 10) / 10;
+  const maxEvaluatedSession = evaluatedSessionNumbers.length > 0
+    ? Math.max(...evaluatedSessionNumbers)
+    : (completedSess > 0 && hasAssessments ? completedSess : 0);
+
+  const numSessions = Math.max(3, totalSess);
+  let lastKnownMeasured = baselineMeasured ?? 0;
+
+  for (let s = 1; s <= numSessions; s++) {
+    const record = history.find((h) => h.sessionNumber === s);
+    const isEvaluated = s <= maxEvaluatedSession;
+
+    let measured = null;
+    if (isEvaluated) {
+      if (record?.currentRecoveryPercentage != null) {
+        measured = record.currentRecoveryPercentage;
+        lastKnownMeasured = measured;
+      } else if (s === maxEvaluatedSession && currentRec != null) {
+        measured = currentRec;
+      } else {
+        measured = lastKnownMeasured;
+      }
+      lastKnownMeasured = measured;
+    } else {
+      measured = null;
     }
 
-    const frac = s / Math.max(1, totalSess);
-    const startVal = 20.0;
-    const projTarget = Math.round((startVal + (targetRec - startVal) * frac) * 10) / 10;
+    const projTarget = (hasAssessments && targetRec != null && isEvaluated)
+      ? targetRec
+      : null;
 
     chartData.push({
       sessionLabel: `Session ${s}`,
@@ -573,7 +601,7 @@ export default function DashboardPage({ auth, onLogout, onAuthUpdate }) {
       painLevel: record?.painLevel ?? null,
       sleepQuality: record?.sleepQuality ?? null,
       energyLevel: record?.energyLevel ?? null,
-      remarks: record?.remarks || (s <= completedSess ? 'Clinical Assessment completed.' : 'Scheduled session'),
+      remarks: record?.remarks || (isEvaluated ? 'Clinical Assessment completed.' : 'Scheduled session'),
     });
   }
 
@@ -1110,9 +1138,11 @@ export default function DashboardPage({ auth, onLogout, onAuthUpdate }) {
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                     <div className="rounded-2xl border border-emerald-900/10 bg-white/90 p-4 shadow-xs">
                       <p className="text-[10px] font-bold uppercase tracking-wider text-forest/50">Current Recovery</p>
-                      <h3 className="text-2xl font-black text-emerald-900 mt-1">{currentRec}%</h3>
+                      <h3 className="text-2xl font-black text-emerald-900 mt-1">
+                        {hasAssessments && currentRec != null ? `${currentRec}%` : 'Pending'}
+                      </h3>
                       <p className="text-[11px] text-emerald-700 font-semibold mt-0.5">
-                        {activeRecoveryNode?.status === 'COMPLETED' ? '✓ Therapy Completed' : (summary?.status || 'Clinical Benchmark')}
+                        {activeRecoveryNode?.status === 'COMPLETED' ? '✓ Therapy Completed' : (summary?.status || (hasAssessments ? 'Clinical Benchmark' : 'Assessment Pending'))}
                       </p>
                     </div>
                     <div className="rounded-2xl border border-emerald-900/10 bg-white/90 p-4 shadow-xs">
@@ -1135,113 +1165,130 @@ export default function DashboardPage({ auth, onLogout, onAuthUpdate }) {
                     </div>
                     <div className="rounded-2xl border border-emerald-900/10 bg-white/90 p-4 shadow-xs">
                       <p className="text-[10px] font-bold uppercase tracking-wider text-forest/50">Target Recovery Goal</p>
-                      <h3 className="text-2xl font-black text-amber-900 mt-1">{targetRec}%</h3>
+                      <h3 className="text-2xl font-black text-amber-900 mt-1">
+                        {hasAssessments && targetRec != null ? `${targetRec}%` : 'Pending'}
+                      </h3>
                       <p className="text-[11px] text-amber-700 font-semibold mt-0.5">
-                        AI Clinical Model Target
+                        {hasAssessments ? 'AI Clinical Model Target' : 'Prediction Pending'}
                       </p>
                     </div>
                   </div>
 
                   {/* Main Chart Section: Session-by-Session Panchakarma Recovery Trend */}
                   <div className="rounded-3xl border border-emerald-900/10 bg-white/90 p-6 shadow-sm space-y-4">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-100 pb-3">
-                      <div>
-                        <h3 className="font-display text-lg font-bold text-forest">
-                          Session-by-Session Panchakarma Recovery Trend
-                        </h3>
-                        <p className="text-xs text-forest/65">
-                          Visual progress tracking your actual measured recovery (Solid Green) vs. predicted target trajectory (Dashed Amber) across all prescribed sessions.
+                    {!hasAssessments ? (
+                      <div className="rounded-2xl bg-amber-50/80 border border-amber-200/80 p-8 text-xs text-amber-900 flex flex-col items-center justify-center text-center gap-2 shadow-2xs my-2">
+                        <Sparkles size={24} className="text-amber-600 mb-1 shrink-0" />
+                        <h4 className="font-bold text-sm text-amber-950">No Session Recovery Evaluation Recorded Yet</h4>
+                        <p className="text-amber-900/80 max-w-md text-xs leading-relaxed">
+                          Your therapist will evaluate your clinical recovery metrics during your Panchakarma therapy sessions, which will activate real-time progress tracking and ML recovery predictions here.
                         </p>
                       </div>
-                      {(activeProgressNode?.therapyName || summary?.therapyName) && (
-                        <span className="rounded-xl bg-emerald-50 border border-emerald-200 px-3 py-1 text-xs font-bold text-emerald-900 self-start sm:self-auto">
-                          Therapy: {activeProgressNode?.therapyName || summary?.therapyName}
-                        </span>
-                      )}
-                    </div>
+                    ) : (
+                      <>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-100 pb-3">
+                          <div>
+                            <h3 className="font-display text-lg font-bold text-forest">
+                              Session-by-Session Panchakarma Recovery Trend
+                            </h3>
+                            <p className="text-xs text-forest/65">
+                              Visual progress tracking your actual measured recovery (Solid Green) vs. predicted target trajectory (Dashed Amber) across all prescribed sessions.
+                            </p>
+                          </div>
+                          {(activeProgressNode?.therapyName || summary?.therapyName) && (
+                            <span className="rounded-xl bg-emerald-50 border border-emerald-200 px-3 py-1 text-xs font-bold text-emerald-900 self-start sm:self-auto">
+                              Therapy: {activeProgressNode?.therapyName || summary?.therapyName}
+                            </span>
+                          )}
+                        </div>
 
-                    <div className="h-72 w-full pt-2">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={chartData} margin={{ top: 15, right: 25, bottom: 5, left: 0 }}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                          <XAxis dataKey="sessionLabel" stroke="#475569" fontSize={12} fontWeight="bold" />
-                          <YAxis stroke="#475569" fontSize={12} domain={[0, 100]} unit="%" />
-                          <Tooltip
-                            content={({ active, payload, label }) => {
-                              if (active && payload && payload.length) {
-                                const d = payload[0].payload;
-                                return (
-                                  <div className="rounded-2xl border border-emerald-900/15 bg-white p-3.5 shadow-xl text-xs space-y-1.5 max-w-xs">
-                                    <p className="font-bold text-gray-900 text-sm border-b pb-1">{label}</p>
-                                    {d.measuredRecovery !== null && (
-                                      <p className="font-semibold text-emerald-700">
-                                        Actual Recovery: <strong className="text-emerald-900 text-sm">{d.measuredRecovery}%</strong>
-                                      </p>
-                                    )}
-                                    <p className="font-semibold text-amber-700">
-                                      Target Goal: <strong className="text-amber-900">{d.predictedTarget}%</strong>
-                                    </p>
-                                    {d.painLevel != null && (
-                                      <div className="flex gap-2 text-gray-600 pt-1 text-[11px]">
-                                        <span>Pain: <strong>{d.painLevel}/10</strong></span>
-                                        <span>Energy: <strong>{d.energyLevel}/10</strong></span>
-                                        <span>Sleep: <strong>{d.sleepQuality}/10</strong></span>
+
+                        <div className="h-72 w-full pt-2">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={chartData} margin={{ top: 15, right: 25, bottom: 5, left: 0 }}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                              <XAxis dataKey="sessionLabel" stroke="#475569" fontSize={12} fontWeight="bold" />
+                              <YAxis stroke="#475569" fontSize={12} domain={[0, 100]} unit="%" />
+                              <Tooltip
+                                content={({ active, payload, label }) => {
+                                  if (active && payload && payload.length) {
+                                    const d = payload[0].payload;
+                                    return (
+                                      <div className="rounded-2xl border border-emerald-900/15 bg-white p-3.5 shadow-xl text-xs space-y-1.5 max-w-xs">
+                                        <p className="font-bold text-gray-900 text-sm border-b pb-1">{label}</p>
+                                        {d.measuredRecovery !== null && (
+                                          <p className="font-semibold text-emerald-700">
+                                            Actual Recovery: <strong className="text-emerald-900 text-sm">{d.measuredRecovery}%</strong>
+                                          </p>
+                                        )}
+                                        {d.predictedTarget !== null && (
+                                          <p className="font-semibold text-amber-700">
+                                            Target Goal: <strong className="text-amber-900">{d.predictedTarget}%</strong>
+                                          </p>
+                                        )}
+                                        {d.painLevel != null && (
+                                          <div className="flex gap-2 text-gray-600 pt-1 text-[11px]">
+                                            <span>Pain: <strong>{d.painLevel}/10</strong></span>
+                                            <span>Energy: <strong>{d.energyLevel}/10</strong></span>
+                                            <span>Sleep: <strong>{d.sleepQuality}/10</strong></span>
+                                          </div>
+                                        )}
+                                        {d.remarks && (
+                                          <p className="text-[11px] text-gray-500 italic pt-1 border-t border-gray-100">
+                                            "{d.remarks}"
+                                          </p>
+                                        )}
                                       </div>
-                                    )}
-                                    {d.remarks && (
-                                      <p className="text-[11px] text-gray-500 italic pt-1 border-t border-gray-100">
-                                        "{d.remarks}"
-                                      </p>
-                                    )}
-                                  </div>
-                                );
-                              }
-                              return null;
-                            }}
-                          />
-                          <Legend />
-                          <Line type="monotone" dataKey="measuredRecovery" name="Actual Session Recovery (%)" stroke="#10b981" strokeWidth={3.5} connectNulls activeDot={{ r: 8 }} />
-                          <Line type="monotone" dataKey="predictedTarget" name="Target Recovery Goal (%)" stroke="#f59e0b" strokeWidth={2.5} strokeDasharray="5 5" />
-                        </LineChart>
-                      </ResponsiveContainer>
-                    </div>
+                                    );
+                                  }
+                                  return null;
+                                }}
+                              />
+                              <Legend />
+                              <Line type="monotone" dataKey="measuredRecovery" name="Actual Session Recovery (%)" stroke="#10b981" strokeWidth={3.5} connectNulls activeDot={{ r: 8 }} />
+                              <Line type="monotone" dataKey="predictedTarget" name="Target Recovery Goal (%)" stroke="#f59e0b" strokeWidth={2.5} strokeDasharray="5 5" />
+                            </LineChart>
+                          </ResponsiveContainer>
+                        </div>
 
-                    {/* Patient-Friendly Progress Explanation Banner */}
-                    <div className="rounded-2xl border border-emerald-900/10 bg-gradient-to-br from-emerald-50/70 via-teal-50/40 to-amber-50/30 p-5 mt-4 space-y-3">
-                      <div className="flex items-center gap-2 text-emerald-950 font-bold text-sm">
-                        <Sparkles size={16} className="text-amber-600 shrink-0" />
-                        <span>Understanding Your Panchakarma Recovery Journey</span>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
-                        <div className="rounded-xl bg-white/80 p-3 border border-emerald-100 shadow-2xs">
-                          <p className="font-bold text-emerald-900 flex items-center gap-1.5 mb-1">
-                            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span>
-                            Green Line (Actual)
-                          </p>
-                          <p className="text-gray-600 leading-relaxed">
-                            Your measured health recovery evaluated by your therapist after each completed Panchakarma session.
-                          </p>
+                        {/* Patient-Friendly Progress Explanation Banner */}
+                        <div className="rounded-2xl border border-emerald-900/10 bg-gradient-to-br from-emerald-50/70 via-teal-50/40 to-amber-50/30 p-5 mt-4 space-y-3">
+                          <div className="flex items-center gap-2 text-emerald-950 font-bold text-sm">
+                            <Sparkles size={16} className="text-amber-600 shrink-0" />
+                            <span>Understanding Your Panchakarma Recovery Journey</span>
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                            <div className="rounded-xl bg-white/80 p-3 border border-emerald-100 shadow-2xs">
+                              <p className="font-bold text-emerald-900 flex items-center gap-1.5 mb-1">
+                                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span>
+                                Green Line (Actual)
+                              </p>
+                              <p className="text-gray-600 leading-relaxed">
+                                Your measured health recovery evaluated by your therapist after each completed Panchakarma session.
+                              </p>
+                            </div>
+                            <div className="rounded-xl bg-white/80 p-3 border border-amber-100 shadow-2xs">
+                              <p className="font-bold text-amber-900 flex items-center gap-1.5 mb-1">
+                                <span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block border border-dashed border-amber-700"></span>
+                                Amber Line (Target)
+                              </p>
+                              <p className="text-gray-600 leading-relaxed">
+                                Your personalized optimal recovery trajectory predicted by our clinical AI model based on your Prakriti dosha and health parameters.
+                              </p>
+                            </div>
+                            <div className="rounded-xl bg-white/80 p-3 border border-teal-100 shadow-2xs">
+                              <p className="font-bold text-teal-900 flex items-center gap-1.5 mb-1">
+                                <Activity size={13} className="text-teal-700" />
+                                Post-Treatment Healing
+                              </p>
+                              <p className="text-gray-600 leading-relaxed">
+                                Ayurvedic healing is cumulative. Following your prescribed diet (Pathya) and follow-up care helps your body achieve long-term target wellness!
+                              </p>
+                            </div>
+                          </div>
                         </div>
-                        <div className="rounded-xl bg-white/80 p-3 border border-amber-100 shadow-2xs">
-                          <p className="font-bold text-amber-900 flex items-center gap-1.5 mb-1">
-                            <span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block border border-dashed border-amber-700"></span>
-                            Amber Line (Target)
-                          </p>
-                          <p className="text-gray-600 leading-relaxed">
-                            Your personalized optimal recovery trajectory predicted by our clinical AI model based on your Prakriti dosha and health parameters.
-                          </p>
-                        </div>
-                        <div className="rounded-xl bg-white/80 p-3 border border-teal-100 shadow-2xs">
-                          <p className="font-bold text-teal-900 flex items-center gap-1.5 mb-1">
-                            <Activity size={13} className="text-teal-700" />
-                            Post-Treatment Healing
-                          </p>
-                          <p className="text-gray-600 leading-relaxed">
-                            Ayurvedic healing is cumulative. Following your prescribed diet (Pathya) and follow-up care helps your body achieve long-term target wellness!
-                          </p>
-                        </div>
-                      </div>
-                    </div>
+                      </>
+                    )}
                   </div>
                 </div>
               )}

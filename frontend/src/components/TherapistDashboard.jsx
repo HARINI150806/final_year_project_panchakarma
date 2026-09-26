@@ -101,16 +101,25 @@ function TherapistDashboard({ activeTab, onTabChange, auth, sidebarOffset = 0 })
     });
 
     const markSessionAsPredicted = (booking) => {
-        const id = booking?.bookingId || booking?.id || booking?.consultationBookingId;
-        if (!id) return;
+        const ids = [
+            booking?.bookingId,
+            booking?.id,
+            booking?.consultationBookingId,
+            booking?.treatmentPlanId,
+            booking?.planId,
+            booking?.patientId
+        ].filter(Boolean).map(String);
+
+        if (ids.length === 0) return;
+
         setPredictedSessionIds((prev) => {
-            const idStr = String(id);
-            if (prev.includes(idStr)) return prev;
-            const updated = [...prev, idStr];
+            const updated = new Set(prev);
+            ids.forEach((id) => updated.add(id));
+            const arr = Array.from(updated);
             try {
-                localStorage.setItem('panchakarma-predicted-sessions', JSON.stringify(updated));
+                localStorage.setItem('panchakarma-predicted-sessions', JSON.stringify(arr));
             } catch {}
-            return updated;
+            return arr;
         });
     };
 

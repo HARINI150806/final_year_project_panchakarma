@@ -16,15 +16,11 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.http.HttpMethod;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.List;
-import java.util.stream.Collectors;
-import java.util.Arrays;
 
 @Configuration
 @EnableMethodSecurity
@@ -47,69 +43,79 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .exceptionHandling(exceptions -> exceptions
-                        .authenticationEntryPoint((request, response, exception) -> {
-                            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Authentication is required");
-                        })
-                        .accessDeniedHandler((request, response, exception) -> {
-                            response.sendError(HttpServletResponse.SC_FORBIDDEN, "Access denied");
-                        }))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.POST, "/api/auth/send-verification").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/auth/forgot-password").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/auth/reset-password").permitAll()
+                        .requestMatchers("/api/auth/**", "/api/health", "/api/google/oauth/**", "/ws/**",
+                                "/api/public/**", "/error")
+                        .permitAll()
+                        .requestMatchers("/api/therapists", "/api/therapists/availability",
+                                "/api/therapists/*/availability")
+                        .authenticated()
                         .requestMatchers(
-                                "/api/auth/**",
-                                "/api/health",
-                                "/api/google/oauth/**",
-                                "/ws/**",
-                                "/api/public/**",
-                                "/error"
-                        ).permitAll()
-                        .requestMatchers("/api/therapists", "/api/therapists/availability", "/api/therapists/*/availability").authenticated()
-                        .requestMatchers(
-                            "/api/therapists/my-bookings", 
-                            "/api/therapists/my-patients", 
-                            "/api/therapists/patients/**",
-                            "/api/therapists/weekly-schedule",
-                            "/api/therapists/date-overrides",
-                            "/api/therapists/date-overrides/**",
-                            "/api/therapists/complaints",
-                            "/api/therapists/wallet"
-                        ).hasAnyAuthority("ROLE_THERAPIST", "ROLE_ADMIN", "THERAPIST", "ADMIN")
-                        .requestMatchers("/api/bookings", "/api/bookings/**").hasAnyAuthority("ROLE_PATIENT", "ROLE_THERAPIST", "ROLE_ADMIN", "PATIENT", "THERAPIST", "ADMIN")
-                        .requestMatchers("/api/payments", "/api/payments/**").hasAnyAuthority("ROLE_PATIENT", "ROLE_THERAPIST", "ROLE_ADMIN", "PATIENT", "THERAPIST", "ADMIN")
+                                "/api/therapists/my-bookings",
+                                "/api/therapists/my-patients",
+                                "/api/therapists/patients/**",
+                                "/api/therapists/weekly-schedule",
+                                "/api/therapists/date-overrides",
+                                "/api/therapists/date-overrides/**",
+                                "/api/therapists/complaints",
+                                "/api/therapists/wallet")
+                        .hasAnyAuthority("ROLE_THERAPIST", "ROLE_ADMIN", "THERAPIST", "ADMIN")
+                        .requestMatchers("/api/bookings", "/api/bookings/**")
+                        .hasAnyAuthority("ROLE_PATIENT", "ROLE_THERAPIST", "ROLE_ADMIN", "PATIENT", "THERAPIST",
+                                "ADMIN")
+                        .requestMatchers("/api/payments", "/api/payments/**")
+                        .hasAnyAuthority("ROLE_PATIENT", "ROLE_THERAPIST", "ROLE_ADMIN", "PATIENT", "THERAPIST",
+                                "ADMIN")
                         .requestMatchers("/api/admin", "/api/admin/**").hasAnyAuthority("ROLE_ADMIN", "ADMIN")
                         .requestMatchers(
-                            "/api/patient/prescriptions",
-                            "/api/patient/prescriptions/**",
-                            "/api/patient/reports",
-                            "/api/patient/reports/**",
-                            "/api/patient/treatment-journey",
-                            "/api/patient/treatment-journey/**",
-                            "/api/prescriptions",
-                            "/api/prescriptions/**",
-                            "/api/reports",
-                            "/api/reports/**"
-                        ).authenticated()
-                        .requestMatchers("/api/patient/bookings", "/api/patient/book-therapy", "/api/patient/book-consultation", "/api/patient/therapists", "/api/patient/treatment-journey", "/api/patient/treatment-journey/**").hasAnyAuthority("ROLE_PATIENT", "ROLE_THERAPIST", "ROLE_ADMIN", "PATIENT", "THERAPIST", "ADMIN")
-                        .requestMatchers("/api/patient/details/**").hasAnyAuthority("ROLE_PATIENT", "ROLE_THERAPIST", "ROLE_ADMIN", "PATIENT", "THERAPIST", "ADMIN")
-                        .requestMatchers("/api/patient/complaint", "/api/patient/complaints").hasAnyAuthority("ROLE_PATIENT", "ROLE_THERAPIST", "ROLE_ADMIN", "PATIENT", "THERAPIST", "ADMIN")
+                                "/api/patient/prescriptions",
+                                "/api/patient/prescriptions/**",
+                                "/api/patient/reports",
+                                "/api/patient/reports/**",
+                                "/api/patient/treatment-journey",
+                                "/api/patient/treatment-journey/**",
+                                "/api/prescriptions",
+                                "/api/prescriptions/**",
+                                "/api/reports",
+                                "/api/reports/**")
+                        .authenticated()
+                        .requestMatchers("/api/patient/bookings", "/api/patient/book-therapy",
+                                "/api/patient/book-consultation", "/api/patient/therapists",
+                                "/api/patient/treatment-journey", "/api/patient/treatment-journey/**")
+                        .hasAnyAuthority("ROLE_PATIENT", "ROLE_THERAPIST", "ROLE_ADMIN", "PATIENT", "THERAPIST",
+                                "ADMIN")
+                        .requestMatchers("/api/patient/details/**")
+                        .hasAnyAuthority("ROLE_PATIENT", "ROLE_THERAPIST", "ROLE_ADMIN", "PATIENT", "THERAPIST",
+                                "ADMIN")
+                        .requestMatchers("/api/patient/complaint", "/api/patient/complaints")
+                        .hasAnyAuthority("ROLE_PATIENT", "ROLE_THERAPIST", "ROLE_ADMIN", "PATIENT", "THERAPIST",
+                                "ADMIN")
                         .requestMatchers("/api/admin/**").hasAnyAuthority("ROLE_ADMIN", "ADMIN")
-                        .requestMatchers("/api/medicines", "/api/medicines/**").hasAnyAuthority("ROLE_PHARMACIST", "ROLE_THERAPIST", "ROLE_ADMIN", "PHARMACIST", "THERAPIST", "ADMIN")
-                        .requestMatchers("/api/pharmacist/**", "/api/suppliers/**").hasAnyAuthority("ROLE_PHARMACIST", "ROLE_ADMIN", "PHARMACIST", "ADMIN")
-                        .requestMatchers("/api/therapist/**").hasAnyAuthority("ROLE_THERAPIST", "ROLE_ADMIN", "THERAPIST", "ADMIN")
-                        .requestMatchers("/api/therapists/**").hasAnyAuthority("ROLE_THERAPIST", "ROLE_ADMIN", "ROLE_PATIENT", "THERAPIST", "ADMIN", "PATIENT")
-                        .requestMatchers("/api/patient/**").hasAnyAuthority("ROLE_PATIENT", "ROLE_THERAPIST", "ROLE_ADMIN", "PATIENT", "THERAPIST", "ADMIN")
+                        .requestMatchers("/api/medicines", "/api/medicines/**")
+                        .hasAnyAuthority("ROLE_PHARMACIST", "ROLE_THERAPIST", "ROLE_ADMIN", "PHARMACIST", "THERAPIST",
+                                "ADMIN")
+                        .requestMatchers("/api/pharmacist/**", "/api/suppliers/**")
+                        .hasAnyAuthority("ROLE_PHARMACIST", "ROLE_ADMIN", "PHARMACIST", "ADMIN")
+                        .requestMatchers("/api/therapist/**")
+                        .hasAnyAuthority("ROLE_THERAPIST", "ROLE_ADMIN", "THERAPIST", "ADMIN")
+                        .requestMatchers("/api/therapists/**")
+                        .hasAnyAuthority("ROLE_THERAPIST", "ROLE_ADMIN", "ROLE_PATIENT", "THERAPIST", "ADMIN",
+                                "PATIENT")
+                        .requestMatchers("/api/patient/**")
+                        .hasAnyAuthority("ROLE_PATIENT", "ROLE_THERAPIST", "ROLE_ADMIN", "PATIENT", "THERAPIST",
+                                "ADMIN")
                         // AI-assisted booking endpoints
-                        .requestMatchers("/api/ai-booking/suggest", "/api/ai-booking/my-suggestions").hasAnyAuthority("ROLE_PATIENT", "ROLE_ADMIN")
-                        .requestMatchers("/api/ai-booking/pending", "/api/ai-booking/*/approve", "/api/ai-booking/*/reject").hasAnyAuthority("ROLE_THERAPIST", "ROLE_ADMIN")
-                        .requestMatchers("/api/recovery", "/api/recovery/**").hasAnyAuthority("ROLE_PATIENT", "ROLE_THERAPIST", "ROLE_ADMIN", "PATIENT", "THERAPIST", "ADMIN")
-                        .requestMatchers("/api/followups/**", "/api/medical-documents/**", "/api/ayurveda-ai/**").authenticated()
-                        .anyRequest().authenticated()
-                )
+                        .requestMatchers("/api/ai-booking/suggest", "/api/ai-booking/my-suggestions")
+                        .hasAnyAuthority("ROLE_PATIENT", "ROLE_ADMIN")
+                        .requestMatchers("/api/ai-booking/pending", "/api/ai-booking/*/approve",
+                                "/api/ai-booking/*/reject")
+                        .hasAnyAuthority("ROLE_THERAPIST", "ROLE_ADMIN")
+                        .requestMatchers("/api/recovery", "/api/recovery/**")
+                        .hasAnyAuthority("ROLE_PATIENT", "ROLE_THERAPIST", "ROLE_ADMIN", "PATIENT", "THERAPIST",
+                                "ADMIN")
+                        .requestMatchers("/api/followups/**", "/api/medical-documents/**", "/api/ayurveda-ai/**")
+                        .authenticated()
+                        .anyRequest().authenticated())
                 .authenticationProvider(authenticationProvider())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
@@ -137,10 +143,7 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.stream(allowedOrigins.split(","))
-                .map(String::trim)
-                .filter(origin -> !origin.isEmpty())
-                .collect(Collectors.toList()));
+        configuration.setAllowedOrigins(List.of(allowedOrigins.split(",")));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);

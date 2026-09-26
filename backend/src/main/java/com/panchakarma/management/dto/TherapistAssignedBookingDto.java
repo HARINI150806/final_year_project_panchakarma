@@ -37,5 +37,8 @@ public record TherapistAssignedBookingDto(
     String razorpayPaymentId,
     String razorpayOrderId,
     Integer patientAge,
-    String patientGender
+    String patientGender,
+    Boolean hasAssessment,
+    Boolean hasPrediction,
+    Double recoveryPercentage
 ) {}

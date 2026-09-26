@@ -332,7 +332,7 @@ public class TreatmentJourneyServiceImpl implements TreatmentJourneyService {
                             .recoveryStatus(metrics1.status)
                             .recoveryPlanNotes("Active Samsarjana Krama diet & lifestyle guidelines.")
                             .therapistRemarks(metrics1.remarks)
-                            .status(isProgressDone ? "COMPLETED" : (isProgressActive ? "ACTIVE" : "PENDING"))
+                            .status(metrics1.hasActualData ? (isProgressDone ? "COMPLETED" : "ACTIVE") : "PENDING")
                             .eventOrder(eventOrder++)
                             .cycleNumber(cycleNum)
                             .build());
@@ -435,7 +435,7 @@ public class TreatmentJourneyServiceImpl implements TreatmentJourneyService {
                                 .recoveryStatus(metrics2.status)
                                 .recoveryPlanNotes("Diet & herbal recommendations following consultation.")
                                 .therapistRemarks(metrics2.remarks)
-                                .status(isPlanDone ? "COMPLETED" : (isProgressActive ? "ACTIVE" : "PENDING"))
+                                .status(metrics2.hasActualData ? (isPlanDone ? "COMPLETED" : "ACTIVE") : "PENDING")
                                 .eventOrder(eventOrder++)
                                 .cycleNumber(cycleNum)
                                 .build());
@@ -625,7 +625,7 @@ public class TreatmentJourneyServiceImpl implements TreatmentJourneyService {
                         .recoveryStatus(metrics4.status)
                         .recoveryPlanNotes("Active Samsarjana Krama diet & lifestyle guidelines.")
                         .therapistRemarks(metrics4.remarks)
-                        .status(isPlanDone ? "COMPLETED" : (isProgressActive ? "ACTIVE" : "PENDING"))
+                        .status(metrics4.hasActualData ? (isPlanDone ? "COMPLETED" : "ACTIVE") : "PENDING")
                         .eventOrder(eventOrder++)
                         .cycleNumber(cycleIndex)
                         .build());
@@ -822,12 +822,14 @@ public class TreatmentJourneyServiceImpl implements TreatmentJourneyService {
         final Double predRec;
         final String status;
         final String remarks;
+        final boolean hasActualData;
 
-        RecoveryMetrics(Double currentRec, Double predRec, String status, String remarks) {
+        RecoveryMetrics(Double currentRec, Double predRec, String status, String remarks, boolean hasActualData) {
             this.currentRec = currentRec;
             this.predRec = predRec;
             this.status = status;
             this.remarks = remarks;
+            this.hasActualData = hasActualData;
         }
     }
 
@@ -850,27 +852,32 @@ public class TreatmentJourneyServiceImpl implements TreatmentJourneyService {
             if (!predictions.isEmpty()) prediction = predictions.get(0);
         }
 
-        Double currentRec = isProgressDone ? 100.0 : (completedSess > 0 ? Math.min(85.0, 20.0 + completedSess * 20.0) : 0.0);
-        Double predRec = isProgressDone ? 100.0 : 85.0;
-        String status = isProgressDone ? "Fully Recovered" : (completedSess > 0 ? "Improving" : "Pending");
-        String remarks = defaultRemarks;
+        boolean hasActualData = (tracking != null && tracking.getCurrentRecoveryPercentage() != null) || (prediction != null && prediction.getPredictedRecovery() != null);
 
-        if (tracking != null && tracking.getCurrentRecoveryPercentage() != null) {
-            currentRec = tracking.getCurrentRecoveryPercentage();
-            if (tracking.getTherapistRemarks() != null && !tracking.getTherapistRemarks().isBlank()) {
-                remarks = tracking.getTherapistRemarks();
+        Double currentRec = null;
+        Double predRec = null;
+        String status = "Pending";
+        String remarks = defaultRemarks != null ? defaultRemarks : "Recovery evaluation pending therapist assessment.";
+
+        if (hasActualData) {
+            if (tracking != null && tracking.getCurrentRecoveryPercentage() != null) {
+                currentRec = tracking.getCurrentRecoveryPercentage();
+                if (tracking.getTherapistRemarks() != null && !tracking.getTherapistRemarks().isBlank()) {
+                    remarks = tracking.getTherapistRemarks();
+                }
+            }
+            if (prediction != null) {
+                if (prediction.getPredictedRecovery() != null) {
+                    predRec = prediction.getPredictedRecovery();
+                }
+                if (prediction.getStatus() != null && !prediction.getStatus().isBlank()) {
+                    status = prediction.getStatus();
+                }
+            } else {
+                status = "Improving";
             }
         }
 
-        if (prediction != null) {
-            if (prediction.getPredictedRecovery() != null) {
-                predRec = prediction.getPredictedRecovery();
-            }
-            if (prediction.getStatus() != null && !prediction.getStatus().isBlank()) {
-                status = prediction.getStatus();
-            }
-        }
-
-        return new RecoveryMetrics(currentRec, predRec, status, remarks);
+        return new RecoveryMetrics(currentRec, predRec, status, remarks, hasActualData);
     }
 }
