@@ -45,7 +45,7 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**", "/api/health", "/api/google/oauth/**", "/ws/**",
-                                "/api/public/**", "/error")
+                                "/api/public/**", "/api/ayurveda-ai/**", "/error")
                         .permitAll()
                         .requestMatchers("/api/therapists", "/api/therapists/availability",
                                 "/api/therapists/*/availability")
@@ -113,7 +113,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/recovery", "/api/recovery/**")
                         .hasAnyAuthority("ROLE_PATIENT", "ROLE_THERAPIST", "ROLE_ADMIN", "PATIENT", "THERAPIST",
                                 "ADMIN")
-                        .requestMatchers("/api/followups/**", "/api/medical-documents/**", "/api/ayurveda-ai/**", "/api/notifications", "/api/notifications/**")
+                        .requestMatchers("/api/followups/**", "/api/medical-documents/**", "/api/notifications", "/api/notifications/**")
                         .authenticated()
                         .anyRequest().authenticated())
                 .authenticationProvider(authenticationProvider())

@@ -371,17 +371,17 @@ export default function HomePage() {
       {/* Dynamic Header */}
       <header className="sticky top-0 z-50 border-b border-white/40 bg-[#f8f2e7]/90 backdrop-blur-xl transition-all duration-300">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3.5 lg:px-8">
-          <Link to="/" className="group flex items-center gap-3">
+          <Link to="/" className="group flex items-center gap-2 sm:gap-3 shrink-0">
             <img 
               src="/logo.jpg" 
               alt="PanchAI Logo" 
               decoding="async"
               loading="eager"
-              className="h-11 w-auto max-w-[130px] sm:max-w-[160px] object-contain rounded-xl shadow-sm border border-emerald-900/10 transition duration-300 group-hover:scale-105" 
+              className="h-9 sm:h-10 w-auto max-w-[120px] sm:max-w-[150px] object-contain rounded-xl shadow-xs border border-emerald-900/10 transition duration-300 group-hover:scale-105" 
             />
             <div className="hidden sm:block">
-              <p className="font-display text-lg font-bold leading-tight text-forest tracking-tight">PanchAI</p>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8a6138]">AI Powered Panchakarma</p>
+              <p className="font-display text-base sm:text-lg font-bold leading-tight text-forest tracking-tight">PanchAI</p>
+              <p className="text-[9px] sm:text-[10px] font-semibold uppercase tracking-[0.18em] text-[#8a6138]">AI Powered Panchakarma</p>
             </div>
           </Link>
 
@@ -404,28 +404,28 @@ export default function HomePage() {
             ))}
           </nav>
 
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
             <LanguageTranslator />
             <button
               type="button"
               onClick={() => setMobileOpen((c) => !c)}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-[#d8c2a2] bg-white/80 text-forest lg:hidden cursor-pointer active:scale-95"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#d8c2a2] bg-white/80 text-forest lg:hidden cursor-pointer active:scale-95 shrink-0"
               aria-label="Toggle navigation menu"
             >
-              {mobileOpen ? <X size={20} /> : <Menu size={20} />}
+              {mobileOpen ? <X size={18} /> : <Menu size={18} />}
             </button>
             <Link
               to="/login"
-              className="hidden rounded-2xl border border-[#d8c2a2] bg-white/90 px-3.5 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold text-forest shadow-sm transition duration-200 hover:bg-white hover:shadow-md md:inline-flex whitespace-nowrap shrink-0"
+              className="hidden md:inline-flex h-9 px-4 items-center justify-center rounded-full border border-[#d8c2a2] bg-white/90 text-xs sm:text-sm font-bold text-forest shadow-xs transition duration-200 hover:bg-white hover:shadow-sm whitespace-nowrap shrink-0 leading-none"
             >
               Sign In
             </Link>
             <Link
               to="/register"
-              className="inline-flex items-center gap-1.5 sm:gap-2 rounded-2xl bg-[linear-gradient(135deg,#2e5332_0%,#4e7a43_100%)] px-3.5 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold text-white shadow-[0_12px_28px_rgba(46,83,50,0.28)] transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_16px_36px_rgba(46,83,50,0.35)] whitespace-nowrap shrink-0"
+              className="inline-flex h-9 px-3.5 sm:px-4 items-center justify-center gap-1.5 rounded-full bg-[linear-gradient(135deg,#2e5332_0%,#4e7a43_100%)] text-xs sm:text-sm font-bold text-white shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md whitespace-nowrap shrink-0 leading-none"
             >
               <span>Book Consultation</span>
-              <ArrowRight size={15} />
+              <ArrowRight size={14} />
             </Link>
           </div>
         </div>
