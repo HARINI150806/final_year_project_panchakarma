@@ -9,6 +9,8 @@ import com.panchakarma.management.exception.ResourceNotFoundException;
 import com.panchakarma.management.model.*;
 import com.panchakarma.management.repository.*;
 import com.panchakarma.management.service.TherapistService;
+
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
@@ -34,6 +36,9 @@ public class TherapistServiceImpl implements TherapistService {
     private final TherapistDateOverrideRepository dateOverrideRepository;
     private final RecoveryTrackingRepository trackingRepository;
     private final RecoveryPredictionRepository predictionRepository;
+     @Autowired
+    private TreatmentPlanRepository treatmentPlanRepository;
+    
 
     public TherapistServiceImpl(
             BookingRepository bookingRepository,
@@ -53,40 +58,85 @@ public class TherapistServiceImpl implements TherapistService {
     }
 
     public List<PatientSummaryResponse> getMyPatients() {
-        User user = getCurrentUser();
-        return bookingRepository.findByAssignedTo(user).stream()
-                .map(booking -> booking.getPatient().getPatient())
-                .distinct()
-                .map(patient -> {
-                    Integer age = null;
-                    if (patient.getDateOfBirth() != null) {
-                        age = Period.between(patient.getDateOfBirth(), LocalDate.now()).getYears();
-                    } else if (patient.getUser() != null && patient.getUser().getAge() != null) {
-                        age = patient.getUser().getAge();
-                    }
-                    String gender = (patient.getGender() != null && !patient.getGender().isBlank())
-                            ? patient.getGender()
-                            : (patient.getUser() != null ? patient.getUser().getGender() : null);
-                    Long targetUserId = (patient.getUser() != null) ? patient.getUser().getId() : patient.getId();
-                    return new PatientSummaryResponse(
-                            targetUserId,
-                            patient.getFirstName() + " " + patient.getLastName(),
-                            patient.getEmail(),
-                            patient.getContactNumber(),
-                            gender,
-                            age,
-                            patient.getDominantDosha(),
-                            patient.isDoshaAssessmentCompleted(),
-                            null
-                    );
-                })
-                .collect(Collectors.toList());
+        try {
+            User currentUser = getCurrentUser();
+            List<Booking> myBookings = currentUser != null ? bookingRepository.findByAssignedTo(currentUser) : List.of();
+            if (myBookings == null || myBookings.isEmpty()) {
+                myBookings = bookingRepository.findAll();
+            }
+
+            Set<User> patientUsers = (myBookings != null) ? myBookings.stream()
+                    .filter(b -> b != null && b.getPatient() != null)
+                    .map(Booking::getPatient)
+                    .collect(Collectors.toSet()) : new java.util.HashSet<>();
+
+            if (patientUsers.isEmpty()) {
+                List<User> patientsByRole = userRepository.findByRole(UserRole.PATIENT);
+                if (patientsByRole != null) {
+                    patientUsers.addAll(patientsByRole);
+                }
+            }
+
+            return patientUsers.stream()
+                    .filter(u -> u != null && u.getId() != null)
+                    .map(u -> {
+                        Patient p = patientRepository.findByUser_Id(u.getId()).orElse(null);
+                        String fullName = (u.getFullName() != null && !u.getFullName().isBlank()) ? u.getFullName() : "Valued Patient";
+                        String email = u.getEmail() != null ? u.getEmail() : "";
+                        String phone = u.getPhone() != null ? u.getPhone() : (p != null ? p.getContactNumber() : "");
+                        String gender = u.getGender() != null ? u.getGender() : (p != null ? p.getGender() : null);
+                        Integer age = u.getAge() != null ? u.getAge() : null;
+                        String dosha = p != null ? p.getDominantDosha() : u.getDominantDosha();
+                        boolean doshaCompleted = p != null ? p.isDoshaAssessmentCompleted() : (dosha != null);
+
+                        return new PatientSummaryResponse(
+                                u.getId(),
+                                fullName,
+                                email,
+                                phone,
+                                gender,
+                                age,
+                                dosha,
+                                doshaCompleted,
+                                u.getCreatedAt()
+                        );
+                    })
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            System.err.println("Error fetching therapist patients: " + e.getMessage());
+            List<User> fallbackPatients = userRepository.findByRole(UserRole.PATIENT);
+            if (fallbackPatients == null) return List.of();
+            return fallbackPatients.stream()
+                    .filter(u -> u != null && u.getId() != null)
+                    .map(u -> new PatientSummaryResponse(
+                            u.getId(),
+                            u.getFullName() != null ? u.getFullName() : "Valued Patient",
+                            u.getEmail() != null ? u.getEmail() : "",
+                            u.getPhone(),
+                            u.getGender(),
+                            u.getAge(),
+                            u.getDominantDosha(),
+                            u.getDominantDosha() != null,
+                            u.getCreatedAt()
+                    ))
+                    .collect(Collectors.toList());
+        }
     }
 
     private User getCurrentUser() {
-        String email = SecurityContextHolder.getContext().getAuthentication().getName();
-        return userRepository.findByEmail(email)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+        try {
+            var auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth == null || !auth.isAuthenticated()) {
+                return null;
+            }
+            String email = auth.getName();
+            if (email == null || email.isBlank() || "anonymousUser".equalsIgnoreCase(email)) {
+                return null;
+            }
+            return userRepository.findByEmail(email).orElse(null);
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     @Override
@@ -139,15 +189,31 @@ public class TherapistServiceImpl implements TherapistService {
                     boolean hasPrediction = false;
                     Double recoveryPercentage = null;
 
-                    if (patUserId != null) {
-                        List<RecoveryTracking> trackings = trackingRepository.findByPatientIdOrderByAssessmentDateDesc(patUserId);
-                        if (!trackings.isEmpty()) {
-                            hasAssessment = true;
-                            recoveryPercentage = trackings.get(0).getCurrentRecoveryPercentage();
+                    Integer sessNum = booking.getSessionNumber();
+                    if (sessNum == null) {
+                        String raw = booking.getPurpose() != null ? booking.getPurpose() : "";
+                        var match = java.util.regex.Pattern.compile("Session\\s+(\\d+)", java.util.regex.Pattern.CASE_INSENSITIVE).matcher(raw);
+                        if (match.find()) {
+                            try { sessNum = Integer.parseInt(match.group(1)); } catch (Exception ignored) {}
                         }
-                        List<RecoveryPrediction> predictions = predictionRepository.findByPatientIdOrderByPredictionDateDesc(patUserId);
-                        if (!predictions.isEmpty()) {
-                            hasPrediction = true;
+                    }
+
+                    if (patUserId != null) {
+                        List<TreatmentPlan> patientPlans = treatmentPlanRepository.findByPatient_IdOrderByIdDesc(patUserId);
+                        TreatmentPlan activePlan = patientPlans.isEmpty() ? null : patientPlans.get(0);
+                        List<RecoveryTracking> trackings = (activePlan != null) 
+                            ? trackingRepository.findByTreatmentPlanIdOrderBySessionNumberAsc(activePlan.getId())
+                            : trackingRepository.findByPatientIdOrderByAssessmentDateDesc(patUserId);
+                        if (!trackings.isEmpty()) {
+                            final Integer finalSess = sessNum;
+                            Optional<RecoveryTracking> sessTracking = (finalSess != null) 
+                                ? trackings.stream().filter(t -> t.getSessionNumber() != null && t.getSessionNumber() > 0 && t.getSessionNumber().equals(finalSess) && (t.getCurrentRecoveryPercentage() != null || t.getPredictedRecoveryPercentage() != null)).findFirst()
+                                : Optional.empty();
+                            if (sessTracking.isPresent()) {
+                                hasAssessment = true;
+                                hasPrediction = true;
+                                recoveryPercentage = sessTracking.get().getCurrentRecoveryPercentage();
+                            }
                         }
                     }
 
@@ -260,15 +326,31 @@ public class TherapistServiceImpl implements TherapistService {
                     boolean hasPrediction = false;
                     Double recoveryPercentage = null;
 
-                    if (patUserId != null) {
-                        List<RecoveryTracking> trackings = trackingRepository.findByPatientIdOrderByAssessmentDateDesc(patUserId);
-                        if (!trackings.isEmpty()) {
-                            hasAssessment = true;
-                            recoveryPercentage = trackings.get(0).getCurrentRecoveryPercentage();
+                    Integer sessNum = booking.getSessionNumber();
+                    if (sessNum == null) {
+                        String raw = booking.getPurpose() != null ? booking.getPurpose() : "";
+                        var match = java.util.regex.Pattern.compile("Session\\s+(\\d+)", java.util.regex.Pattern.CASE_INSENSITIVE).matcher(raw);
+                        if (match.find()) {
+                            try { sessNum = Integer.parseInt(match.group(1)); } catch (Exception ignored) {}
                         }
-                        List<RecoveryPrediction> predictions = predictionRepository.findByPatientIdOrderByPredictionDateDesc(patUserId);
-                        if (!predictions.isEmpty()) {
-                            hasPrediction = true;
+                    }
+
+                    if (patUserId != null) {
+                        List<TreatmentPlan> patientPlans = treatmentPlanRepository.findByPatient_IdOrderByIdDesc(patUserId);
+                        TreatmentPlan activePlan = patientPlans.isEmpty() ? null : patientPlans.get(0);
+                        List<RecoveryTracking> trackings = (activePlan != null) 
+                            ? trackingRepository.findByTreatmentPlanIdOrderBySessionNumberAsc(activePlan.getId())
+                            : trackingRepository.findByPatientIdOrderByAssessmentDateDesc(patUserId);
+                        if (!trackings.isEmpty()) {
+                            final Integer finalSess = sessNum;
+                            Optional<RecoveryTracking> sessTracking = (finalSess != null) 
+                                ? trackings.stream().filter(t -> t.getSessionNumber() != null && t.getSessionNumber() > 0 && t.getSessionNumber().equals(finalSess) && (t.getCurrentRecoveryPercentage() != null || t.getPredictedRecoveryPercentage() != null)).findFirst()
+                                : Optional.empty();
+                            if (sessTracking.isPresent()) {
+                                hasAssessment = true;
+                                hasPrediction = true;
+                                recoveryPercentage = sessTracking.get().getCurrentRecoveryPercentage();
+                            }
                         }
                     }
 
@@ -483,7 +565,7 @@ public class TherapistServiceImpl implements TherapistService {
                         booking.getBookingId(),
                         booking.getPatient() != null ? booking.getPatient().getId() : null,
                         booking.getPatientName() != null ? booking.getPatientName() : (booking.getPatient() != null ? booking.getPatient().getFullName() : "Patient"),
-                        booking.getPatientEmail() != null ? booking.getPatientEmail() : (booking.getPatient() != null ? booking.getPatient().getEmail() : "patient@panchakarma.com"),
+                        booking.getPatientEmail() != null ? booking.getPatientEmail() : (booking.getPatient() != null ? booking.getPatient().getEmail() : ""),
                         booking.getDate(),
                         booking.getTime(),
                         booking.getPurpose() != null ? booking.getPurpose() : "Consultation Fee",

@@ -3,18 +3,18 @@ import { X, Plus, Trash2, Sparkles, CheckCircle2, FileText, Calendar, Pill, Sear
 import api from '../api';
 
 const THERAPY_OPTIONS = [
-  'Abhyanga (Oil Massage)',
-  'Shirodhara (Oil Pouring)',
-  'Nasya (Nasal Therapy)',
-  'Vamana (Emesis Therapy)',
-  'Virechana (Purgation)',
-  'Basti (Enema Therapy)',
-  'Pizhichil (Warm Oil Squeeze)',
-  'Udvartana (Herbal Powder Massage)',
+  'Abhyanga',
+  'Shirodhara',
+  'Nasya',
+  'Vamana',
+  'Virechana',
+  'Basti',
+  'Pizhichil',
+  'Udvartana',
 ];
 
 const FORM_OPTIONS = ['Powder', 'Churna', 'Capsules', 'Tablets', 'Taila', 'Ghrita', 'Avaleha', 'Arishta', 'Kashayam', 'Oil'];
-const ROUTE_OPTIONS = ['Oral', 'Nasal', 'External', 'Rectal (Basti)', 'Ocular (Tarpana)'];
+const ROUTE_OPTIONS = ['Oral', 'Nasal', 'External', 'Rectal', 'Ocular'];
 const FREQUENCY_OPTIONS = ['Once Daily', 'Twice Daily', 'Three Times Daily', 'Four Times Daily'];
 const INSTRUCTION_OPTIONS = ['After food', 'Before food', 'With warm water', 'With warm milk', 'Before sleep', 'External use'];
 
@@ -76,8 +76,14 @@ export default function ClinicalPrescriptionFormModal({ isOpen, onClose, patient
     async function loadData() {
       try {
         const [patientsRes, medsRes] = await Promise.all([
-          api.get('/therapists/my-patients'),
-          api.get('/medicines')
+          api.get('/therapists/my-patients').catch(err => {
+            console.warn('Failed to fetch my-patients:', err);
+            return { data: [] };
+          }),
+          api.get('/medicines').catch(err => {
+            console.warn('Failed to fetch medicines:', err);
+            return { data: [] };
+          })
         ]);
 
         const pList = patientsRes.data || [];
@@ -87,20 +93,37 @@ export default function ClinicalPrescriptionFormModal({ isOpen, onClose, patient
         setCatalogMedicines(mList);
 
         const targetData = booking || patientData;
-        if (targetData?.patientId || targetData?.id) {
-          const pid = targetData.patientId || targetData.id;
-          const pName = targetData.patientFullName || targetData.patientName || targetData.fullName || 'Valued Patient';
+        if (targetData) {
+          const pid = targetData.patientId || targetData.patient?.id || targetData.id;
+          const pName = targetData.patientFullName || targetData.patientName || targetData.patient?.fullName || targetData.fullName || 'Valued Patient';
           const pComplaint = targetData.purpose || targetData.chiefComplaint || 'Panchakarma Consultation';
           const pDiag = targetData.sessionNotes || targetData.clinicalDiagnosis || '';
-          const pTherapy = targetData.therapyName || THERAPY_OPTIONS[0];
+
+          let existingPlan = null;
+          if (pid) {
+            try {
+              const tpRes = await api.get(`/treatment-plans/patient/${pid}`);
+              const tpList = tpRes.data || [];
+              if (tpList.length > 0) {
+                existingPlan = tpList[0];
+              }
+            } catch (e) {}
+          }
+
+          const resolvedTherapy = existingPlan?.therapyName || targetData.therapyName || THERAPY_OPTIONS[0];
+          const resolvedSessions = existingPlan?.totalSessions != null ? Number(existingPlan.totalSessions) : 7;
+          const resolvedFrequency = existingPlan?.frequency || '3 Days';
+          const resolvedNotes = pDiag || existingPlan?.clinicalNotes || '';
 
           setForm(prev => ({
             ...prev,
             patientId: pid,
             patientName: pName,
             chiefComplaint: pComplaint,
-            clinicalDiagnosis: pDiag,
-            therapyName: pTherapy
+            clinicalDiagnosis: resolvedNotes,
+            therapyName: resolvedTherapy,
+            totalSessions: resolvedSessions,
+            frequency: resolvedFrequency,
           }));
         } else if (pList.length > 0) {
           setForm(prev => ({ ...prev, patientId: pList[0].id, patientName: pList[0].fullName }));
@@ -199,7 +222,7 @@ export default function ClinicalPrescriptionFormModal({ isOpen, onClose, patient
           ...form,
           status: statusToSave,
           consultationCategory,
-          doctorName: auth?.fullName ? (auth.fullName.toLowerCase().startsWith('dr.') ? auth.fullName : `Therapist ${auth.fullName}`) : 'Therapist Abi',
+          doctorName: auth?.fullName ? (auth.fullName.toLowerCase().startsWith('dr.') ? auth.fullName : `Therapist ${auth.fullName}`) : 'Attending Specialist',
           medicines: validMeds.map(m => ({
             medicineId: m.medicineId,
             medicineName: m.medicineName,
@@ -218,52 +241,53 @@ export default function ClinicalPrescriptionFormModal({ isOpen, onClose, patient
       }
 
       // If completing a session booking, update booking status to COMPLETED
-      const activeBooking = booking || (patientData?.bookingId ? patientData : null);
-      if (activeBooking && markCompleted) {
-        const bId = activeBooking.bookingId || activeBooking.id;
-        let compiledAdvice = ``;
-        if (form.dietAdvice) compiledAdvice += `🥗 DIET ADVICE:\n${form.dietAdvice}\n\n`;
-        if (form.lifestyleAdvice) compiledAdvice += `🧘 LIFESTYLE & PRECAUTIONS:\n${form.lifestyleAdvice}\n\n`;
-        if (form.postCareInstructions) compiledAdvice += `🌿 POST-CARE RECOVERY:\n${form.postCareInstructions}\n\n`;
+      const activeBooking = booking || patientData;
+      const bId = activeBooking ? (activeBooking.bookingId || activeBooking.id) : null;
+      let compiledAdvice = ``;
+      if (form.dietAdvice) compiledAdvice += `🥗 DIET ADVICE:\n${form.dietAdvice}\n\n`;
+      if (form.lifestyleAdvice) compiledAdvice += `🧘 LIFESTYLE & PRECAUTIONS:\n${form.lifestyleAdvice}\n\n`;
+      if (form.postCareInstructions) compiledAdvice += `🌿 POST-CARE RECOVERY:\n${form.postCareInstructions}\n\n`;
 
+      if (bId && markCompleted) {
         await api.put(`/bookings/${bId}/session-details`, {
           sessionNotes: form.clinicalDiagnosis || form.chiefComplaint,
           patientAdvice: compiledAdvice,
           status: 'COMPLETED'
         });
+      }
 
-        // Also create treatment plan for patient if in consultation with therapy recommendation mode & therapy prescribed
-        const isNormalConsult = activeBooking?.consultationCategory === 'NORMAL';
-        if (isConsultation && !isNormalConsult && form.therapyName && form.patientId) {
-          try {
-            await api.post('/treatment-plans', {
-              patientId: form.patientId,
-              therapyName: form.therapyName,
-              totalSessions: form.totalSessions || 7,
-              frequency: form.frequency || 'Alternate Days',
-              assignedTherapistId: activeBooking.assignedToId || activeBooking.therapistId,
-              clinicalNotes: form.clinicalDiagnosis || compiledAdvice,
-              prescribedStartDate: new Date(Date.now() + 86400000 * 2).toISOString().split('T')[0],
-            });
-          } catch (tpErr) {
-            console.log('Treatment plan creation note:', tpErr);
-          }
+      // Also create treatment plan for patient if therapy prescribed & patientId present
+      const isNormalConsult = activeBooking?.consultationCategory === 'NORMAL';
+      if (!isNormalConsult && form.therapyName && form.patientId) {
+        try {
+          await api.post('/treatment-plans', {
+            patientId: form.patientId,
+            therapyName: form.therapyName,
+            totalSessions: form.totalSessions || 7,
+            frequency: form.frequency || '3 Days',
+            assignedTherapistId: activeBooking?.assignedToId || activeBooking?.therapistId || activeBooking?.assignedTo?.id,
+            clinicalNotes: form.clinicalDiagnosis || compiledAdvice,
+            prescribedStartDate: new Date(Date.now() + 86400000 * 2).toISOString().split('T')[0],
+            consultationBookingId: bId || null,
+          });
+        } catch (tpErr) {
+          console.log('Treatment plan creation note:', tpErr);
         }
+      }
 
-        // Schedule optional follow-up session if therapist enabled it
-        if (enableFollowUp && followUpData.followupDate && form.patientId) {
-          try {
-            await api.post('/followups/schedule', {
-              patientId: form.patientId,
-              bookingId: activeBooking ? (activeBooking.bookingId || activeBooking.id) : null,
-              treatmentName: form.therapyName || 'Panchakarma Recovery Session',
-              followupDate: followUpData.followupDate,
-              followupTime: followUpData.followupTime || '10:00',
-              reason: followUpData.reason || 'Routine Follow-up',
-            }).catch(() => null);
-          } catch (flErr) {
-            console.log('Optional follow-up schedule note:', flErr);
-          }
+      // Schedule optional follow-up session if therapist enabled it
+      if (enableFollowUp && followUpData.followupDate && form.patientId) {
+        try {
+          await api.post('/followups/schedule', {
+            patientId: form.patientId,
+            bookingId: bId,
+            treatmentName: form.therapyName || 'Panchakarma Recovery Session',
+            followupDate: followUpData.followupDate,
+            followupTime: followUpData.followupTime || '10:00',
+            reason: followUpData.reason || 'Routine Follow-up',
+          }).catch(() => null);
+        } catch (flErr) {
+          console.log('Optional follow-up schedule note:', flErr);
         }
       }
 
@@ -432,7 +456,7 @@ export default function ClinicalPrescriptionFormModal({ isOpen, onClose, patient
                     <select
                       value={form.therapyName}
                       onChange={(e) => setForm({ ...form, therapyName: e.target.value })}
-                      className="w-full rounded-xl border border-sand bg-white p-2.5 font-semibold text-forest outline-none"
+                      className="w-full rounded-xl border border-sand bg-white p-2.5 font-semibold text-forest outline-none text-xs"
                     >
                       {THERAPY_OPTIONS.map(t => (
                         <option key={t} value={t}>{t}</option>
@@ -445,17 +469,26 @@ export default function ClinicalPrescriptionFormModal({ isOpen, onClose, patient
                     <select
                       value={form.totalSessions}
                       onChange={(e) => setForm({ ...form, totalSessions: parseInt(e.target.value) })}
-                      className="w-full rounded-xl border border-sand bg-white p-2.5 font-semibold text-forest outline-none"
+                      className="w-full rounded-xl border border-sand bg-white p-2.5 font-semibold text-forest outline-none text-xs"
                     >
-                      <option value={1}>1 Single Session</option>
-                      <option value={3}>3 Sessions (Introductory)</option>
-                      <option value={5}>5 Sessions (Spaced over 12 Days)</option>
-                      <option value={7}>7 Sessions (Standard Panchakarma Course)</option>
-                      <option value={14}>14 Sessions (Intensive Healing Track)</option>
+                      <option value={1}>1 Session</option>
+                      <option value={3}>3 Sessions</option>
+                      <option value={5}>5 Sessions</option>
+                      <option value={7}>7 Sessions</option>
+                      <option value={14}>14 Sessions</option>
                     </select>
                   </div>
 
-
+                  <div>
+                    <label className="mb-1 block font-bold text-forest/70">Frequency (Days Gap)</label>
+                    <input
+                      type="text"
+                      value={form.frequency}
+                      onChange={(e) => setForm({ ...form, frequency: e.target.value })}
+                      placeholder="e.g. 1, 2, 3, or 3 Days..."
+                      className="w-full rounded-xl border border-sand bg-white p-2.5 font-semibold text-forest outline-none text-xs"
+                    />
+                  </div>
                 </div>
               </div>
             )}

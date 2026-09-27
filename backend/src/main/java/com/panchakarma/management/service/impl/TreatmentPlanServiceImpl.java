@@ -81,21 +81,6 @@ public class TreatmentPlanServiceImpl implements TreatmentPlanService {
             therapist = doctor;
         }
 
-        TreatmentPlan plan = new TreatmentPlan();
-        plan.setPatient(patient);
-        plan.setPrescribedBy(doctor);
-        plan.setAssignedTherapist(therapist);
-        String resolvedTherapyName = (dto.therapyName() != null && !dto.therapyName().trim().isEmpty() && !dto.therapyName().equalsIgnoreCase("CONSULTATION"))
-                ? dto.therapyName()
-                : "Abhyanga";
-        plan.setTherapyName(resolvedTherapyName);
-        plan.setTotalSessions(dto.totalSessions() != null ? dto.totalSessions() : 1);
-        plan.setFrequency(dto.frequency() != null ? dto.frequency() : "ALTERNATE_DAYS");
-        plan.setPrescribedStartDate(dto.prescribedStartDate() != null ? dto.prescribedStartDate() : LocalDate.now().plusDays(2));
-        plan.setClinicalNotes(dto.clinicalNotes());
-        plan.setStatus("PLANNED");
-        plan.setPackageId("PLAN-" + System.currentTimeMillis());
-
         Long consultId = dto.consultationBookingId();
         if (consultId == null && patient != null) {
             List<Booking> patientBookings = bookingRepository.findByPatient_Id(patient.getId());
@@ -105,6 +90,38 @@ public class TreatmentPlanServiceImpl implements TreatmentPlanService {
                     .map(Booking::getBookingId)
                     .findFirst().orElse(null);
         }
+
+        TreatmentPlan plan = null;
+        if (consultId != null) {
+            final Long targetConsultId = consultId;
+            plan = treatmentPlanRepository.findByPatient_Id(patient.getId()).stream()
+                    .filter(p -> java.util.Objects.equals(p.getConsultationBookingId(), targetConsultId))
+                    .findFirst().orElse(null);
+        }
+        if (plan == null) {
+            plan = treatmentPlanRepository.findByPatient_Id(patient.getId()).stream()
+                    .filter(p -> "PLANNED".equalsIgnoreCase(p.getStatus()))
+                    .findFirst().orElse(null);
+        }
+        if (plan == null) {
+            plan = new TreatmentPlan();
+            plan.setPackageId("PLAN-" + System.currentTimeMillis());
+        }
+
+        plan.setPatient(patient);
+        plan.setPrescribedBy(doctor);
+        plan.setAssignedTherapist(therapist);
+        String resolvedTherapyName = (dto.therapyName() != null && !dto.therapyName().trim().isEmpty() && !dto.therapyName().equalsIgnoreCase("CONSULTATION"))
+                ? dto.therapyName()
+                : "Abhyanga";
+        plan.setTherapyName(resolvedTherapyName);
+        plan.setTotalSessions(dto.totalSessions() != null ? dto.totalSessions() : 1);
+        plan.setFrequency(dto.frequency() != null ? dto.frequency() : "2");
+        plan.setPrescribedStartDate(dto.prescribedStartDate() != null ? dto.prescribedStartDate() : LocalDate.now().plusDays(2));
+        if (dto.clinicalNotes() != null && !dto.clinicalNotes().isBlank()) {
+            plan.setClinicalNotes(dto.clinicalNotes());
+        }
+        plan.setStatus("PLANNED");
         plan.setConsultationBookingId(consultId);
 
         TreatmentPlan saved = treatmentPlanRepository.save(plan);
@@ -259,8 +276,17 @@ public class TreatmentPlanServiceImpl implements TreatmentPlanService {
 
     private int getDayGapForFrequency(String frequency) {
         if (frequency == null) return 2;
-        switch (frequency.toUpperCase()) {
-            case "ONCE_DAILY": return 1;
+        try {
+            String numbersOnly = frequency.replaceAll("[^0-9]", "");
+            if (!numbersOnly.isEmpty()) {
+                int gap = Integer.parseInt(numbersOnly);
+                if (gap >= 0) return gap;
+            }
+        } catch (Exception ignored) {}
+
+        switch (frequency.toUpperCase().trim()) {
+            case "ONCE_DAILY":
+            case "DAILY": return 1;
             case "ALTERNATE_DAYS": return 2;
             case "EVERY_3_DAYS": return 3;
             case "WEEKLY": return 7;

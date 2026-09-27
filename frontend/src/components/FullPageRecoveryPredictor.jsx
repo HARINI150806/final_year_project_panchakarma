@@ -55,9 +55,10 @@ export default function FullPageRecoveryPredictor({ consultation, onBack, onSave
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [lastPredictedTime, setLastPredictedTime] = useState(null);
 
-  const getStorageKey = () => {
-    const id = consultation?.id || consultation?.bookingId || consultation?.patientId || 'default';
-    return `panchakarma_saved_prediction_${id}`;
+  const getStorageKey = (sessOverride) => {
+    const id = consultation?.patientId || consultation?.patient?.id || consultation?.userId || consultation?.id || consultation?.bookingId || 'default';
+    const sess = sessOverride ?? consultation?.sessionNumber ?? completedSessions ?? 1;
+    return `panchakarma_saved_prediction_${id}_s${sess}`;
   };
 
   useEffect(() => {
@@ -146,8 +147,8 @@ export default function FullPageRecoveryPredictor({ consultation, onBack, onSave
       setCompletedSessions(Number(dbCompleted));
       setTotalSessions(Number(dbTotal));
 
-      // 4. Saved prediction restoration for clinical parameters
-      const key = getStorageKey();
+      // 4. Saved prediction restoration for clinical parameters for THIS session
+      const key = getStorageKey(dbCompleted);
       const saved = localStorage.getItem(key);
       if (saved) {
         try {
@@ -208,7 +209,7 @@ export default function FullPageRecoveryPredictor({ consultation, onBack, onSave
       setLastPredictedTime(nowIso);
 
       // Persist prediction and parameters until a new one is run
-      const key = getStorageKey();
+      const key = getStorageKey(completedSessions);
       localStorage.setItem(key, JSON.stringify({
         prediction: data,
         form: {
@@ -237,19 +238,27 @@ export default function FullPageRecoveryPredictor({ consultation, onBack, onSave
     setSaving(true);
     setError(null);
     try {
-      const payload = {
-        therapyPlanId: consultation?.treatmentPlanId || consultation?.planId || consultation?.id || null,
-        patientId: consultation?.patientId || consultation?.userId,
-        therapyName,
-        totalSessions: Number(totalSessions),
-        sessionNumber: Number(completedSessions),
-        painLevel: Number(painLevel),
-        sleepQuality: Number(sleepLevel),
-        energyLevel: Number(energyLevel),
-        overallCondition: Number(overallCondition),
-        currentRecoveryPercentage: prediction?.predicted_current_recovery ?? prediction?.predicted_final_recovery,
-        therapistRemarks: `Clinical Assessment completed. Status: ${prediction?.status || 'Stable'}`
-      };
+        const finalRecGoal = prediction?.predicted_final_recovery;
+        const curSessNum = Number(completedSessions);
+        const totSessNum = Number(totalSessions) || 3;
+        const sessionTargetGoal = (finalRecGoal != null && totSessNum > 0)
+          ? Math.round(((curSessNum / totSessNum) * finalRecGoal) * 10) / 10
+          : finalRecGoal;
+
+        const payload = {
+          therapyPlanId: consultation?.treatmentPlanId || consultation?.planId || consultation?.id || null,
+          patientId: consultation?.patientId || consultation?.userId,
+          therapyName,
+          totalSessions: Number(totalSessions),
+          sessionNumber: Number(completedSessions),
+          painLevel: Number(painLevel),
+          sleepQuality: Number(sleepLevel),
+          energyLevel: Number(energyLevel),
+          overallCondition: Number(overallCondition),
+          currentRecoveryPercentage: prediction?.predicted_current_recovery ?? prediction?.predicted_final_recovery,
+          predictedRecoveryPercentage: sessionTargetGoal ?? null,
+          therapistRemarks: `Clinical Assessment completed. Status: ${prediction?.status || 'Stable'}`
+        };
 
       await api.post('/recovery/assessment', payload);
       setSaveSuccess(true);
@@ -263,7 +272,7 @@ export default function FullPageRecoveryPredictor({ consultation, onBack, onSave
   };
 
   const handleClearPrediction = () => {
-    const key = getStorageKey();
+    const key = getStorageKey(completedSessions);
     localStorage.removeItem(key);
     setPrediction(null);
     setLastPredictedTime(null);
@@ -293,11 +302,8 @@ export default function FullPageRecoveryPredictor({ consultation, onBack, onSave
           <div>
             <div className="flex flex-wrap items-center gap-2.5">
               <h1 className="font-display text-xl sm:text-2xl font-bold text-gray-900">
-                Clinical Recovery ML Predictor
+                Patient Recovery Predictor
               </h1>
-              <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-900 text-xs font-extrabold border border-emerald-300">
-                XGBoost • 99.2% Accuracy
-              </span>
             </div>
             <p className="text-xs sm:text-sm text-gray-500 mt-1 flex flex-wrap items-center gap-2">
               <span>Patient: <strong className="text-emerald-900">{patientName}</strong></span>
@@ -325,21 +331,21 @@ export default function FullPageRecoveryPredictor({ consultation, onBack, onSave
       {saveSuccess && (
         <div className="flex items-center gap-3 p-4 rounded-2xl bg-emerald-50 text-emerald-800 text-sm border border-emerald-200 font-medium">
           <CheckCircle2 size={20} className="shrink-0 text-emerald-600" />
-          <span>Clinical Recovery assessment successfully recorded for {patientName}!</span>
+          <span>Recovery assessment recorded for {patientName}!</span>
         </div>
       )}
 
       <form onSubmit={handlePredict} className="space-y-6">
         
-        {/* 2. SECTION 1: PATIENT PROFILE & PROTOCOL (FEATURES 1 TO 6) */}
+        {/* 2. SECTION 1: PATIENT PROFILE & PROTOCOL */}
         <div className="rounded-3xl border border-emerald-900/10 bg-white p-6 shadow-sm space-y-5">
           <div className="flex items-center justify-between border-b border-gray-100 pb-3">
             <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-emerald-900">
               <Stethoscope size={18} className="text-emerald-700" />
-              1. Patient Demographics & Protocol (Parameters 1 – 6)
+              1. Patient Details & Therapy
             </div>
             <span className="text-xs text-gray-500 font-medium">
-              ML Clinical Inputs
+              Patient Info
             </span>
           </div>
 
@@ -347,7 +353,7 @@ export default function FullPageRecoveryPredictor({ consultation, onBack, onSave
             {/* 1. Age */}
             <div>
               <label className="block text-xs font-bold text-gray-700 mb-1.5">
-                1. Patient Age (Years)
+                1. Patient Age
               </label>
               <input
                 type="number"
@@ -361,7 +367,7 @@ export default function FullPageRecoveryPredictor({ consultation, onBack, onSave
             {/* 2. Gender */}
             <div>
               <label className="block text-xs font-bold text-gray-700 mb-1.5">
-                2. Biological Gender
+                2. Gender
               </label>
               <input
                 type="text"
@@ -393,7 +399,7 @@ export default function FullPageRecoveryPredictor({ consultation, onBack, onSave
             {/* 4. Therapy Name */}
             <div>
               <label className="block text-xs font-bold text-gray-700 mb-1.5">
-                4. Panchakarma Therapy
+                4. Therapy
               </label>
               <input
                 type="text"
@@ -434,12 +440,12 @@ export default function FullPageRecoveryPredictor({ consultation, onBack, onSave
           </div>
         </div>
 
-        {/* 3. SECTION 2: CLINICAL VITALS & SYMPTOM RATINGS (FEATURES 7 TO 10) */}
+        {/* 3. SECTION 2: HEALTH & SYMPTOM RATINGS */}
         <div className="rounded-3xl border border-emerald-900/10 bg-white p-6 shadow-sm space-y-5">
           <div className="flex items-center justify-between border-b border-gray-100 pb-3">
             <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-emerald-900">
               <Sliders size={18} className="text-emerald-700" />
-              2. Clinical Vitals & Symptom Ratings (Parameters 7 – 10 on a Scale of 1 to 10)
+              2. Health & Symptom Ratings (Scale 1 to 10)
             </div>
             <span className="text-xs text-gray-500 font-medium">
               Adjust ratings based on consultation
@@ -554,7 +560,7 @@ export default function FullPageRecoveryPredictor({ consultation, onBack, onSave
           >
             {loading ? (
               <>
-                <RefreshCw size={20} className="animate-spin" /> Running ML Gradient Boosting Predictor...
+                <RefreshCw size={20} className="animate-spin" /> Calculating Recovery Score...
               </>
             ) : (
               <>
@@ -575,16 +581,13 @@ export default function FullPageRecoveryPredictor({ consultation, onBack, onSave
               </div>
               <div>
                 <h3 className="font-display text-lg font-bold text-emerald-950">
-                  Model Prediction Results & Clinical Trajectory
+                  Recovery Assessment Results
                 </h3>
                 <p className="text-xs text-emerald-800/80">
-                  Predicted from 10 clinical features using trained HistGradientBoosting Regressor
+                  Calculated based on patient health indicators
                 </p>
               </div>
             </div>
-            <span className="px-3.5 py-1 rounded-full bg-emerald-200/90 text-emerald-950 text-xs font-extrabold self-start sm:self-auto">
-              Model: {prediction.model_version || 'HistGradientBoosting (XGBoost 99.2%)'}
-            </span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -606,7 +609,7 @@ export default function FullPageRecoveryPredictor({ consultation, onBack, onSave
                     style={{ width: `${Math.min(100, Math.max(0, recoveryScore))}%` }}
                   />
                 </div>
-                <p className="text-xs text-emerald-200/80 mt-2">Calculated clinical recovery benchmark</p>
+                <p className="text-xs text-emerald-200/80 mt-2">Calculated recovery benchmark</p>
               </div>
             </div>
 
@@ -614,9 +617,9 @@ export default function FullPageRecoveryPredictor({ consultation, onBack, onSave
             <div className="p-6 rounded-2xl bg-white border border-emerald-200 shadow-sm flex flex-col justify-between space-y-4">
               <div>
                 <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">
-                  Clinical Trajectory & Patient Status
+                  Recovery Progress & Health Status
                 </span>
-                <p className="text-xs text-gray-400 mt-0.5">Evaluated clinical direction based on biomarkers</p>
+                <p className="text-xs text-gray-400 mt-0.5">Current health progress evaluation</p>
               </div>
               <div className="space-y-3">
                 <span className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full font-extrabold text-sm ${
@@ -629,8 +632,8 @@ export default function FullPageRecoveryPredictor({ consultation, onBack, onSave
                 </span>
                 <p className="text-xs text-gray-600 leading-relaxed">
                   {prediction.status === 'Improving' 
-                    ? 'The patient is exhibiting positive physiological response to Panchakarma therapy with reduced symptoms and progressive vital restoration.' 
-                    : 'The patient condition is stable. Continue prescribed herbal formulations and monitor vital indicators.'}
+                    ? 'The patient is showing good progress with reduced symptoms and improved health.' 
+                    : 'The patient condition is stable. Continue prescribed therapy and monitor health.'}
                 </p>
               </div>
             </div>

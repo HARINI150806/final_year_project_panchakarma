@@ -59,9 +59,16 @@ public class TreatmentJourneyServiceImpl implements TreatmentJourneyService {
         if (patientUser.getEmail() != null && !patientUser.getEmail().isBlank()) {
             bookingSet.addAll(bookingRepository.findByPatientEmail(patientUser.getEmail()));
         }
-        List<Booking> allBookings = new ArrayList<>(bookingSet);
+        List<Booking> allBookings = bookingSet.stream()
+                .filter(b -> b != null && b.getBookingStatus() != BookingStatus.CANCELLED)
+                .collect(Collectors.toList());
 
-        if (allBookings.isEmpty()) {
+        Set<TreatmentPlan> planSet = new LinkedHashSet<>(treatmentPlanRepository.findByPatient_Id(patientId));
+        List<TreatmentPlan> allPlans = planSet.stream()
+                .filter(p -> p != null && !"CANCELLED".equalsIgnoreCase(p.getStatus()))
+                .collect(Collectors.toList());
+
+        if (allBookings.isEmpty() && allPlans.isEmpty()) {
             return TreatmentJourneyResponse.builder()
                     .hasActiveJourney(false)
                     .isLastJourney(false)
@@ -70,8 +77,6 @@ public class TreatmentJourneyServiceImpl implements TreatmentJourneyService {
                     .build();
         }
 
-        Set<TreatmentPlan> planSet = new LinkedHashSet<>(treatmentPlanRepository.findByPatient_Id(patientId));
-        List<TreatmentPlan> allPlans = new ArrayList<>(planSet);
         List<FollowUp> allFollowups = followUpRepository.findByPatientIdOrderByFollowupDateAsc(patientId);
 
         // Sort consultation bookings chronologically (strictly EXCLUDING standalone Normal Consultations)
@@ -248,6 +253,12 @@ public class TreatmentJourneyServiceImpl implements TreatmentJourneyService {
                     String planTherapist = matchingPlan.getAssignedTherapist() != null ? formatDoctorName(matchingPlan.getAssignedTherapist().getFullName()) : consultTherapist;
 
                     int completedSess = (int) planSessions.stream().filter(b -> getEffectiveBookingStatus(b) == BookingStatus.COMPLETED).count();
+                    if (completedSess == 0 && matchingPlan != null) {
+                        Optional<RecoveryTracking> lastTrack = recoveryTrackingRepository.findFirstByTreatmentPlanIdOrderBySessionNumberDesc(matchingPlan.getId());
+                        if (lastTrack.isPresent() && lastTrack.get().getSessionNumber() != null && lastTrack.get().getSessionNumber() > 0) {
+                            completedSess = lastTrack.get().getSessionNumber();
+                        }
+                    }
 
                     if (!planSessions.isEmpty()) {
                         for (Booking b : planSessions) {
@@ -260,7 +271,7 @@ public class TreatmentJourneyServiceImpl implements TreatmentJourneyService {
 
                     boolean hasBookedSessions = !planSessions.isEmpty();
                     boolean allBookedCompleted = hasBookedSessions && planSessions.stream().allMatch(b -> getEffectiveBookingStatus(b) == BookingStatus.COMPLETED);
-                    boolean isPlanDone = (totalSess > 0 && hasBookedSessions && completedSess >= totalSess) || allBookedCompleted;
+                    boolean isPlanDone = (totalSess > 0 && completedSess >= totalSess) || allBookedCompleted;
                     if (allBookedCompleted && completedSess > 0) {
                         totalSess = completedSess;
                     }
@@ -278,19 +289,20 @@ public class TreatmentJourneyServiceImpl implements TreatmentJourneyService {
                     String nextTimeStr = nextSched != null && nextSched.getTime() != null ? nextSched.getTime().format(timeFormatter) : null;
 
                     boolean isProgressDone = isPlanDone;
-                    boolean isProgressActive = !isProgressDone && hasBookedSessions && (completedSess > 0 || nextSched != null);
+                    boolean isProgressActive = !isProgressDone && (hasBookedSessions || completedSess > 0 || nextSched != null);
 
                     // STEP 2: Therapy Plan
                     cycleNodes.add(TreatmentJourneyNodeDto.builder()
                             .id("cycle-" + cycleNum + "-node-2")
                             .type("THERAPY_PLAN")
                             .title("Therapy Plan")
+                            .treatmentPlanId(matchingPlan != null ? matchingPlan.getId() : null)
                             .therapyName(thName)
                             .totalSessions(totalSess)
                             .planCreatedDate(planDateStr)
                             .firstSessionDate(firstSessStr)
                             .assignedTherapist(planTherapist)
-                            .status(isPlanDone ? "COMPLETED" : (hasBookedSessions ? "BOOKED" : "PRESCRIBED"))
+                            .status(isPlanDone ? "COMPLETED" : (hasBookedSessions || completedSess > 0 ? "BOOKED" : "PRESCRIBED"))
                             .eventOrder(eventOrder++)
                             .cycleNumber(cycleNum)
                             .build());
@@ -300,6 +312,7 @@ public class TreatmentJourneyServiceImpl implements TreatmentJourneyService {
                             .id("cycle-" + cycleNum + "-node-3")
                             .type("THERAPY_PROGRESS")
                             .title("Therapy Progress")
+                            .treatmentPlanId(matchingPlan != null ? matchingPlan.getId() : null)
                             .therapyName(thName)
                             .completedSessions(completedSess)
                             .totalSessions(totalSess)
@@ -320,19 +333,22 @@ public class TreatmentJourneyServiceImpl implements TreatmentJourneyService {
                             patientId,
                             isProgressDone,
                             completedSess,
-                            isProgressDone ? "Therapy completed successfully." : (hasBookedSessions ? "Patient responding to treatment." : "Therapy plan prescribed by " + planTherapist + ". Awaiting patient therapy session booking.")
+                            isProgressDone ? "Therapy completed successfully." : (hasBookedSessions || completedSess > 0 ? "Patient responding to treatment." : "Therapy plan prescribed by " + planTherapist + ". Awaiting patient therapy session booking.")
                     );
+
+                    boolean isRecoveryActive = metrics1.hasActualData || completedSess > 0 || isProgressActive;
 
                     cycleNodes.add(TreatmentJourneyNodeDto.builder()
                             .id("cycle-" + cycleNum + "-node-4")
                             .type("RECOVERY")
                             .title("Recovery Assessment")
+                            .treatmentPlanId(matchingPlan != null ? matchingPlan.getId() : null)
                             .currentRecoveryPercent(metrics1.currentRec)
                             .predictedRecoveryPercent(metrics1.predRec)
                             .recoveryStatus(metrics1.status)
                             .recoveryPlanNotes("Active Samsarjana Krama diet & lifestyle guidelines.")
                             .therapistRemarks(metrics1.remarks)
-                            .status(metrics1.hasActualData ? (isProgressDone ? "COMPLETED" : "ACTIVE") : "PENDING")
+                            .status(isProgressDone ? "COMPLETED" : (isRecoveryActive ? "ACTIVE" : "PENDING"))
                             .eventOrder(eventOrder++)
                             .cycleNumber(cycleNum)
                             .build());
@@ -522,6 +538,7 @@ public class TreatmentJourneyServiceImpl implements TreatmentJourneyService {
                         .displayTitle(complaint + " (" + consultDateStr + ")")
                         .chiefComplaint(complaint)
                         .therapyName(cycleTherapyName)
+                        .treatmentPlanId(matchingPlan != null ? matchingPlan.getId() : null)
                         .hasFollowup(false)
                         .isCurrentCycle(isCurrentCycle)
                         .nodes(cycleNodes)
@@ -744,7 +761,7 @@ public class TreatmentJourneyServiceImpl implements TreatmentJourneyService {
         if (!plans.isEmpty() && plans.get(0).getPrescribedBy() != null) {
             return formatDoctorName(plans.get(0).getPrescribedBy().getFullName());
         }
-        return "Dr. Harini";
+        return "Attending Specialist";
     }
 
     private boolean isNormalConsultation(Booking b) {

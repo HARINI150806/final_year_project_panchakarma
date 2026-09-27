@@ -154,6 +154,47 @@ export default function TreatmentJourneyTimeline() {
     ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-4' 
     : 'grid-cols-1 md:grid-cols-3 lg:grid-cols-5';
 
+  const progressNode = nodes.find((n) => n.type === 'THERAPY_PROGRESS');
+  const planNode = nodes.find((n) => n.type === 'THERAPY_PLAN');
+  const consultNode = nodes.find((n) => n.type === 'CONSULTATION');
+  const completedSess = progressNode?.completedSessions || 0;
+  const totalSess = progressNode?.totalSessions || planNode?.totalSessions || 0;
+
+  let singleActiveType = 'CONSULTATION';
+  if (completedSess >= totalSess && totalSess > 0) {
+    singleActiveType = 'RECOVERY';
+  } else if (completedSess > 0) {
+    singleActiveType = 'THERAPY_PROGRESS';
+  } else if (planNode && (planNode.status === 'PRESCRIBED' || planNode.status === 'BOOKED' || planNode.status === 'ACTIVE' || planNode.totalSessions > 0)) {
+    singleActiveType = 'THERAPY_PLAN';
+  } else if (consultNode && consultNode.status !== 'COMPLETED') {
+    singleActiveType = 'CONSULTATION';
+  }
+
+  const getNodeState = (node) => {
+    const isCurrentActive = node.type === singleActiveType || node.isCurrentActive;
+
+    let isDone = false;
+    if (singleActiveType === 'RECOVERY' || singleActiveType === 'FOLLOWUP') {
+      if (node.type === 'CONSULTATION' || node.type === 'THERAPY_PLAN' || node.type === 'THERAPY_PROGRESS') {
+        isDone = true;
+      }
+    } else if (singleActiveType === 'THERAPY_PROGRESS') {
+      if (node.type === 'CONSULTATION' || node.type === 'THERAPY_PLAN') {
+        isDone = true;
+      }
+    } else if (singleActiveType === 'THERAPY_PLAN') {
+      if (node.type === 'CONSULTATION') {
+        isDone = true;
+      }
+    }
+
+    return {
+      isActive: isCurrentActive,
+      isDone: isDone && !isCurrentActive,
+    };
+  };
+
   return (
     <div className="space-y-6">
       {/* Top Banner Card */}
@@ -236,10 +277,7 @@ export default function TreatmentJourneyTimeline() {
         {/* Stepper Circles Row */}
         <div className={`hidden lg:grid ${gridColsClass} gap-4 relative z-10 mb-5`}>
           {nodes.map((node) => {
-            const isActive = node.isCurrentActive || node.status === 'ACTIVE';
-            const isPending = node.status === 'PENDING' || (node.therapyName && node.therapyName.toLowerCase().includes('pending'));
-            const isDone = !isPending && (node.status === 'COMPLETED' || node.status === 'PLANNED' || node.status === 'PRESCRIBED' || node.status === 'BOOKED');
-
+            const { isActive, isDone } = getNodeState(node);
             return (
               <div key={`stepper-${node.id}`} className="flex justify-center">
                 {isDone ? (
@@ -264,9 +302,7 @@ export default function TreatmentJourneyTimeline() {
         {/* Milestone Cards Grid */}
         <div className={`grid ${gridColsClass} gap-4`}>
           {nodes.map((node) => {
-            const isActive = node.isCurrentActive;
-            const isDone = node.status === 'COMPLETED' || node.status === 'PLANNED' || node.status === 'PRESCRIBED' || node.status === 'BOOKED';
-
+            const { isActive, isDone } = getNodeState(node);
             let cardBorder = 'border-gray-100 bg-white shadow-xs';
             if (isActive) {
               cardBorder = 'border-2 border-blue-500 bg-white shadow-md ring-2 ring-blue-400/20';
@@ -465,7 +501,7 @@ export default function TreatmentJourneyTimeline() {
                       </div>
                       <div className="flex items-center gap-2 pt-1">
                         <User size={14} className="text-gray-400 shrink-0" />
-                        <span className="font-semibold text-gray-800">Therapist: <strong>{node.assignedTherapist || 'Dr. Harini'}</strong></span>
+                        <span className="font-semibold text-gray-800">Therapist: <strong>{node.assignedTherapist || 'Attending Specialist'}</strong></span>
                       </div>
                     </div>
 
@@ -535,7 +571,6 @@ export default function TreatmentJourneyTimeline() {
           })}
         </div>
       </div>
-
     </div>
   );
 }

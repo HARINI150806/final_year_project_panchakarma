@@ -52,6 +52,7 @@ public class RecoverySummaryDto {
         private Integer energyLevel;
         private Integer overallCondition;
         private Double currentRecoveryPercentage;
+        private Double predictedRecoveryPercentage;
         private String assessmentDate;
         private String remarks;
     }

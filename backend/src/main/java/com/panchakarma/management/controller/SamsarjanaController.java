@@ -37,7 +37,7 @@ public class SamsarjanaController {
         String patientName = payload.getOrDefault("patientName", "Patient").toString();
         String therapyName = payload.getOrDefault("therapyName", "Panchakarma Therapy").toString();
         Integer totalDays = payload.get("totalDays") != null ? Integer.parseInt(payload.get("totalDays").toString()) : 5;
-        String doctorName = payload.getOrDefault("assignedByDoctorName", "Dr. Vaidya").toString();
+        String doctorName = payload.getOrDefault("assignedByDoctorName", "Attending Practitioner").toString();
 
         // Deactivate previous active plans if any
         samsarjanaRepository.findFirstByPatientIdAndStatus(patientId, "ACTIVE").ifPresent(plan -> {

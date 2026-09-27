@@ -40,12 +40,7 @@ public class PrescriptionController {
 
         List<Prescription> prescriptions = prescriptionRepository.findByPatientIdOrderByCreatedAtDesc(user.getId());
 
-        // Filter out legacy dummy test prescriptions
-        List<Prescription> realPrescriptions = prescriptions.stream()
-                .filter(p -> p.getDoctorName() == null || !p.getDoctorName().contains("Dr. Meena"))
-                .toList();
-
-        return ResponseEntity.ok(realPrescriptions);
+        return ResponseEntity.ok(prescriptions);
     }
 
     @GetMapping({"/patient/prescriptions/{id}", "/prescriptions/{id}"})

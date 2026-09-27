@@ -881,7 +881,7 @@ function BookingDetails({
   const bookingId = booking.id || booking.bookingId;
   const guidelinesInfo = getGuidelines(booking.notes || booking.therapyName || booking.purpose);
   const isGuidelinesOpen = Boolean(openGuidelines[bookingId]);
-  const therapistName = booking.assignedTo?.fullName || booking.therapistName || 'Rini';
+  const therapistName = booking.assignedTo?.fullName || booking.therapistName || 'Attending Specialist';
   const isModifiable =
     (effectiveStatus === 'CONFIRMED' || effectiveStatus === 'PENDING') && canModifyBooking(booking.date, booking.time);
 

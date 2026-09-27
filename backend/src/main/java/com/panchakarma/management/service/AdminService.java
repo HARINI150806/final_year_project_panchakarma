@@ -117,7 +117,21 @@ public class AdminService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found with id: " + userId));
 
-        // 0. Automatically discover and clear ALL foreign keys pointing to users(id) in PostgreSQL
+        // 0a. Explicitly delete ALL notifications referencing user_id natively & via repository
+        try {
+            entityManager.createNativeQuery("DELETE FROM notifications WHERE user_id = ?1")
+                    .setParameter(1, userId)
+                    .executeUpdate();
+        } catch (Exception ignored) {}
+
+        try {
+            if (notificationRepository != null) {
+                notificationRepository.deleteByUser_Id(userId);
+                notificationRepository.flush();
+            }
+        } catch (Exception ignored) {}
+
+        // 0b. Automatically discover and clear ALL foreign keys pointing to users(id) in PostgreSQL
         cleanupAllForeignKeysReferencingUser(userId);
 
         // 1. Delete password reset & email verification tokens
@@ -149,11 +163,13 @@ public class AdminService {
         followUpRepository.flush();
 
         // 3. Delete notifications
-        List<com.panchakarma.management.model.Notification> notifications = notificationRepository.findByUserOrderByCreatedAtDesc(user);
-        if (!notifications.isEmpty()) {
-            notificationRepository.deleteAll(notifications);
-            notificationRepository.flush();
-        }
+        try {
+            List<com.panchakarma.management.model.Notification> notifications = notificationRepository.findByUserOrderByCreatedAtDesc(user);
+            if (!notifications.isEmpty()) {
+                notificationRepository.deleteAll(notifications);
+                notificationRepository.flush();
+            }
+        } catch (Exception ignored) {}
 
         // 4. Role-specific deletion
         if (user.getRole() == UserRole.THERAPIST) {

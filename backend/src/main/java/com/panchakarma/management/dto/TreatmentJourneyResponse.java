@@ -34,6 +34,7 @@ public class TreatmentJourneyResponse {
         private String displayTitle; // e.g. "Knee Pain — Abhyanga (10 Aug 2026)"
         private String chiefComplaint;
         private String therapyName;
+        private Long treatmentPlanId;
         private boolean hasFollowup;
         private boolean isCurrentCycle;
         private List<TreatmentJourneyNodeDto> nodes;

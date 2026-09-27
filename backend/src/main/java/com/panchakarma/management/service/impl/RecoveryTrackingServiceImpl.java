@@ -119,6 +119,9 @@ public class RecoveryTrackingServiceImpl implements RecoveryTrackingService {
         tracking.setClinicalObservation(request.getClinicalObservation());
         tracking.setTherapistRemarks(request.getTherapistRemarks());
         tracking.setCurrentRecoveryPercentage(currentRecoveryPct);
+        if (request.getPredictedRecoveryPercentage() != null && request.getPredictedRecoveryPercentage() > 0) {
+            tracking.setPredictedRecoveryPercentage(request.getPredictedRecoveryPercentage());
+        }
         tracking.setAssessmentDate(LocalDateTime.now());
 
         trackingRepository.save(tracking);
@@ -227,6 +230,14 @@ public class RecoveryTrackingServiceImpl implements RecoveryTrackingService {
             prediction.setPredictionDate(LocalDateTime.now());
 
             predictionRepository.save(prediction);
+
+            if (currentTracking != null) {
+                Double targetVal = (currentTracking.getPredictedRecoveryPercentage() != null && currentTracking.getPredictedRecoveryPercentage() > 0)
+                        ? currentTracking.getPredictedRecoveryPercentage()
+                        : predictedVal;
+                currentTracking.setPredictedRecoveryPercentage(targetVal);
+                trackingRepository.save(currentTracking);
+            }
         } catch (Exception e) {
             log.error("Error generating XGBoost recovery prediction: {}", e.getMessage(), e);
         }
@@ -239,20 +250,8 @@ public class RecoveryTrackingServiceImpl implements RecoveryTrackingService {
         if (plan == null) return null;
 
         List<RecoveryTracking> records = new ArrayList<>(trackingRepository.findByTreatmentPlanIdOrderBySessionNumberAsc(therapyPlanId));
-        if (plan.getPatient() != null) {
-            List<RecoveryTracking> patientRecords = trackingRepository.findByPatientIdOrderByAssessmentDateDesc(plan.getPatient().getId());
-            for (RecoveryTracking pr : patientRecords) {
-                if (records.stream().noneMatch(r -> r.getSessionNumber() != null && r.getSessionNumber().equals(pr.getSessionNumber()))) {
-                    records.add(pr);
-                }
-            }
-            records.sort(Comparator.comparing(RecoveryTracking::getSessionNumber, Comparator.nullsFirst(Comparator.naturalOrder())));
-        }
 
         Optional<RecoveryPrediction> predOpt = predictionRepository.findFirstByTreatmentPlanIdOrderByPredictionDateDesc(therapyPlanId);
-        if (predOpt.isEmpty() && plan.getPatient() != null) {
-            predOpt = predictionRepository.findByPatientIdOrderByPredictionDateDesc(plan.getPatient().getId()).stream().findFirst();
-        }
 
         RecoveryTracking baseline = records.stream()
                 .filter(r -> r.getSessionNumber() == 0)
@@ -262,25 +261,55 @@ public class RecoveryTrackingServiceImpl implements RecoveryTrackingService {
         RecoveryTracking latest = records.stream()
                 .filter(r -> r.getSessionNumber() > 0)
                 .reduce((first, second) -> second)
-                .orElse(baseline);
+                .orElse(null);
 
         int totalSess = plan.getTotalSessions() != null ? plan.getTotalSessions() : 7;
         int completedSess = (int) records.stream().filter(r -> r.getSessionNumber() > 0).count();
 
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd MMM yyyy, hh:mm a");
+        Double predictedFinalVal = predOpt.isPresent() && predOpt.get().getPredictedRecovery() != null ? predOpt.get().getPredictedRecovery() : 73.7;
 
-        List<RecoverySummaryDto.SessionAssessmentDto> history = records.stream()
-                .map(r -> RecoverySummaryDto.SessionAssessmentDto.builder()
-                        .sessionNumber(r.getSessionNumber())
-                        .painLevel(r.getPainLevel())
-                        .sleepQuality(r.getSleepQuality())
-                        .energyLevel(r.getEnergyLevel())
-                        .overallCondition(r.getOverallCondition())
-                        .currentRecoveryPercentage(r.getCurrentRecoveryPercentage())
-                        .assessmentDate(r.getAssessmentDate() != null ? r.getAssessmentDate().format(fmt) : null)
-                        .remarks(r.getTherapistRemarks())
-                        .build())
-                .collect(Collectors.toList());
+        Map<Integer, RecoveryTracking> trackingBySession = records.stream()
+                .filter(r -> r.getSessionNumber() != null)
+                .collect(Collectors.toMap(RecoveryTracking::getSessionNumber, r -> r, (e1, e2) -> e2));
+
+        List<RecoverySummaryDto.SessionAssessmentDto> history = new ArrayList<>();
+
+        RecoveryTracking baselineRec = trackingBySession.get(0);
+        history.add(RecoverySummaryDto.SessionAssessmentDto.builder()
+                .sessionNumber(0)
+                .painLevel(baselineRec != null ? baselineRec.getPainLevel() : (baseline != null ? baseline.getPainLevel() : 8))
+                .sleepQuality(baselineRec != null ? baselineRec.getSleepQuality() : (baseline != null ? baseline.getSleepQuality() : 3))
+                .energyLevel(baselineRec != null ? baselineRec.getEnergyLevel() : (baseline != null ? baseline.getEnergyLevel() : 4))
+                .overallCondition(baselineRec != null ? baselineRec.getOverallCondition() : (baseline != null ? baseline.getOverallCondition() : 5))
+                .currentRecoveryPercentage(baselineRec != null && baselineRec.getCurrentRecoveryPercentage() != null ? baselineRec.getCurrentRecoveryPercentage() : 0.0)
+                .predictedRecoveryPercentage(0.0)
+                .assessmentDate(baselineRec != null && baselineRec.getAssessmentDate() != null ? baselineRec.getAssessmentDate().format(fmt) : null)
+                .remarks(baselineRec != null && baselineRec.getTherapistRemarks() != null ? baselineRec.getTherapistRemarks() : "Initial baseline assessment")
+                .build());
+
+        for (int s = 1; s <= totalSess; s++) {
+            RecoveryTracking r = trackingBySession.get(s);
+            Double sessionTarget = Math.round(((double) s / (double) totalSess) * predictedFinalVal * 10.0) / 10.0;
+            if (r != null) {
+                r.setPredictedRecoveryPercentage(sessionTarget);
+                try {
+                    trackingRepository.save(r);
+                } catch (Exception ignored) {}
+            }
+
+            history.add(RecoverySummaryDto.SessionAssessmentDto.builder()
+                    .sessionNumber(s)
+                    .painLevel(r != null ? r.getPainLevel() : null)
+                    .sleepQuality(r != null ? r.getSleepQuality() : null)
+                    .energyLevel(r != null ? r.getEnergyLevel() : null)
+                    .overallCondition(r != null ? r.getOverallCondition() : null)
+                    .currentRecoveryPercentage(r != null ? r.getCurrentRecoveryPercentage() : null)
+                    .predictedRecoveryPercentage(sessionTarget)
+                    .assessmentDate(r != null && r.getAssessmentDate() != null ? r.getAssessmentDate().format(fmt) : null)
+                    .remarks(r != null && r.getTherapistRemarks() != null ? r.getTherapistRemarks() : (r != null ? "Clinical Assessment completed." : "Scheduled session"))
+                    .build());
+        }
 
         return RecoverySummaryDto.builder()
                 .therapyPlanId(plan.getId())
@@ -291,14 +320,14 @@ public class RecoveryTrackingServiceImpl implements RecoveryTrackingService {
                 .baselineSleep(baseline != null ? baseline.getSleepQuality() : 3)
                 .baselineEnergy(baseline != null ? baseline.getEnergyLevel() : 4)
                 .baselineOverall(baseline != null ? baseline.getOverallCondition() : 5)
-                .currentPain(latest != null ? latest.getPainLevel() : 8)
-                .currentSleep(latest != null ? latest.getSleepQuality() : 3)
-                .currentEnergy(latest != null ? latest.getEnergyLevel() : 4)
-                .currentOverall(latest != null ? latest.getOverallCondition() : 5)
+                .currentPain(latest != null ? latest.getPainLevel() : (baseline != null ? baseline.getPainLevel() : 8))
+                .currentSleep(latest != null ? latest.getSleepQuality() : (baseline != null ? baseline.getSleepQuality() : 3))
+                .currentEnergy(latest != null ? latest.getEnergyLevel() : (baseline != null ? baseline.getEnergyLevel() : 4))
+                .currentOverall(latest != null ? latest.getOverallCondition() : (baseline != null ? baseline.getOverallCondition() : 5))
                 .currentRecoveryPercentage(latest != null && latest.getCurrentRecoveryPercentage() != null ? latest.getCurrentRecoveryPercentage() : 0.0)
-                .predictedFinalRecovery(predOpt.isPresent() && predOpt.get().getPredictedRecovery() != null ? predOpt.get().getPredictedRecovery() : 75.0)
+                .predictedFinalRecovery(predOpt.isPresent() && predOpt.get().getPredictedRecovery() != null ? predOpt.get().getPredictedRecovery() : 0.0)
                 .modelVersion(predOpt.map(RecoveryPrediction::getModelVersion).orElse("XGBoost-v1.0"))
-                .status(predOpt.map(RecoveryPrediction::getStatus).orElse("Improving"))
+                .status(predOpt.map(RecoveryPrediction::getStatus).orElse(completedSess > 0 ? "Improving" : "Pending"))
                 .therapistRemarks(latest != null ? latest.getTherapistRemarks() : null)
                 .clinicalObservation(latest != null ? latest.getClinicalObservation() : null)
                 .sessionHistory(history)

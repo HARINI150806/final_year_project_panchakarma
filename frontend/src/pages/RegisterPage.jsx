@@ -51,9 +51,6 @@ export default function RegisterPage({ onRegister }) {
     try {
       const response = await api.post('/auth/send-verification', { email: formData.email });
       setOtpSent(true);
-      if (response.data?.code) {
-        setFormData((prev) => ({ ...prev, otpCode: response.data.code }));
-      }
       setToast({
         type: 'success',
         message: response.data.message || 'Verification code sent to your email!'

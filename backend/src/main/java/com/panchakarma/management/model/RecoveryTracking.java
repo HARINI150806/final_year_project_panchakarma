@@ -53,6 +53,9 @@ public class RecoveryTracking {
     @Column(name = "current_recovery_percentage")
     private Double currentRecoveryPercentage;
 
+    @Column(name = "predicted_recovery_percentage")
+    private Double predictedRecoveryPercentage;
+
     @Column(name = "assessment_date", nullable = false)
     private LocalDateTime assessmentDate;
 

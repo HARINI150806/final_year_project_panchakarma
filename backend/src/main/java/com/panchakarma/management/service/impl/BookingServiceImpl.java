@@ -100,11 +100,31 @@ public class BookingServiceImpl implements BookingService {
 
             int totalSessions = (bookingRequest.getTotalSessions() != null && bookingRequest.getTotalSessions() > 1) 
                     ? bookingRequest.getTotalSessions() : 1;
+            String freqToUse = bookingRequest.getFrequency();
+
+            if (bookingRequest.getBookingType() == BookingType.THERAPY) {
+                List<TreatmentPlan> plannedPlans = treatmentPlanRepository.findByPatient_IdOrderByIdDesc(patient.getId()).stream()
+                        .filter(p -> "PLANNED".equalsIgnoreCase(p.getStatus()))
+                        .collect(Collectors.toList());
+
+                if (!plannedPlans.isEmpty()) {
+                    TreatmentPlan plan = plannedPlans.get(0);
+                    if (bookingRequest.getTotalSessions() == null || bookingRequest.getTotalSessions() <= 1) {
+                        totalSessions = plan.getTotalSessions() != null ? plan.getTotalSessions() : 1;
+                    }
+                    if (freqToUse == null || freqToUse.isBlank()) {
+                        freqToUse = plan.getFrequency() != null ? plan.getFrequency() : "2";
+                    }
+                    plan.setStatus("SCHEDULED");
+                    treatmentPlanRepository.save(plan);
+                }
+            }
+
             String packageId = totalSessions > 1 ? "PKG-" + System.currentTimeMillis() + "-" + (int)(Math.random() * 1000) : bookingRequest.getPackageId();
 
             Booking firstSavedBooking = null;
 
-            int dayGap = getDayGapForFrequency(bookingRequest.getFrequency());
+            int dayGap = getDayGapForFrequency(freqToUse);
 
             for (int sessionIdx = 1; sessionIdx <= totalSessions; sessionIdx++) {
                 int dayOffset = (sessionIdx - 1) * dayGap;
@@ -382,10 +402,40 @@ public class BookingServiceImpl implements BookingService {
         Booking booking = bookingRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Booking not found with id: " + id));
         Long therapistId = booking.getAssignedTo() != null ? booking.getAssignedTo().getId() : null;
-        String dateStr = booking.getDate().toString();
+        String dateStr = booking.getDate() != null ? booking.getDate().toString() : "";
+
+        // Delete associated treatment plans if this is a consultation booking or if plan references it
+        if (booking.getPatient() != null) {
+            List<TreatmentPlan> plans = treatmentPlanRepository.findByPatient_Id(booking.getPatient().getId());
+            for (TreatmentPlan plan : plans) {
+                if (java.util.Objects.equals(plan.getConsultationBookingId(), booking.getBookingId()) ||
+                    (booking.getBookingType() == BookingType.CONSULTATION && "PLANNED".equalsIgnoreCase(plan.getStatus()))) {
+                    try {
+                        treatmentPlanRepository.delete(plan);
+                    } catch (Exception ignored) {}
+                }
+            }
+        }
+
+        // If part of a multi-session package, delete all session bookings in that package
+        if (booking.getPackageId() != null && !booking.getPackageId().isBlank() && booking.getPatient() != null) {
+            try {
+                List<Booking> packageBookings = bookingRepository.findByPatient_Id(booking.getPatient().getId()).stream()
+                        .filter(b -> booking.getPackageId().equals(b.getPackageId()))
+                        .collect(Collectors.toList());
+                for (Booking pkgB : packageBookings) {
+                    if (!pkgB.getBookingId().equals(id)) {
+                        bookingRepository.delete(pkgB);
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+
         bookingRepository.delete(booking);
         
-        bookingWebSocketHandler.broadcastBookingUpdate(therapistId, dateStr);
+        if (therapistId != null && !dateStr.isEmpty()) {
+            bookingWebSocketHandler.broadcastBookingUpdate(therapistId, dateStr);
+        }
     }
 
     private BookingResponse mapToBookingResponse(Booking booking) {
@@ -890,6 +940,20 @@ public class BookingServiceImpl implements BookingService {
         // Clear all reschedule & alt slot fields
         clearRescheduleFields(booking);
         
+        // Also cancel associated treatment plan if this was a consultation booking
+        if (booking.getPatient() != null) {
+            try {
+                List<TreatmentPlan> plans = treatmentPlanRepository.findByPatient_Id(booking.getPatient().getId());
+                for (TreatmentPlan plan : plans) {
+                    if (java.util.Objects.equals(plan.getConsultationBookingId(), booking.getBookingId()) ||
+                        (booking.getBookingType() == BookingType.CONSULTATION && "PLANNED".equalsIgnoreCase(plan.getStatus()))) {
+                        plan.setStatus("CANCELLED");
+                        treatmentPlanRepository.save(plan);
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+
         Booking saved = bookingRepository.save(booking);
         
         // Create in-app notifications for Patient & Therapist
@@ -996,9 +1060,18 @@ public class BookingServiceImpl implements BookingService {
 
     private int getDayGapForFrequency(String frequency) {
         if (frequency == null) return 2;
-        switch (frequency.toUpperCase()) {
+        try {
+            String numbersOnly = frequency.replaceAll("[^0-9]", "");
+            if (!numbersOnly.isEmpty()) {
+                int gap = Integer.parseInt(numbersOnly);
+                if (gap >= 0) return gap;
+            }
+        } catch (Exception ignored) {}
+
+        switch (frequency.toUpperCase().trim()) {
             case "SINGLE_SESSION": return 0;
-            case "ONCE_DAILY": return 1;
+            case "ONCE_DAILY":
+            case "DAILY": return 1;
             case "ALTERNATE_DAYS": return 2;
             case "EVERY_3_DAYS": return 3;
             case "WEEKLY": return 7;

@@ -28,6 +28,13 @@ public class DataInitializer {
                 // Ignore if constraint is absent
             }
 
+            // Drop non-cascading legacy foreign key on notifications table if present
+            try {
+                jdbcTemplate.execute("ALTER TABLE notifications DROP CONSTRAINT IF EXISTS fk9y21adhxn0ayjhfocscqox7bh;");
+            } catch (Exception e) {
+                // Ignore if constraint is absent
+            }
+
             // 1. Seed Admin User if missing
             if (!userRepository.existsByEmail("admin@panchakarma.com")) {
                 userRepository.save(buildUser(
@@ -39,29 +46,6 @@ public class DataInitializer {
                         UserRole.ADMIN));
             }
 
-            // 2. Seed Therapist User if missing
-            if (!userRepository.existsByEmail("therapist@panchakarma.com")) {
-                User therapist = buildUser(
-                        "Lead Therapist",
-                        "therapist@panchakarma.com",
-                        "9876543211",
-                        "Female",
-                        32,
-                        UserRole.THERAPIST);
-                therapist.setSeniorTherapist(true);
-                userRepository.save(therapist);
-            }
-
-            // 3. Seed Patient User if missing
-            if (!userRepository.existsByEmail("patient@panchakarma.com")) {
-                userRepository.save(buildUser(
-                        "Panchakarma Patient",
-                        "patient@panchakarma.com",
-                        "9876543212",
-                        "Female",
-                        35,
-                        UserRole.PATIENT));
-            }
         };
     }
 

@@ -263,3 +263,175 @@ export async function generatePrescriptionPDF(booking) {
     document.body.removeChild(container);
   }
 }
+
+/**
+ * Generates an official Therapy & Treatment Journey Clinical Progress Report PDF.
+ */
+export async function generateTherapyReportPDF(data) {
+  const {
+    patientName = 'Valued Patient',
+    patientEmail = '',
+    therapyName = 'Panchakarma Therapy',
+    chiefComplaint = 'General Panchakarma Care',
+    therapistName = 'Attending Vaidya',
+    cycleName = 'Cycle 1',
+    completedSessions = 0,
+    totalSessions = 0,
+    progressPercent = 0,
+    currentRecovery = 'Pending',
+    targetRecovery = 'Pending',
+    dominantDosha = 'Prakriti Assessed',
+    status = 'In Progress',
+    date = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
+    sessionHistory = [],
+    nodes = []
+  } = data;
+
+  const container = document.createElement('div');
+  container.style.position = 'absolute';
+  container.style.left = '-9999px';
+  container.style.top = '-9999px';
+  container.style.width = '794px';
+  container.style.backgroundColor = '#ffffff';
+  container.style.fontFamily = 'serif, system-ui, sans-serif';
+  container.style.color = '#065f46';
+  container.style.padding = '40px';
+
+  const historyHtml = sessionHistory && sessionHistory.length > 0
+    ? sessionHistory.map(s => `
+      <tr style="border-bottom: 1px solid #e2e8f0; font-size: 11px;">
+        <td style="padding: 8px; font-weight: bold; color: #064e3b;">Session ${s.sessionNumber || 1}</td>
+        <td style="padding: 8px; color: #047857;">${s.currentRecoveryPercentage != null ? s.currentRecoveryPercentage + '%' : 'Completed'}</td>
+        <td style="padding: 8px; color: #475569;">Pain: ${s.painLevel ?? 'N/A'}/10 | Sleep: ${s.sleepQuality ?? 'N/A'}/10</td>
+        <td style="padding: 8px; color: #334155; font-style: italic;">"${s.remarks || 'Session completed successfully.'}"</td>
+      </tr>
+    `).join('')
+    : `<tr><td colspan="4" style="padding: 12px; font-size: 11px; color: #64748b; text-align: center;">Therapy session tracking active. Detailed session logs record as sessions complete.</td></tr>`;
+
+  const nodesHtml = nodes && nodes.length > 0
+    ? nodes.map(n => `
+      <div style="flex: 1; background: #f0fdf4; border: 1px solid #a7f3d0; border-radius: 8px; padding: 10px; text-align: center;">
+        <div style="font-size: 10px; font-weight: bold; text-transform: uppercase; color: #047857;">${n.title || n.type}</div>
+        <div style="font-size: 12px; font-weight: bold; color: #064e3b; margin-top: 2px;">${n.status || 'Active'}</div>
+        <div style="font-size: 9px; color: #059669; margin-top: 2px;">${n.date || ''}</div>
+      </div>
+    `).join('')
+    : '';
+
+  container.innerHTML = `
+    <div style="border: 2px solid #065f46; padding: 24px; border-radius: 12px; background: #fffdf9;">
+      <!-- Header -->
+      <div style="text-align: center; border-bottom: 2px double #d97706; padding-bottom: 16px; margin-bottom: 20px;">
+        <div style="font-size: 24px; font-weight: bold; color: #065f46; letter-spacing: 1px;">🌿 AYURVEDIC PANCHAKARMA CLINIC</div>
+        <div style="font-size: 13px; color: #b45309; margin-top: 4px; font-style: italic;">Official Therapy & Treatment Journey Progress Report</div>
+        <div style="font-size: 11px; color: #4b5563; margin-top: 2px;">Generated on ${date}</div>
+      </div>
+
+      <!-- Patient & Therapy Information -->
+      <div style="display: flex; justify-content: space-between; background: #f0fdf4; border: 1px solid #a7f3d0; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+        <div>
+          <div style="font-size: 11px; text-transform: uppercase; color: #047857; font-weight: bold;">Patient Details</div>
+          <div style="font-size: 16px; font-weight: bold; color: #064e3b; margin-top: 2px;">${patientName}</div>
+          <div style="font-size: 11px; color: #047857; margin-top: 2px;">${patientEmail}</div>
+          <div style="font-size: 11px; color: #d97706; font-weight: bold; margin-top: 4px;">Prakriti: ${dominantDosha}</div>
+        </div>
+        <div style="text-align: right;">
+          <div style="font-size: 11px; text-transform: uppercase; color: #047857; font-weight: bold;">Active Therapy</div>
+          <div style="font-size: 16px; font-weight: bold; color: #064e3b; margin-top: 2px;">${therapyName}</div>
+          <div style="font-size: 11px; color: #4b5563; margin-top: 2px;">Complaint: <strong>${chiefComplaint}</strong></div>
+          <div style="font-size: 11px; color: #047857; margin-top: 2px;">Therapist: <strong>${therapistName}</strong></div>
+        </div>
+      </div>
+
+      <!-- Key Clinical Metrics Banner -->
+      <div style="display: flex; gap: 12px; margin-bottom: 20px;">
+        <div style="flex: 1; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 12px; text-align: center;">
+          <div style="font-size: 10px; font-weight: bold; text-transform: uppercase; color: #047857;">Overall Journey Progress</div>
+          <div style="font-size: 20px; font-weight: bold; color: #065f46; margin-top: 2px;">${progressPercent}%</div>
+          <div style="font-size: 10px; color: #059669;">${status}</div>
+        </div>
+        <div style="flex: 1; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 12px; text-align: center;">
+          <div style="font-size: 10px; font-weight: bold; text-transform: uppercase; color: #166534;">Completed Sessions</div>
+          <div style="font-size: 20px; font-weight: bold; color: #15803d; margin-top: 2px;">${completedSessions} / ${totalSessions}</div>
+          <div style="font-size: 10px; color: #166534;">${therapyName}</div>
+        </div>
+        <div style="flex: 1; background: #fff7ed; border: 1px solid #fed7aa; border-radius: 8px; padding: 12px; text-align: center;">
+          <div style="font-size: 10px; font-weight: bold; text-transform: uppercase; color: #c2410c;">Current Recovery</div>
+          <div style="font-size: 20px; font-weight: bold; color: #ea580c; margin-top: 2px;">${currentRecovery}${typeof currentRecovery === 'number' ? '%' : ''}</div>
+          <div style="font-size: 10px; color: #9a3412;">Measured Index</div>
+        </div>
+        <div style="flex: 1; background: #fefce8; border: 1px solid #fef08a; border-radius: 8px; padding: 12px; text-align: center;">
+          <div style="font-size: 10px; font-weight: bold; text-transform: uppercase; color: #854d0e;">Target Recovery Goal</div>
+          <div style="font-size: 20px; font-weight: bold; color: #ca8a04; margin-top: 2px;">${targetRecovery}${typeof targetRecovery === 'number' ? '%' : ''}</div>
+          <div style="font-size: 10px; color: #713f12;">Clinical Benchmark</div>
+        </div>
+      </div>
+
+      <!-- Treatment Journey Nodes Summary -->
+      ${nodesHtml ? `
+        <div style="margin-bottom: 20px;">
+          <div style="font-size: 12px; font-weight: bold; color: #065f46; margin-bottom: 8px;">📍 TREATMENT JOURNEY STAGE MILESTONES</div>
+          <div style="display: flex; gap: 8px;">
+            ${nodesHtml}
+          </div>
+        </div>
+      ` : ''}
+
+      <!-- Session Evaluation History -->
+      <div style="margin-bottom: 20px;">
+        <div style="font-size: 12px; font-weight: bold; color: #065f46; margin-bottom: 8px;">📋 SESSION LOGS & CLINICAL EVALUATIONS</div>
+        <table style="width: 100%; border-collapse: collapse; border: 1px solid #e2e8f0; background: #ffffff;">
+          <thead>
+            <tr style="background: #f8fafc; border-bottom: 1px solid #cbd5e1; font-size: 10px; color: #475569; text-align: left;">
+              <th style="padding: 8px;">SESSION</th>
+              <th style="padding: 8px;">RECOVERY %</th>
+              <th style="padding: 8px;">PATIENT VITALS</th>
+              <th style="padding: 8px;">THERAPIST REMARKS</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${historyHtml}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Post-Treatment & Dietary Pathya -->
+      <div style="background: #f0fdf4; border: 1px solid #86efac; padding: 12px; border-radius: 8px; margin-bottom: 20px; font-size: 11px;">
+        <div style="font-weight: bold; color: #166534; margin-bottom: 4px;">🌿 PRE & POST THERAPY AYURVEDIC PATHYA</div>
+        <p style="margin: 0; color: #14532d; line-height: 1.5;">
+          Maintain light Samsarjana Krama warm meals (Kichadi/Soup). Drink warm cumin water throughout therapy days and avoid heavy, fried, or cold foods.
+        </p>
+      </div>
+
+      <!-- Footer Signature -->
+      <div style="display: flex; justify-content: space-between; align-items: flex-end; border-top: 1px dashed #cbd5e1; padding-top: 16px; font-size: 11px; color: #475569;">
+        <div>
+          <p style="margin: 0; font-weight: bold; color: #065f46;">Certified Panchakarma Department</p>
+          <p style="margin: 2px 0; font-size: 10px;">Official Patient Health Record</p>
+        </div>
+        <div style="text-align: center;">
+          <div style="font-family: 'Brush Script MT', cursive, sans-serif; font-size: 18px; color: #065f46;">${therapistName}</div>
+          <div style="border-top: 1px solid #475569; width: 140px; margin-top: 4px;"></div>
+          <p style="margin: 2px 0; font-size: 10px;">Attending Vaidya Signature</p>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(container);
+
+  try {
+    const canvas = await html2canvas(container, { scale: 2, useCORS: true });
+    const imgData = canvas.toDataURL('image/png');
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const imgWidth = 210;
+    const pageHeight = 297;
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+    pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, Math.min(imgHeight, pageHeight));
+    pdf.save(`${patientName.replace(/\s+/g, '_')}_Therapy_Report.pdf`);
+  } finally {
+    document.body.removeChild(container);
+  }
+}
+

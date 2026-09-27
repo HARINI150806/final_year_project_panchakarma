@@ -101,20 +101,13 @@ function TherapistDashboard({ activeTab, onTabChange, auth, sidebarOffset = 0 })
     });
 
     const markSessionAsPredicted = (booking) => {
-        const ids = [
-            booking?.bookingId,
-            booking?.id,
-            booking?.consultationBookingId,
-            booking?.treatmentPlanId,
-            booking?.planId,
-            booking?.patientId
-        ].filter(Boolean).map(String);
-
-        if (ids.length === 0) return;
+        const bId = booking?.bookingId || booking?.id;
+        if (!bId) return;
+        const idStr = String(bId);
 
         setPredictedSessionIds((prev) => {
             const updated = new Set(prev);
-            ids.forEach((id) => updated.add(id));
+            updated.add(idStr);
             const arr = Array.from(updated);
             try {
                 localStorage.setItem('panchakarma-predicted-sessions', JSON.stringify(arr));
@@ -728,7 +721,14 @@ function TherapistDashboard({ activeTab, onTabChange, auth, sidebarOffset = 0 })
             return false;
         }
         if (specificTreatmentFilter !== 'ALL') {
-            if (info.title !== specificTreatmentFilter && !tName.includes(specificTreatmentFilter.toLowerCase())) {
+            const matchFilter = (targetStr) => {
+                if (!targetStr) return false;
+                const filterNorm = specificTreatmentFilter.toLowerCase().replace(/[^a-z]/g, '');
+                const targetNorm = targetStr.toLowerCase().replace(/[^a-z]/g, '');
+                return targetNorm.includes(filterNorm) || filterNorm.includes(targetNorm);
+            };
+            const isMatch = matchFilter(info.title) || matchFilter(b.therapyName);
+            if (!isMatch) {
                 return false;
             }
         }

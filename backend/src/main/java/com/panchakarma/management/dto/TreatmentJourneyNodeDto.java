@@ -14,6 +14,7 @@ public class TreatmentJourneyNodeDto {
     private String type; // CONSULTATION, THERAPY_PLAN, THERAPY_PROGRESS, FOLLOWUP, RECOVERY
     private String title;
     private String description;
+    private Long treatmentPlanId;
     private String date;
     private String time;
     private String status; // COMPLETED, ACTIVE, PENDING, CANCELLED

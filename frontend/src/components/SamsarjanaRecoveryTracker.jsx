@@ -261,7 +261,7 @@ export default function SamsarjanaRecoveryTracker({ patientId, patientName }) {
         patientName: patientName || 'Patient',
         therapyName: 'Virechana Purgation Detox',
         totalDays: 5,
-        assignedByDoctorName: 'Dr. Vaidya (Senior Consultant)'
+        assignedByDoctorName: 'Attending Practitioner'
       });
       setPlan(res.data);
       setSelectedDayTab(res.data.currentDay);

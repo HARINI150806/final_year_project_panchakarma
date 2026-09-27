@@ -15,13 +15,13 @@ const selectCls = inputCls + ' appearance-none';
 
 // ─── Static data ───────────────────────────────────────────────
 const THERAPY_TYPES = [
-  { value: 'Abhyanga (Oil Massage)', label: 'Abhyanga — Warm Oil Massage (Vata • Joint Stiffness, Pain & Fatigue)' },
-  { value: 'Shirodhara (Oil Pouring)', label: 'Shirodhara — Warm Oil Pouring (Vata-Pitta • Stress, Insomnia & Anxiety)' },
-  { value: 'Virechana (Purgation)', label: 'Virechana — Purgation Detox (Pitta • Acidity, Skin Conditions & Liver)' },
-  { value: 'Basti (Enema Therapy)', label: 'Basti — Herbal Enema Therapy (Vata • Back Pain, Sciatica & Bloating)' },
-  { value: 'Nasya (Nasal Therapy)', label: 'Nasya — Nasal Administration (Kapha-Vata • Sinus, Headaches & Migraine)' },
-  { value: 'Udvartana (Powder Massage)', label: 'Udvartana — Herbal Powder Massage (Kapha • Weight & Lymphatic Flow)' },
-  { value: 'Vamana (Emesis Therapy)', label: 'Vamana — Therapeutic Emesis (Kapha • Asthma, Allergies & Heavy Mucus)' },
+  { value: 'Abhyanga', label: 'Abhyanga' },
+  { value: 'Shirodhara', label: 'Shirodhara' },
+  { value: 'Virechana', label: 'Virechana' },
+  { value: 'Basti', label: 'Basti' },
+  { value: 'Nasya', label: 'Nasya' },
+  { value: 'Udvartana', label: 'Udvartana' },
+  { value: 'Vamana', label: 'Vamana' },
 ];
 
 function matchTherapyType(inputName) {
@@ -35,14 +35,17 @@ function matchTherapyType(inputName) {
 }
 
 const CONSULTATION_REASONS = [
-  'Initial Dosha assessment',
-  'Treatment follow-up',
-  'Chronic pain / joint issues',
-  'Digestive problems',
-  'Stress & anxiety',
-  'Skin conditions',
-  'Weight management',
-  'General wellness checkup',
+  'Initial Prakriti (Dosha) Assessment & Consultation',
+  'Panchakarma Detox & Therapy Follow-up',
+  'Amadosha & Agni Imbalance (Digestive & Metabolic Care)',
+  'Sandhigata Vata & Joint Care (Arthritis, Back & Neck Pain)',
+  'Manovaha Srotas Care (Stress, Anxiety & Insomnia)',
+  'Twak Roga & Skin Wellness (Psoriasis, Eczema, Allergies)',
+  'Sthoulya & Medoroga (Weight & Obesity Management)',
+  'Rasayana & Swasthya Vritta (Rejuvenation & Preventive Wellness)',
+  'Kasa & Swasa Care (Respiratory Health & Allergies)',
+  'Stri Roga & Hormonal Balance (Women\'s Health & PCOS)',
+  'Post-Panchakarma Samsarjana Krama Diet Follow-up',
 ];
 
 // ─── Success state ─────────────────────────────────────────────
@@ -170,8 +173,8 @@ function SuccessCard({ type, booking, onNew, onDashboard }) {
                     {type === 'consultation'
                       ? 'Offline (In-Clinic)'
                       : (booking.notes
-                          ? booking.notes.replace(/^CONSULTATION\s*[—–-]?\s*/i, 'Therapy — ')
-                          : 'Therapy Session')}
+                        ? booking.notes.replace(/^CONSULTATION\s*[—–-]?\s*/i, 'Therapy — ')
+                        : 'Therapy Session')}
                   </p>
                 </div>
                 {type === 'consultation' && (
@@ -276,9 +279,25 @@ function ConsultationForm({ onSuccess }) {
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [refetchTrigger, setRefetchTrigger] = useState(0);
 
-  // Medical Document Upload state
-  const [selectedFile, setSelectedFile] = useState(null);
+  // Medical Document Upload state (multiple files support)
+  const [selectedFiles, setSelectedFiles] = useState([]);
   const [documentType, setDocumentType] = useState('Lab Report');
+
+  const handleMultipleFilesSelect = (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    const newItems = files.map((file) => ({
+      id: Math.random().toString(36).substring(2, 9),
+      file,
+      category: documentType,
+    }));
+    setSelectedFiles((prev) => [...prev, ...newItems]);
+    e.target.value = null;
+  };
+
+  const removeSelectedFile = (idToRemove) => {
+    setSelectedFiles((prev) => prev.filter((item) => item.id !== idToRemove));
+  };
 
   // Interactive Payment Modal State
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
@@ -388,25 +407,31 @@ function ConsultationForm({ onSuccess }) {
       const inAppNotifEnabled = notifPrefs.inAppNotif !== false;
       const emailNotifEnabled = notifPrefs.emailNotif !== false;
 
-      // 0. Upload Medical Document to patient profile if file selected
-      let uploadedDocInfo = null;
-      if (selectedFile) {
-        try {
-          const docFormData = new FormData();
-          docFormData.append('file', selectedFile);
-          docFormData.append('documentType', documentType);
-          const uploadRes = await api.post('/medical-documents/upload', docFormData, {
-            headers: { 'Content-Type': 'multipart/form-data' },
-          });
-          uploadedDocInfo = uploadRes?.data;
-        } catch (uploadErr) {
-          console.warn('Medical document upload warning:', uploadErr);
+      // 0. Upload Medical Documents to patient profile if files selected
+      const uploadedDocsInfo = [];
+      if (selectedFiles.length > 0) {
+        for (const item of selectedFiles) {
+          try {
+            const docFormData = new FormData();
+            docFormData.append('file', item.file);
+            docFormData.append('documentType', item.category);
+            const uploadRes = await api.post('/medical-documents/upload', docFormData, {
+              headers: { 'Content-Type': 'multipart/form-data' },
+            });
+            if (uploadRes?.data) {
+              uploadedDocsInfo.push(uploadRes.data);
+            }
+          } catch (uploadErr) {
+            console.warn(`Medical document upload warning for ${item.file.name}:`, uploadErr);
+          }
         }
       }
 
-      const appendedNotes = form.notes + (uploadedDocInfo || selectedFile
-        ? ` [Attached Medical Record: ${uploadedDocInfo?.documentName || selectedFile?.name} (${documentType})]`
-        : '');
+      const docNotesSummary = uploadedDocsInfo.length > 0
+        ? ` [Attached ${uploadedDocsInfo.length} Medical Record(s): ${uploadedDocsInfo.map(d => `${d.documentName || 'Document'} (${d.documentType || 'Medical Record'})`).join(', ')}]`
+        : (selectedFiles.length > 0 ? ` [Attached ${selectedFiles.length} Medical Record(s)]` : '');
+
+      const appendedNotes = form.notes + docNotesSummary;
 
       // 1. Create Order for ₹500
       const orderRes = await api.post('/payments/create-order', {
@@ -464,7 +489,7 @@ function ConsultationForm({ onSuccess }) {
         order_id: orderData.orderId,
         prefill: {
           name: auth?.fullName || auth?.username || 'Patient',
-          email: auth?.email || 'patient@panchakarma.com',
+          email: auth?.email || '',
           contact: auth?.phone || '9876543210',
         },
         theme: { color: '#355c39' },
@@ -525,279 +550,280 @@ function ConsultationForm({ onSuccess }) {
   return (
     <>
       <form onSubmit={handleSubmit} className="space-y-5">
-      {/* Consultation Fee Card Notice */}
-      <div className="rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-amber-50/50 p-4 shadow-sm flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-forest text-white text-lg font-bold">
-            💳
-          </div>
-          <div>
-            <p className="font-bold text-forest text-sm">Consultation Fee: ₹500</p>
-            <p className="text-xs text-forest/65">Secure Online Payment</p>
-          </div>
-        </div>
-        <span className="rounded-full bg-emerald-100 px-3 py-1 text-[10px] font-extrabold text-emerald-900 uppercase tracking-wider border border-emerald-200">
-          Required Before Booking
-        </span>
-      </div>
-
-      {/* Consultation Category Option */}
-      <div>
-        <label className={labelCls}>Consultation Intention <span className="text-rose-400">*</span></label>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <label
-            className={`flex flex-col gap-1.5 rounded-2xl border-2 p-3.5 cursor-pointer transition ${
-              form.consultationCategory === 'NORMAL'
-                ? 'border-forest bg-forest/5 shadow-xs'
-                : 'border-sand/60 bg-white/70 hover:bg-white'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <input
-                type="radio"
-                name="consultationCategory"
-                value="NORMAL"
-                checked={form.consultationCategory === 'NORMAL'}
-                onChange={(e) => setForm({ ...form, consultationCategory: e.target.value })}
-                className="w-4 h-4 text-forest"
-              />
-              <span className="text-sm font-bold text-forest">🩺 Normal Consultation</span>
-            </div>
-            <p className="text-[11px] text-forest/65 pl-6 leading-relaxed">
-              Standard health, Agni checkup & general doctor evaluation. Therapist completes with session notes.
-            </p>
-          </label>
-
-          <label
-            className={`flex flex-col gap-1.5 rounded-2xl border-2 p-3.5 cursor-pointer transition ${
-              form.consultationCategory === 'THERAPY_RECOMMENDATION'
-                ? 'border-[#355c39] bg-[#e6efdf]/50 shadow-xs'
-                : 'border-sand/60 bg-white/70 hover:bg-white'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <input
-                type="radio"
-                name="consultationCategory"
-                value="THERAPY_RECOMMENDATION"
-                checked={form.consultationCategory === 'THERAPY_RECOMMENDATION'}
-                onChange={(e) => setForm({ ...form, consultationCategory: e.target.value })}
-                className="w-4 h-4 text-forest"
-              />
-              <span className="text-sm font-bold text-forest">🌿 Consultation + Therapy Plan</span>
-            </div>
-            <p className="text-[11px] text-forest/65 pl-6 leading-relaxed">
-              For Panchakarma detox & therapy planning. Doctor prescribes therapy track & total session count.
-            </p>
-          </label>
-        </div>
-      </div>
-
-      {/* Auto-Assigned Specialist Banner */}
-      <div>
-        <label className={labelCls}>Assigned Specialist / Doctor</label>
-        <div className="flex items-center justify-between rounded-2xl border border-emerald-900/10 bg-[#faf8f4] p-3.5 shadow-xs">
+        {/* Consultation Fee Card Notice */}
+        <div className="rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-amber-50/50 p-4 shadow-sm flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-forest/10 font-bold text-forest text-sm">
-              🩺
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-forest text-white text-lg font-bold">
+              💳
             </div>
             <div>
-              <p className="font-bold text-forest text-sm">✨ Auto-Assigned Clinic Specialist</p>
-              <p className="text-[11px] text-forest/60">System automatically load-balances across available doctors according to date & slot availability</p>
+              <p className="font-bold text-forest text-sm">Consultation Fee: ₹500</p>
+              <p className="text-xs text-forest/65">Secure Online Payment</p>
             </div>
           </div>
-          <span className="rounded-full bg-emerald-100 px-3 py-1 text-[10px] font-extrabold text-emerald-800 uppercase tracking-wider border border-emerald-200">
-            ✓ Auto-Scheduled
+          <span className="rounded-full bg-emerald-100 px-3 py-1 text-[10px] font-extrabold text-emerald-900 uppercase tracking-wider border border-emerald-200">
+            Required Before Booking
           </span>
         </div>
-      </div>
 
-      {/* Consultation Mode */}
-      <div>
-        <label className={labelCls}>Consultation Mode <span className="text-rose-400">*</span></label>
-        <div className="flex gap-4">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="radio"
-              name="consultationType"
-              value="OFFLINE"
-              checked={form.consultationType === 'OFFLINE'}
-              onChange={(e) => setForm({ ...form, consultationType: e.target.value })}
-              className="w-4 h-4"
-            />
-            <span className="text-sm text-forest">Offline (In-Clinic)</span>
-          </label>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="radio"
-              name="consultationType"
-              value="ONLINE"
-              checked={form.consultationType === 'ONLINE'}
-              onChange={(e) => setForm({ ...form, consultationType: e.target.value })}
-              className="w-4 h-4"
-            />
-            <span className="text-sm text-forest">Online (Auto-Scheduled)</span>
-          </label>
-        </div>
-        {form.consultationType === 'ONLINE' && (
-          <p className="mt-2 text-xs text-sage italic">
-            {form.assignedTo 
-              ? `Session will be booked directly with ${therapists.find(t => String(t.id) === String(form.assignedTo))?.fullName || 'selected doctor'} and generate Google Meet link`
-              : "System will load-balance across all available doctors and generate Google Meet link"}
-          </p>
-        )}
-      </div>
-
-      {/* Date & Time Slot */}
-      <div className="grid gap-4 sm:grid-cols-2">
+        {/* Consultation Category Option */}
         <div>
-          <label className={labelCls}>Preferred Date <span className="text-rose-400">*</span></label>
-          <input
-            className={inputCls}
-            type="date"
-            min={today}
-            value={form.date}
-            onChange={(e) => setForm({ ...form, date: e.target.value })}
-            required
-          />
-        </div>
-        <div>
-          <label className={labelCls}>Available Time Slot <span className="text-rose-400">*</span></label>
-          <div className="relative">
-            <select
-              className={selectCls}
-              value={form.time}
-              onChange={(e) => setForm({ ...form, time: e.target.value })}
-              required
-              disabled={slotsLoading || !form.date}
+          <label className={labelCls}>Consultation Intention <span className="text-rose-400">*</span></label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <label
+              className={`flex flex-col gap-1.5 rounded-2xl border-2 p-3.5 cursor-pointer transition ${form.consultationCategory === 'NORMAL'
+                ? 'border-forest bg-forest/5 shadow-xs'
+                : 'border-sand/60 bg-white/70 hover:bg-white'
+                }`}
             >
-              {!form.date ? (
-                <option value="">Select preferred date first</option>
-              ) : slotsLoading ? (
-                <option value="">Loading available slots...</option>
-              ) : availableSlots.length === 0 ? (
-                <option value="">No slots available on this day</option>
-              ) : (
-                <>
-                  <option value="">Choose a slot</option>
-                  {availableSlots.map((slot) => {
-                    const startFormatted = slot.startTime.substring(0, 5);
-                    const endFormatted = slot.endTime.substring(0, 5);
-                    return (
-                      <option key={slot.startTime} value={startFormatted}>
-                        {startFormatted} - {endFormatted}
-                      </option>
-                    );
-                  })}
-                </>
-              )}
-            </select>
-            <ChevronDown size={14} className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-forest/40" />
+              <div className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  name="consultationCategory"
+                  value="NORMAL"
+                  checked={form.consultationCategory === 'NORMAL'}
+                  onChange={(e) => setForm({ ...form, consultationCategory: e.target.value })}
+                  className="w-4 h-4 text-forest"
+                />
+                <span className="text-sm font-bold text-forest">🩺 Normal Consultation</span>
+              </div>
+              <p className="text-[11px] text-forest/65 pl-6 leading-relaxed">
+                Standard health, Agni checkup & general doctor evaluation. Therapist completes with session notes.
+              </p>
+            </label>
+
+            <label
+              className={`flex flex-col gap-1.5 rounded-2xl border-2 p-3.5 cursor-pointer transition ${form.consultationCategory === 'THERAPY_RECOMMENDATION'
+                ? 'border-[#355c39] bg-[#e6efdf]/50 shadow-xs'
+                : 'border-sand/60 bg-white/70 hover:bg-white'
+                }`}
+            >
+              <div className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  name="consultationCategory"
+                  value="THERAPY_RECOMMENDATION"
+                  checked={form.consultationCategory === 'THERAPY_RECOMMENDATION'}
+                  onChange={(e) => setForm({ ...form, consultationCategory: e.target.value })}
+                  className="w-4 h-4 text-forest"
+                />
+                <span className="text-sm font-bold text-forest">🌿 Consultation + Therapy Plan</span>
+              </div>
+              <p className="text-[11px] text-forest/65 pl-6 leading-relaxed">
+                For Panchakarma detox & therapy planning. Doctor prescribes therapy track & total session count.
+              </p>
+            </label>
           </div>
         </div>
-      </div>
 
-      {/* Reason */}
-      <div>
-        <label className={labelCls}>Reason for Visit <span className="text-rose-400">*</span></label>
-        <div className="relative">
-          <select
-            className={selectCls}
-            value={form.reason}
-            onChange={(e) => setForm({ ...form, reason: e.target.value })}
-            required
-          >
-            <option value="">Select reason</option>
-            {CONSULTATION_REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
-          </select>
-          <ChevronDown size={14} className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-forest/40" />
+        {/* Consultation Mode */}
+        <div>
+          <label className={labelCls}>Consultation Mode <span className="text-rose-400">*</span></label>
+          <div className="flex gap-4">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="consultationType"
+                value="OFFLINE"
+                checked={form.consultationType === 'OFFLINE'}
+                onChange={(e) => setForm({ ...form, consultationType: e.target.value })}
+                className="w-4 h-4"
+              />
+              <span className="text-sm text-forest">Offline (In-Clinic)</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="consultationType"
+                value="ONLINE"
+                checked={form.consultationType === 'ONLINE'}
+                onChange={(e) => setForm({ ...form, consultationType: e.target.value })}
+                className="w-4 h-4"
+              />
+              <span className="text-sm text-forest">Online (Auto-Scheduled)</span>
+            </label>
+          </div>
+          {form.consultationType === 'ONLINE' && (
+            <p className="mt-2 text-xs text-sage italic">
+              {form.assignedTo
+                ? `Session will be booked directly with ${therapists.find(t => String(t.id) === String(form.assignedTo))?.fullName || 'selected doctor'} and generate Google Meet link`
+                : "System will load-balance across all available doctors and generate Google Meet link"}
+            </p>
+          )}
         </div>
-      </div>
 
-      {/* Upload Medical Document Card */}
-      <div className="rounded-2xl border border-emerald-900/10 bg-[#f7faf4] p-4 space-y-3">
-        <div className="flex items-center justify-between">
-          <label className={labelCls + ' mb-0 flex items-center gap-1.5 font-bold text-forest'}>
-            <FileText size={15} className="text-[#355c39]" />
-            <span>Upload Medical Document (Optional)</span>
-          </label>
-          <span className="text-[10px] font-extrabold uppercase text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-200">
-            Saved to Patient Profile
-          </span>
-        </div>
-        <p className="text-xs text-forest/65 leading-relaxed">
-          Attach prior lab reports, prescriptions, or X-Rays so your consulting Ayurvedic doctor can review them before or during your consultation.
-        </p>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+        {/* Date & Time Slot */}
+        <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <label className="text-[11px] font-semibold text-forest/60 block mb-1">Document Category</label>
+            <label className={labelCls}>Preferred Date <span className="text-rose-400">*</span></label>
+            <input
+              className={inputCls}
+              type="date"
+              min={today}
+              value={form.date}
+              onChange={(e) => setForm({ ...form, date: e.target.value })}
+              required
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Available Time Slot <span className="text-rose-400">*</span></label>
             <div className="relative">
               <select
-                className={selectCls + ' text-xs'}
-                value={documentType}
-                onChange={(e) => setDocumentType(e.target.value)}
+                className={selectCls}
+                value={form.time}
+                onChange={(e) => setForm({ ...form, time: e.target.value })}
+                required
+                disabled={slotsLoading || !form.date}
               >
-                <option value="Lab Report">Lab Report</option>
-                <option value="Prescription">Prescription</option>
-                <option value="Blood Report">Blood Report</option>
-                <option value="X-Ray / MRI Scan">X-Ray / MRI Scan</option>
-                <option value="Other">Other Medical Record</option>
+                {!form.date ? (
+                  <option value="">Select preferred date first</option>
+                ) : slotsLoading ? (
+                  <option value="">Loading available slots...</option>
+                ) : availableSlots.length === 0 ? (
+                  <option value="">No slots available on this day</option>
+                ) : (
+                  <>
+                    <option value="">Choose a slot</option>
+                    {availableSlots.map((slot) => {
+                      const startFormatted = slot.startTime.substring(0, 5);
+                      const endFormatted = slot.endTime.substring(0, 5);
+                      return (
+                        <option key={slot.startTime} value={startFormatted}>
+                          {startFormatted} - {endFormatted}
+                        </option>
+                      );
+                    })}
+                  </>
+                )}
               </select>
               <ChevronDown size={14} className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-forest/40" />
             </div>
           </div>
+        </div>
 
-          <div>
-            <label className="text-[11px] font-semibold text-forest/60 block mb-1">Select File (PDF, Image)</label>
-            <input
-              type="file"
-              accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-              onChange={(e) => setSelectedFile(e.target.files[0] || null)}
-              className="w-full text-xs text-forest file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-emerald-100 file:text-emerald-900 hover:file:bg-emerald-200 cursor-pointer"
-            />
+        {/* Reason */}
+        <div>
+          <label className={labelCls}>Reason for Visit <span className="text-rose-400">*</span></label>
+          <div className="relative">
+            <select
+              className={selectCls}
+              value={form.reason}
+              onChange={(e) => setForm({ ...form, reason: e.target.value })}
+              required
+            >
+              <option value="">Select reason</option>
+              {CONSULTATION_REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
+            </select>
+            <ChevronDown size={14} className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-forest/40" />
           </div>
         </div>
 
-        {selectedFile && (
-          <div className="flex items-center justify-between text-xs bg-white p-2.5 rounded-xl border border-emerald-200 text-emerald-950 font-medium">
-            <span className="truncate">📄 {selectedFile.name} ({(selectedFile.size / 1024).toFixed(1)} KB)</span>
-            <button
-              type="button"
-              onClick={() => setSelectedFile(null)}
-              className="text-rose-600 font-bold hover:underline ml-2 text-[11px] cursor-pointer"
-            >
-              Remove
-            </button>
+        {/* Upload Medical Document Card (Multiple Files Supported) */}
+        <div className="rounded-2xl border border-emerald-900/10 bg-[#f7faf4] p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <label className={labelCls + ' mb-0 flex items-center gap-1.5 font-bold text-forest'}>
+              <FileText size={15} className="text-[#355c39]" />
+              <span>Upload Medical Documents (Optional)</span>
+            </label>
+            <span className="text-[10px] font-extrabold uppercase text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-200">
+              Saved to Patient Profile
+            </span>
           </div>
+          <p className="text-xs text-forest/65 leading-relaxed">
+            Attach prior lab reports, prescriptions, or X-Rays so your consulting Ayurvedic doctor can review them before or during your consultation. You can select and attach multiple files.
+          </p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+            <div>
+              <label className="text-[11px] font-semibold text-forest/60 block mb-1">Document Category</label>
+              <div className="relative">
+                <select
+                  className={selectCls + ' text-xs'}
+                  value={documentType}
+                  onChange={(e) => setDocumentType(e.target.value)}
+                >
+                  <option value="Lab Report">Lab Report</option>
+                  <option value="Prescription">Prescription</option>
+                  <option value="Blood Report">Blood Report</option>
+                  <option value="X-Ray / MRI Scan">X-Ray / MRI Scan</option>
+                  <option value="Other">Other Medical Record</option>
+                </select>
+                <ChevronDown size={14} className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-forest/40" />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-[11px] font-semibold text-forest/60 block mb-1">Select File(s) (PDF, Image)</label>
+              <input
+                type="file"
+                multiple
+                accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                onChange={handleMultipleFilesSelect}
+                className="w-full text-xs text-forest file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-emerald-100 file:text-emerald-900 hover:file:bg-emerald-200 cursor-pointer"
+              />
+            </div>
+          </div>
+
+          {selectedFiles.length > 0 && (
+            <div className="space-y-2 pt-2 border-t border-emerald-900/10">
+              <div className="flex items-center justify-between text-[11px] font-bold text-forest/70 uppercase tracking-wider">
+                <span>Attached Documents ({selectedFiles.length}):</span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedFiles([])}
+                  className="text-rose-600 hover:underline cursor-pointer lowercase font-normal"
+                >
+                  clear all
+                </button>
+              </div>
+              <div className="space-y-1.5">
+                {selectedFiles.map((item) => (
+                  <div key={item.id} className="flex items-center justify-between text-xs bg-white p-2.5 rounded-xl border border-emerald-200 text-emerald-950 font-medium shadow-2xs">
+                    <div className="flex items-center gap-2 truncate pr-2">
+                      <span className="truncate">📄 {item.file.name} ({(item.file.size / 1024).toFixed(1)} KB)</span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 shrink-0">
+                        {item.category}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeSelectedFile(item.id)}
+                      className="text-rose-600 font-bold hover:underline text-[11px] cursor-pointer shrink-0"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Notes */}
+        <div>
+          <label className={labelCls}>Additional Notes (optional)</label>
+          <textarea
+            className={inputCls + ' resize-none'}
+            rows={3}
+            placeholder="Any specific concerns or medical history..."
+            value={form.notes}
+            onChange={(e) => setForm({ ...form, notes: e.target.value })}
+          />
+        </div>
+
+        {error && (
+          <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600">{error}</p>
         )}
-      </div>
 
-      {/* Notes */}
-      <div>
-        <label className={labelCls}>Additional Notes (optional)</label>
-        <textarea
-          className={inputCls + ' resize-none'}
-          rows={3}
-          placeholder="Any specific concerns or medical history..."
-          value={form.notes}
-          onChange={(e) => setForm({ ...form, notes: e.target.value })}
-        />
-      </div>
-
-      {error && (
-        <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600">{error}</p>
-      )}
-
-      <button
-        type="submit"
-        disabled={loading}
-        className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[linear-gradient(135deg,#355c39_0%,#5a8553_100%)] py-3.5 text-sm font-semibold text-white shadow-[0_12px_32px_rgba(62,109,67,0.25)] transition hover:translate-y-[-1px] disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
-      >
-        {loading ? 'Opening Razorpay Gateway...' : '💳 Pay ₹500 & Confirm Consultation'}
-      </button>
-    </form>
-  </>
+        <button
+          type="submit"
+          disabled={loading}
+          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[linear-gradient(135deg,#355c39_0%,#5a8553_100%)] py-3.5 text-sm font-semibold text-white shadow-[0_12px_32px_rgba(62,109,67,0.25)] transition hover:translate-y-[-1px] disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
+        >
+          {loading ? 'Opening Razorpay Gateway...' : '💳 Pay ₹500 & Confirm Consultation'}
+        </button>
+      </form>
+    </>
   );
 }
 
@@ -808,7 +834,10 @@ function TherapyForm({ onSuccess, onSwitchToConsultation, onStatusChange }) {
   const [plansLoading, setPlansLoading] = useState(true);
   const [hasCompletedConsultation, setHasCompletedConsultation] = useState(false);
   const [hasBooked1stTherapySession, setHasBooked1stTherapySession] = useState(false);
+  const [hasOngoingTherapy, setHasOngoingTherapy] = useState(false);
+  const [ongoingTherapyInfo, setOngoingTherapyInfo] = useState(null);
   const [latestConsInfo, setLatestConsInfo] = useState(null);
+  const [isRebooking, setIsRebooking] = useState(false);
 
   const [form, setForm] = useState({ therapy: '', therapist: '', date: '', time: '', totalSessions: 1, notes: '' });
   const [loading, setLoading] = useState(false);
@@ -826,26 +855,37 @@ function TherapyForm({ onSuccess, onSwitchToConsultation, onStatusChange }) {
       try {
         const auth = JSON.parse(localStorage.getItem('panchakarma-auth'));
         if (auth?.userId) {
-          const [plansRes, bookingsRes] = await Promise.all([
-            api.get(`/treatment-plans/patient/${auth.userId}`),
+          const [plansRes, bookingsRes, journeyRes] = await Promise.all([
+            api.get(`/treatment-plans/patient/${auth.userId}`).catch(() => ({ data: [] })),
             api.get('/patient/bookings').catch(() => ({ data: [] })),
+            api.get('/patient/treatment-journey').catch(() => ({ data: null })),
           ]);
 
           const allBookings = bookingsRes.data || [];
-
-          // Sort plans descending by ID (newest doctor-prescribed plan first)
           const rawPlans = (plansRes.data || []).sort((a, b) => (b.id || 0) - (a.id || 0));
 
-          // Only keep treatment plans where booked therapy sessions are less than total prescribed sessions
+          const isTherapyBooking = (b) => {
+            if (!b) return false;
+            const typeStr = (b.bookingType || b.type || '').toUpperCase();
+            if (typeStr === 'CONSULTATION') return false;
+            const purposeStr = (b.purpose || b.notes || '').toLowerCase();
+            if (purposeStr.includes('consultation') || purposeStr.includes('consult')) return false;
+            if (typeStr === 'THERAPY') return true;
+            if (b.sessionNumber != null && Number(b.sessionNumber) > 0) return true;
+            if (b.packageId && String(b.packageId).length > 0) return true;
+            if (purposeStr.includes('session') || purposeStr.includes('therapy track')) return true;
+            return false;
+          };
+
+          // Filter treatment plans where booked therapy sessions are less than total prescribed sessions
           const planned = rawPlans.filter(p => {
-            if (!p || p.status === 'COMPLETED' || p.status === 'CANCELLED' || p.status === 'SCHEDULED') {
+            if (!p || p.status === 'COMPLETED' || p.status === 'CANCELLED') {
               return false;
             }
             const planTherapyKey = (p.therapyName || '').toLowerCase().split(' ')[0].trim();
             const bookedSessionsForPlan = allBookings.filter(b => {
               if (b.status === 'CANCELLED' || b.bookingStatus === 'CANCELLED') return false;
-              const isTherapy = b.bookingType === 'THERAPY' || b.type === 'THERAPY' || (b.therapyName && b.therapyName.length > 0);
-              if (!isTherapy) return false;
+              if (!isTherapyBooking(b)) return false;
               if (b.treatmentPlanId && String(b.treatmentPlanId) === String(p.id)) return true;
               const bName = (b.therapyName || b.purpose || b.notes || '').toLowerCase();
               return planTherapyKey.length > 0 && bName.includes(planTherapyKey);
@@ -856,53 +896,129 @@ function TherapyForm({ onSuccess, onSwitchToConsultation, onStatusChange }) {
           });
 
           setPlans(planned);
-          if (planned.length > 0) {
-            const latestPlan = planned[0];
-            setSelectedPlan(latestPlan);
-            const matchedTherapy = matchTherapyType(latestPlan.therapyName);
+          let activePlanObj = planned.length > 0 ? planned[0] : null;
+
+          const completedConsList = allBookings.filter(b => {
+            const typeStr = (b.bookingType || b.type || '').toUpperCase();
+            const statusStr = (b.bookingStatus || b.status || '').toUpperCase();
+            return (typeStr === 'CONSULTATION' || b.purpose?.toLowerCase().includes('consultation')) &&
+              (statusStr === 'COMPLETED' || statusStr === 'CONFIRMED' || statusStr === 'PENDING');
+          });
+
+          // Fallback 1: If no formal plan in DB table, check Treatment Journey response for prescribed nodes
+          if (!activePlanObj && journeyRes?.data?.cycles?.length > 0) {
+            for (const cycle of journeyRes.data.cycles) {
+              const planNode = cycle.nodes?.find(n => n.type === 'THERAPY_PLAN');
+              if (planNode && planNode.therapyName && !planNode.therapyName.toLowerCase().includes('pending')) {
+                const isNodeDone = planNode.status === 'COMPLETED';
+                if (!isNodeDone) {
+                  activePlanObj = {
+                    id: planNode.treatmentPlanId || null,
+                    therapyName: matchTherapyType(planNode.therapyName),
+                    totalSessions: planNode.totalSessions != null ? Number(planNode.totalSessions) : 7,
+                    assignedTherapistName: planNode.assignedTherapist || 'Assigned Doctor',
+                    assignedTherapistId: null,
+                    prescribedStartDate: planNode.firstSessionDate !== 'Not Booked Yet' ? planNode.firstSessionDate : null,
+                    status: 'PLANNED',
+                  };
+                  break;
+                }
+              }
+            }
+          }
+
+          // Fallback 2: If still no plan, check consultation bookings for prescribed therapy recommendation
+          if (!activePlanObj && (completedConsList.length > 0 || allBookings.length > 0)) {
+            const latestCons = completedConsList[0] || allBookings[0];
+            const adviceText = (latestCons.patientAdvice || latestCons.sessionNotes || latestCons.purpose || latestCons.notes || latestCons.therapyName || '').toLowerCase();
+            const doctorName = latestCons.therapistName || latestCons.assignedTo?.fullName || 'Attending Specialist';
+            const matchedTherapy = matchTherapyType(adviceText || latestCons.therapyName);
+
+            let totalSessions = 7;
+            if (adviceText.includes('1 session') || adviceText.includes('single session')) totalSessions = 1;
+            else if (adviceText.includes('3 session')) totalSessions = 3;
+            else if (adviceText.includes('5 session')) totalSessions = 5;
+            else if (adviceText.includes('14 session')) totalSessions = 14;
+
+            activePlanObj = {
+              id: null,
+              therapyName: matchedTherapy,
+              totalSessions: totalSessions,
+              assignedTherapistName: doctorName,
+              assignedTherapistId: latestCons.assignedToId || latestCons.assignedTo?.id || null,
+              status: 'PLANNED',
+              consultationBookingId: latestCons.bookingId || latestCons.id || null,
+            };
+          }
+
+          setSelectedPlan(activePlanObj);
+
+          if (activePlanObj) {
+            const matchedTherapy = matchTherapyType(activePlanObj.therapyName);
             setForm(prev => ({
               ...prev,
               therapy: matchedTherapy,
-              totalSessions: latestPlan.totalSessions != null ? Number(latestPlan.totalSessions) : 7,
-              therapist: latestPlan.assignedTherapistId || prev.therapist,
-              date: latestPlan.prescribedStartDate || new Date(Date.now() + 86400000 * 2).toISOString().split('T')[0],
+              totalSessions: activePlanObj.totalSessions != null ? Number(activePlanObj.totalSessions) : 7,
+              therapist: activePlanObj.assignedTherapistId || prev.therapist,
+              date: activePlanObj.prescribedStartDate || new Date(Date.now() + 86400000 * 2).toISOString().split('T')[0],
             }));
-          } else {
-            setSelectedPlan(null);
           }
-          const completedConsList = allBookings.filter(
-            b => (b.bookingType === 'CONSULTATION' || b.type === 'CONSULTATION') &&
-                 (b.bookingStatus === 'COMPLETED' || b.status === 'COMPLETED' || b.bookingStatus === 'CONFIRMED')
-          );
-          const activeTherapyBookings = allBookings.filter(
-            b => (b.bookingType === 'THERAPY' || b.type === 'THERAPY') &&
-                 (b.bookingStatus !== 'CANCELLED' && b.status !== 'CANCELLED') &&
-                 (b.bookingStatus !== 'COMPLETED' && b.status !== 'COMPLETED')
-          );
+
+          const activeTherapyBookings = allBookings.filter(b => {
+            if (b.bookingStatus === 'CANCELLED' || b.status === 'CANCELLED') return false;
+            if (b.bookingStatus === 'COMPLETED' || b.status === 'COMPLETED') return false;
+            const typeStr = String(b.bookingType || b.type || '').toUpperCase();
+            return typeStr === 'THERAPY';
+          });
+
+          const completedCount = allBookings.filter(b => {
+            const typeStr = String(b.bookingType || b.type || '').toUpperCase();
+            return typeStr === 'THERAPY' && (b.bookingStatus === 'COMPLETED' || b.status === 'COMPLETED');
+          }).length;
+          const totalSessions = activePlanObj?.totalSessions || 3;
+
+          // Therapy is ongoing ONLY if active uncompleted therapy bookings exist AND total sessions have not been completed
+          const isOngoing = activeTherapyBookings.length > 0 && completedCount < totalSessions;
+          setHasOngoingTherapy(isOngoing);
+
+          if (isOngoing) {
+            const topBooking = activeTherapyBookings[0];
+            const rawTherapy = activePlanObj?.therapyName || topBooking?.therapyName || topBooking?.purpose || 'Panchakarma Therapy';
+            const therapistName = activePlanObj?.assignedTherapistName || topBooking?.therapistName || topBooking?.assignedTo?.fullName || 'Assigned Specialist';
+
+            setOngoingTherapyInfo({
+              therapyName: matchTherapyType(rawTherapy),
+              therapistName,
+              totalSessions,
+              completedSessionsCount: completedCount,
+            });
+          } else {
+            setOngoingTherapyInfo(null);
+          }
 
           let isBooked = false;
-          if (completedConsList.length > 0) {
-            setHasCompletedConsultation(true);
-            const latestCons = completedConsList[0];
-            const consDate = new Date(latestCons.createdAt || latestCons.date);
-            const therapyAfterCons = activeTherapyBookings.filter(tb => {
-              const tbDate = new Date(tb.createdAt || tb.date);
-              return tbDate >= consDate || tb.sessionNumber === 1 || tb.totalSessions >= 1;
+          if (activePlanObj && activePlanObj.id) {
+            const bookedForSelectedPlan = allBookings.filter(b => {
+              if (b.status === 'CANCELLED' || b.bookingStatus === 'CANCELLED') return false;
+              const typeStr = String(b.bookingType || b.type || '').toUpperCase();
+              if (typeStr !== 'THERAPY') return false;
+              if (b.treatmentPlanId && String(b.treatmentPlanId) === String(activePlanObj.id)) return true;
+              const purposeStr = (b.purpose || b.notes || '').toLowerCase();
+              const planTherapyKey = (activePlanObj.therapyName || '').toLowerCase().split(' ')[0].trim();
+              return purposeStr.includes('prescribed session') && planTherapyKey.length > 0 && purposeStr.includes(planTherapyKey);
             });
-            if (therapyAfterCons.length > 0) {
+            if (bookedForSelectedPlan.length > 0) {
               isBooked = true;
             }
-          } else if (activeTherapyBookings.length > 0) {
-            isBooked = true;
           }
 
           setHasBooked1stTherapySession(isBooked);
-          if (onStatusChange) onStatusChange(isBooked);
+          if (onStatusChange) onStatusChange(isOngoing || isBooked);
 
           if (completedConsList.length > 0) {
             const latestCons = completedConsList[0];
             const adviceText = (latestCons.patientAdvice || latestCons.sessionNotes || latestCons.purpose || latestCons.notes || '').toLowerCase();
-            const doctorName = latestCons.therapistName || latestCons.assignedTo?.fullName || 'Dr. Vaidya';
+            const doctorName = latestCons.therapistName || latestCons.assignedTo?.fullName || 'Attending Specialist';
 
             const matchedTherapy = matchTherapyType(adviceText);
 
@@ -927,15 +1043,6 @@ function TherapyForm({ onSuccess, onSwitchToConsultation, onStatusChange }) {
               frequencyLabel,
               totalSessions,
             });
-
-            // Only override therapy & totalSessions from consultation notes if no treatment plan exists
-            if (!planned || planned.length === 0) {
-              setForm(prev => ({
-                ...prev,
-                therapy: matchedTherapy,
-                totalSessions,
-              }));
-            }
           }
         }
       } catch (err) {
@@ -981,7 +1088,7 @@ function TherapyForm({ onSuccess, onSwitchToConsultation, onStatusChange }) {
         }
 
         setAvailableSlots(rawSlots);
-        
+
         // If current selected time is not in the list of new slots, clear it and show warning
         const startTimes = rawSlots.map(s => s.startTime.substring(0, 5));
         setForm(prev => {
@@ -1074,24 +1181,62 @@ function TherapyForm({ onSuccess, onSwitchToConsultation, onStatusChange }) {
       const therapistIdToSubmit = (form.therapist && form.therapist !== '0') ? form.therapist : null;
 
       if (selectedPlan) {
-        // Schedule doctor-prescribed treatment plan
-        const response = await api.post(`/treatment-plans/${selectedPlan.id}/schedule`, {
-          startDate: form.date,
-          timeSlot: formattedTime,
-          inAppNotifEnabled: inAppNotifEnabled,
-          emailNotifEnabled: emailNotifEnabled,
-        });
-        
-        const selectedTherapistObj = therapists.find(t => String(t.id) === String(response.data.assignedTherapistId || form.therapist));
-        const resolvedTherapistName = selectedTherapistObj 
-          ? (selectedTherapistObj.fullName || selectedTherapistObj.name) 
-          : (response.data.assignedTherapistName || 'System Assigned');
+        let responseData = null;
+        if (selectedPlan.id) {
+          const response = await api.post(`/treatment-plans/${selectedPlan.id}/schedule`, {
+            startDate: form.date,
+            timeSlot: formattedTime,
+            inAppNotifEnabled: inAppNotifEnabled,
+            emailNotifEnabled: emailNotifEnabled,
+          });
+          responseData = response.data;
+        } else {
+          // Create treatment plan in DB first, then schedule
+          const createRes = await api.post('/treatment-plans', {
+            patientId: auth?.userId,
+            therapyName: form.therapy || selectedPlan.therapyName,
+            totalSessions: form.totalSessions || selectedPlan.totalSessions,
+            frequency: '2',
+            assignedTherapistId: selectedPlan.assignedTherapistId || (form.therapist && form.therapist !== '0' ? form.therapist : null),
+            prescribedStartDate: form.date,
+            consultationBookingId: selectedPlan.consultationBookingId || null,
+          }).catch(() => null);
 
-        const rawTherapyName = response.data?.therapyName || selectedPlan?.therapyName || (form.therapy ? form.therapy.split(' ')[0] : 'Therapy');
+          if (createRes?.data?.id) {
+            const response = await api.post(`/treatment-plans/${createRes.data.id}/schedule`, {
+              startDate: form.date,
+              timeSlot: formattedTime,
+              inAppNotifEnabled: inAppNotifEnabled,
+              emailNotifEnabled: emailNotifEnabled,
+            });
+            responseData = response.data;
+          } else {
+            const response = await api.post('/bookings', {
+              patientId: auth?.userId,
+              assignedToId: therapistIdToSubmit,
+              date: form.date,
+              time: formattedTime,
+              purpose: `${form.therapy || selectedPlan.therapyName} — Prescribed Session`,
+              bookingType: 'THERAPY',
+              bookingStatus: 'CONFIRMED',
+              totalSessions: form.totalSessions || selectedPlan.totalSessions,
+              inAppNotifEnabled: inAppNotifEnabled,
+              emailNotifEnabled: emailNotifEnabled,
+            });
+            responseData = response.data;
+          }
+        }
+
+        const selectedTherapistObj = therapists.find(t => String(t.id) === String(responseData?.assignedTherapistId || form.therapist));
+        const resolvedTherapistName = selectedTherapistObj
+          ? (selectedTherapistObj.fullName || selectedTherapistObj.name)
+          : (responseData?.assignedTherapistName || selectedPlan?.assignedTherapistName || 'System Assigned');
+
+        const rawTherapyName = responseData?.therapyName || selectedPlan?.therapyName || (form.therapy ? form.therapy.split(' ')[0] : 'Therapy');
         const cleanTherapyName = rawTherapyName.toLowerCase().includes('consultation') ? 'Panchakarma Therapy' : rawTherapyName;
 
         const adaptedBooking = {
-          ...response.data,
+          ...responseData,
           date: form.date,
           time: formattedTime,
           therapistName: resolvedTherapistName,
@@ -1144,6 +1289,66 @@ function TherapyForm({ onSuccess, onSwitchToConsultation, onStatusChange }) {
     );
   }
 
+  if (hasOngoingTherapy && !selectedPlan) {
+    return (
+      <div className="rounded-3xl border border-amber-300/80 bg-gradient-to-br from-amber-50 to-orange-50/60 p-8 text-center space-y-5 shadow-sm">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-amber-100 text-amber-900 border border-amber-300 shadow-xs">
+          <Wand2 size={30} />
+        </div>
+        <div className="space-y-2">
+          <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-200/80 px-3 py-1 text-xs font-bold text-amber-950 border border-amber-300">
+            🔒 Therapy Track In Progress
+          </div>
+          <h3 className="font-display text-xl font-bold text-amber-950">
+            Previous Therapy is Not Completed Yet to Book Another Therapy
+          </h3>
+          <p className="text-xs text-amber-900/80 max-w-md mx-auto leading-relaxed">
+            Your current <strong>{ongoingTherapyInfo?.therapyName || 'Panchakarma Therapy'}</strong> track ({ongoingTherapyInfo?.completedSessionsCount || 0} / {ongoingTherapyInfo?.totalSessions || 1} sessions completed) is not completed yet. 
+            Please complete your current therapy track before booking a new therapy.
+          </p>
+        </div>
+
+        {ongoingTherapyInfo && (
+          <div className="mx-auto max-w-md rounded-2xl border border-amber-200 bg-white/80 p-4 text-left space-y-2 shadow-2xs">
+            <div className="flex items-center justify-between text-xs border-b border-amber-100 pb-2">
+              <span className="font-bold text-forest/70 uppercase tracking-wider text-[10px]">Active Therapy Track</span>
+              <span className="font-semibold text-amber-900 bg-amber-100 px-2.5 py-0.5 rounded-md text-[11px]">
+                {ongoingTherapyInfo.therapyName}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-xs pt-1">
+              <div>
+                <span className="text-forest/60 block text-[10px] uppercase font-bold">Assigned Specialist</span>
+                <span className="font-semibold text-forest">{ongoingTherapyInfo.therapistName}</span>
+              </div>
+              <div>
+                <span className="text-forest/60 block text-[10px] uppercase font-bold">Session Progress</span>
+                <span className="font-semibold text-forest">{ongoingTherapyInfo.completedSessionsCount} / {ongoingTherapyInfo.totalSessions} Sessions</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="flex flex-wrap justify-center gap-3 pt-2">
+          <button
+            type="button"
+            onClick={onSwitchToConsultation}
+            className="inline-flex items-center gap-2 rounded-2xl bg-[#355c39] px-6 py-3 text-xs font-bold text-white shadow-md hover:bg-[#28472c] transition cursor-pointer"
+          >
+            <Stethoscope size={16} /> Book Doctor Consultation First
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate('/dashboard/patient?tab=appointments')}
+            className="inline-flex items-center gap-2 rounded-2xl border border-amber-300 bg-white px-5 py-2.5 text-xs font-bold text-amber-950 shadow-xs hover:bg-amber-50 transition cursor-pointer"
+          >
+            <CalendarDays size={15} /> View My Appointments
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (!selectedPlan) {
     return (
       <div className="rounded-3xl border border-amber-200/80 bg-gradient-to-br from-amber-50 to-orange-50/40 p-8 text-center space-y-4 shadow-sm">
@@ -1153,7 +1358,7 @@ function TherapyForm({ onSuccess, onSwitchToConsultation, onStatusChange }) {
         <div className="space-y-2">
           <h3 className="font-display text-xl font-bold text-amber-950">Consultation Required First to Book Therapy</h3>
           <p className="text-xs text-amber-900/80 max-w-md mx-auto leading-relaxed">
-            Panchakarma therapies require a clinical evaluation and prescription from an Ayurvedic Vaidya. 
+            Panchakarma therapies require a clinical evaluation and prescription from an Ayurvedic Vaidya.
             Once a therapy cycle is completed or if you do not have an active prescription, you must consult a doctor first to receive your personalized therapy plan.
           </p>
         </div>
@@ -1174,21 +1379,28 @@ function TherapyForm({ onSuccess, onSwitchToConsultation, onStatusChange }) {
         <div className="rounded-2xl border border-amber-300/80 bg-gradient-to-br from-amber-50 to-orange-50/70 p-5 shadow-sm space-y-3">
           <div className="flex items-center gap-2 text-amber-950 font-bold text-sm">
             <span className="text-lg">🔒</span>
-            <span>1st Therapy Session Already Booked</span>
+            <span>Therapy Session Already Booked</span>
           </div>
           <p className="text-xs text-amber-900/80 leading-relaxed">
-            Only your <strong>1st therapy session</strong> after consultation is booked on this page. Subsequent therapy sessions in your treatment track are scheduled directly by your therapist.
+            Your therapy session for this plan has already been scheduled. To change your appointment date or time, visit <strong>My Appointments</strong>.
           </p>
           <p className="text-xs text-amber-900/80 leading-relaxed">
-            If you need to change your date or time slot for an existing session, you can request a reschedule under <strong>My Appointments</strong>.
+            To book another therapy cycle, a doctor consultation and new prescription are required first.
           </p>
-          <div className="pt-1 flex flex-wrap gap-2">
+          <div className="pt-1 flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={onSwitchToConsultation}
+              className="rounded-xl bg-[#355c39] px-5 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-[#28472c] transition flex items-center gap-1.5 cursor-pointer"
+            >
+              <Stethoscope size={15} /> Book Doctor Consultation First
+            </button>
             <button
               type="button"
               onClick={() => navigate('/dashboard/patient?tab=appointments')}
-              className="rounded-xl bg-[#355c39] px-4 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-[#28472c] transition flex items-center gap-1.5 cursor-pointer"
+              className="rounded-xl border border-amber-300 bg-white px-4 py-2.5 text-xs font-bold text-amber-950 shadow-xs hover:bg-amber-50 transition flex items-center gap-1.5 cursor-pointer"
             >
-              <span>📅</span> Go to My Appointments to Reschedule
+              <span>📅</span> Go to My Appointments
             </button>
           </div>
         </div>
@@ -1201,7 +1413,7 @@ function TherapyForm({ onSuccess, onSwitchToConsultation, onStatusChange }) {
             <label className={labelCls + ' mb-0'}>Therapy Type <span className="text-rose-400">*</span></label>
             {(isPrescribed || hasBooked1stTherapySession) && (
               <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                🔒 Prescribed by Doctor (Locked)
+                🔒 Prescribed
               </span>
             )}
           </div>
@@ -1209,7 +1421,7 @@ function TherapyForm({ onSuccess, onSwitchToConsultation, onStatusChange }) {
             <select
               className={selectCls + ((isPrescribed || hasBooked1stTherapySession) ? ' opacity-85 cursor-not-allowed bg-sand/20 font-semibold' : '')}
               value={form.therapy}
-              onChange={(e) => !isPrescribed && !hasBooked1stTherapySession && setForm({ ...form, therapy: e.target.value })}
+              onChange={(e) => setForm({ ...form, therapy: e.target.value })}
               disabled={isPrescribed || hasBooked1stTherapySession}
               required
             >
@@ -1226,7 +1438,7 @@ function TherapyForm({ onSuccess, onSwitchToConsultation, onStatusChange }) {
             <label className={labelCls + ' mb-0'}>Therapy Track <span className="text-rose-400">*</span></label>
             {(isPrescribed || hasBooked1stTherapySession) && (
               <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                🔒 Prescribed by Doctor (Locked)
+                🔒 Prescribed
               </span>
             )}
           </div>
@@ -1234,19 +1446,19 @@ function TherapyForm({ onSuccess, onSwitchToConsultation, onStatusChange }) {
             <select
               className={selectCls + ((isPrescribed || hasBooked1stTherapySession) ? ' opacity-85 cursor-not-allowed bg-sand/20 font-semibold' : '')}
               value={form.totalSessions}
-              onChange={(e) => !isPrescribed && !hasBooked1stTherapySession && setForm({ ...form, totalSessions: parseInt(e.target.value) })}
+              onChange={(e) => setForm({ ...form, totalSessions: parseInt(e.target.value) })}
               disabled={isPrescribed || hasBooked1stTherapySession}
               required
             >
-              <option value={1}>Single Therapy Session (1 Day)</option>
-              <option value={3}>3-Session Track (Introductory)</option>
-              <option value={5}>5-Session Track (Spaced over 12 Days)</option>
-              <option value={7}>7-Session Panchakarma Track (Spaced over 18 Days)</option>
-              <option value={14}>14-Session Healing Care Plan (Spaced over 35 Days)</option>
+              <option value={1}>1 Session</option>
+              <option value={3}>3 Sessions</option>
+              <option value={5}>5 Sessions</option>
+              <option value={7}>7 Sessions</option>
+              <option value={14}>14 Sessions</option>
               {/* Dynamic fallback: show doctor-prescribed value if it doesn't match predefined options */}
               {![1, 3, 5, 7, 14].includes(Number(form.totalSessions)) && form.totalSessions > 0 && (
                 <option value={form.totalSessions}>
-                  {form.totalSessions}-Session Track (Prescribed by Doctor)
+                  {form.totalSessions} Sessions
                 </option>
               )}
             </select>
@@ -1264,18 +1476,13 @@ function TherapyForm({ onSuccess, onSwitchToConsultation, onStatusChange }) {
                   🩺
                 </div>
                 <div>
-                  {selectedPlan.prescribedByName && (
-                    <p className="text-xs font-bold text-emerald-950">
-                      Prescribed by: {selectedPlan.prescribedByName.toLowerCase().startsWith('dr.') || selectedPlan.prescribedByName.toLowerCase().startsWith('therapist') ? selectedPlan.prescribedByName : `Dr. ${selectedPlan.prescribedByName}`}
-                    </p>
-                  )}
                   <p className="font-semibold text-forest text-xs mt-0.5">
                     Assigned Therapist: {selectedPlan.assignedTherapistName || `Specialist #${selectedPlan.assignedTherapistId || 'Auto-Assigned'}`}
                   </p>
                 </div>
               </div>
               <span className="rounded-full bg-emerald-100 px-3 py-1 text-[10px] font-extrabold text-emerald-800 uppercase tracking-wider border border-emerald-200">
-                🔒 Doctor Prescribed
+                🔒 Prescribed
               </span>
             </div>
           ) : (
@@ -1355,9 +1562,9 @@ function TherapyForm({ onSuccess, onSwitchToConsultation, onStatusChange }) {
         <button
           type="submit"
           disabled={loading || hasBooked1stTherapySession || (selectedPlan && (!form.date || !form.time))}
-          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[linear-gradient(135deg,#355c39_0%,#5a8553_100%)] py-3.5 text-sm font-semibold text-white shadow-[0_12px_32px_rgba(62,109,67,0.25)] transition hover:translate-y-[-1px] disabled:cursor-not-allowed disabled:opacity-60 pointer-events-auto"
+          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[linear-gradient(135deg,#355c39_0%,#5a8553_100%)] py-3.5 text-sm font-semibold text-white shadow-[0_12px_32px_rgba(62,109,67,0.25)] transition hover:translate-y-[-1px] disabled:cursor-not-allowed disabled:opacity-60 pointer-events-auto cursor-pointer"
         >
-          {hasBooked1stTherapySession ? '🔒 1st Session Already Booked — Reschedule via Appointments' : loading ? 'Scheduling Prescribed Plan...' : selectedPlan ? 'Confirm & Schedule Prescribed Sessions' : 'Confirm Therapy Booking'}
+          {hasBooked1stTherapySession ? '🔒 Session Already Booked — Book Doctor Consultation First' : loading ? 'Scheduling Prescribed Plan...' : selectedPlan ? 'Confirm & Schedule Prescribed Sessions' : 'Confirm Therapy Booking'}
         </button>
       </form>
     </div>
@@ -1434,11 +1641,10 @@ export default function BookSessionPage({ auth, onLogout }) {
               key={key}
               id={`tab-${key}`}
               onClick={() => { setActiveTab(key); setSuccess(false); }}
-              className={`flex flex-col items-center gap-2 rounded-3xl border-2 p-5 text-center transition-all duration-200 ${
-                activeTab === key
-                  ? 'border-sage bg-white shadow-[0_8px_32px_rgba(90,133,83,0.15)]'
-                  : 'border-transparent bg-white/50 hover:bg-white/80'
-              }`}
+              className={`flex flex-col items-center gap-2 rounded-3xl border-2 p-5 text-center transition-all duration-200 ${activeTab === key
+                ? 'border-sage bg-white shadow-[0_8px_32px_rgba(90,133,83,0.15)]'
+                : 'border-transparent bg-white/50 hover:bg-white/80'
+                }`}
             >
               <span className={`flex h-12 w-12 items-center justify-center rounded-2xl ${bg} ${color}`}>
                 <Icon size={22} />

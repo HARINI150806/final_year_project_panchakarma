@@ -47,7 +47,7 @@ public class SamsarjanaPlan {
     private String status = "ACTIVE"; // ACTIVE, COMPLETED
 
     @Column(name = "assigned_by_doctor_name")
-    private String assignedByDoctorName = "Dr. Vaidya";
+    private String assignedByDoctorName = "Attending Practitioner";
 
     @CreationTimestamp
     private LocalDateTime createdAt;
