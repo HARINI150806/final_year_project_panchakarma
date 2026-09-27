@@ -191,3 +191,29 @@
   }
 }
 
+/* Google Translate Banner & Tooltip Cleanups */
+.goog-te-banner-frame,
+iframe.goog-te-banner-frame,
+.goog-te-balloon-frame,
+#goog-gt-tt,
+.VIpgJd-yD0eb-LgBsBc,
+iframe[id*=":"] {
+  display: none !important;
+  visibility: hidden !important;
+  height: 0px !important;
+  width: 0px !important;
+}
+
+body {
+  top: 0px !important;
+  position: static !important;
+  margin-top: 0px !important;
+}
+
+.goog-text-highlight {
+  background-color: transparent !important;
+  box-shadow: none !important;
+}
+
+
+

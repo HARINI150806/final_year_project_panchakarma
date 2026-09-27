@@ -19,6 +19,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import CompletePatientProfile from './pages/CompletePatientProfile';
 import WellnessBotPage from './pages/WellnessBotPage';
 import FloatingChatbot from './components/FloatingChatbot';
+import LanguageTranslator from './components/LanguageTranslator';
 
 function App() {
   const [auth, setAuth] = useState(() => getStoredAuth());
@@ -172,6 +173,7 @@ function App() {
         <Route path="/unauthorized" element={<div>Unauthorized Access</div>} />
       </Routes>
       {auth && auth.role?.toLowerCase() === 'patient' && <FloatingChatbot auth={auth} />}
+      <LanguageTranslator />
     </>
   );
 }
