@@ -1,26 +1,28 @@
 {
-  "name": "Panchakarma Management",
-  "short_name": "Panchakarma",
+  "name": "PanchAI - Panchakarma Management",
+  "short_name": "PanchAI",
   "id": "/",
-  "description": "Panchakarma and Ayurveda care management for patients, doctors, and therapists.",
+  "description": "PanchAI AI-Powered Panchakarma Care & Ayurveda Management System for patients, doctors, and therapists.",
   "lang": "en",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
-  "background_color": "#ffffff",
-  "theme_color": "#0f766e",
-  "categories": ["health", "lifestyle"],
+  "background_color": "#f4f6f0",
+  "theme_color": "#355c39",
+  "categories": ["health", "medical", "lifestyle"],
   "icons": [
     {
       "src": "/logo192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
       "src": "/logo512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }
