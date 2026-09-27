@@ -23,7 +23,7 @@ public class GoogleOAuthController {
     @Value("${google.calendar.client-secret}")
     private String clientSecret;
 
-    @Value("${google.oauth.redirect-uri:https://final-year-project-panchakarma.onrender.com/api/google/oauth/callback}")
+    @Value("${google.oauth.redirect-uri:http://localhost:8080/api/google/oauth/callback}")
     private String redirectUri;
 
     @GetMapping("/authorize")
