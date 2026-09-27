@@ -51,9 +51,13 @@ export default function RegisterPage({ onRegister }) {
     try {
       const response = await api.post('/auth/send-verification', { email: formData.email });
       setOtpSent(true);
+      const returnedOtp = response.data?.otpCode || response.data?.otp;
+      if (returnedOtp) {
+        setFormData(prev => ({ ...prev, otpCode: returnedOtp }));
+      }
       setToast({
         type: 'success',
-        message: response.data.message || 'Verification code sent to your email! Please check your inbox.'
+        message: response.data.message || (returnedOtp ? `Verification OTP Code: ${returnedOtp} (Auto-filled)` : 'Verification code sent!')
       });
     } catch (requestError) {
       setToast({

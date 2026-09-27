@@ -1670,33 +1670,35 @@ export default function BookSessionPage({ auth, onLogout }) {
         </div>
 
         {/* Tab selector */}
-        <div className="mb-6 grid grid-cols-2 gap-3">
+        <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
           {tabs.map(({ key, label, icon: Icon, desc, color, bg }) => (
             <button
               key={key}
               id={`tab-${key}`}
               onClick={() => { setActiveTab(key); setSuccess(false); }}
-              className={`flex flex-col items-center gap-2 rounded-3xl border-2 p-5 text-center transition-all duration-200 ${activeTab === key
+              className={`flex items-center sm:flex-col gap-3.5 sm:gap-2 rounded-2xl sm:rounded-3xl border-2 p-3.5 sm:p-5 text-left sm:text-center transition-all duration-200 ${activeTab === key
                 ? 'border-sage bg-white shadow-[0_8px_32px_rgba(90,133,83,0.15)]'
-                : 'border-transparent bg-white/50 hover:bg-white/80'
+                : 'border-transparent bg-white/60 hover:bg-white/90'
                 }`}
             >
-              <span className={`flex h-12 w-12 items-center justify-center rounded-2xl ${bg} ${color}`}>
+              <span className={`flex h-11 w-11 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-2xl ${bg} ${color}`}>
                 <Icon size={22} />
               </span>
-              <div className="flex flex-col items-center">
-                <span className={`text-sm font-bold ${activeTab === key ? 'text-forest' : 'text-forest/60'}`}>
-                  {label}
-                </span>
-                {key === 'therapy' && isTherapyBooked && (
-                  <span className="mt-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-extrabold text-amber-900 border border-amber-300">
-                    🔒 1st Session Booked
+              <div className="flex-1 flex flex-col sm:items-center min-w-0">
+                <div className="flex items-center gap-2 flex-wrap sm:justify-center">
+                  <span className={`text-sm font-bold ${activeTab === key ? 'text-forest' : 'text-forest/70'}`}>
+                    {label}
                   </span>
-                )}
+                  {key === 'therapy' && isTherapyBooked && (
+                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-extrabold text-amber-900 border border-amber-300">
+                      🔒 1st Session Booked
+                    </span>
+                  )}
+                </div>
+                <span className={`text-xs leading-5 mt-0.5 ${activeTab === key ? 'text-forest/70' : 'text-forest/45'}`}>
+                  {desc}
+                </span>
               </div>
-              <span className={`text-xs leading-5 ${activeTab === key ? 'text-forest/65' : 'text-forest/40'}`}>
-                {desc}
-              </span>
             </button>
           ))}
         </div>

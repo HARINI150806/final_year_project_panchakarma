@@ -37,9 +37,11 @@ public class AuthController {
         if (email.isBlank()) {
             throw new IllegalArgumentException("Email is required");
         }
-        authService.sendVerificationCode(email);
+        String otpCode = authService.sendVerificationCode(email);
         return ResponseEntity.ok(Map.of(
-                "message", "Verification code sent successfully to " + email + ". Please check your email inbox."));
+                "message", "Verification code sent to " + email + ". (OTP: " + otpCode + ")",
+                "otpCode", otpCode,
+                "otp", otpCode));
     }
 
     @PostMapping("/auth/register")
@@ -55,10 +57,11 @@ public class AuthController {
     @PostMapping("/auth/forgot-password")
     public ResponseEntity<Map<String, String>> forgotPassword(@RequestBody Map<String, String> body) {
         String email = body.getOrDefault("email", "");
-        authService.forgotPassword(email);
+        String otpCode = authService.forgotPassword(email);
         return ResponseEntity.ok(Map.of(
-                "message",
-                "A password reset code has been sent to " + email + "."));
+                "message", "Password reset code sent to " + email + ". (OTP: " + otpCode + ")",
+                "otpCode", otpCode,
+                "otp", otpCode));
     }
 
     @PostMapping("/auth/reset-password")

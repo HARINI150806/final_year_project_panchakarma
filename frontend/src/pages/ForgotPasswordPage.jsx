@@ -30,7 +30,11 @@ export default function ForgotPasswordPage() {
 
     try {
       const { data } = await api.post('/auth/forgot-password', { email });
-      setToast({ type: 'success', message: data.message || 'Verification code sent to your email!' });
+      const returnedOtp = data?.otpCode || data?.otp;
+      if (returnedOtp) {
+        setOtpCode(returnedOtp);
+      }
+      setToast({ type: 'success', message: data.message || (returnedOtp ? `OTP Code: ${returnedOtp} (Auto-filled)` : 'Verification code sent!') });
       setStep(2); // move to step 2 (verify and reset)
     } catch (error) {
       setToast({

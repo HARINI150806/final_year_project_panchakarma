@@ -269,7 +269,7 @@ export default function Header({ auth, onLogout, onAdminCreateClick, activeTab, 
 
               {/* Book dropdown */}
               {bookOpen && (
-                <div className="absolute right-0 top-full mt-2 w-56 overflow-hidden rounded-2xl border border-white/70 bg-white/95 shadow-[0_20px_60px_rgba(30,44,35,0.18)] backdrop-blur-xl">
+                <div className="fixed inset-x-3 top-16 z-50 sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-2 sm:w-60 overflow-hidden rounded-2xl border border-white/70 bg-white/95 shadow-[0_20px_60px_rgba(30,44,35,0.18)] backdrop-blur-xl">
                   <div className="p-2">
                     <p className="px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-forest/45">
                       Choose type

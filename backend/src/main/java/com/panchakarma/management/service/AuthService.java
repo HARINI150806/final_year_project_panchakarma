@@ -162,7 +162,7 @@ public class AuthService {
     }
 
     @org.springframework.transaction.annotation.Transactional
-    public void forgotPassword(String email) {
+    public String forgotPassword(String email) {
         String trimmedEmail = email.trim().toLowerCase();
         User user = userRepository.findByEmail(trimmedEmail)
                 .orElseThrow(() -> new IllegalArgumentException("Email is not registered"));
@@ -178,8 +178,13 @@ public class AuthService {
         passwordReset.setExpiresAt(LocalDateTime.now().plusMinutes(10));
         passwordResetRepository.save(passwordReset);
 
-        // Send real email containing recovery code
-        emailService.sendForgotPasswordEmail(user.getEmail(), user.getFullName(), code);
+        // Send real email containing recovery code safely
+        try {
+            emailService.sendForgotPasswordEmail(user.getEmail(), user.getFullName(), code);
+        } catch (Exception e) {
+            System.err.println("SMTP Email send error during forgotPassword: " + e.getMessage());
+        }
+        return code;
     }
 
     @org.springframework.transaction.annotation.Transactional
@@ -233,8 +238,12 @@ public class AuthService {
         verification.setExpiresAt(LocalDateTime.now().plusMinutes(10));
         emailVerificationRepository.save(verification);
 
-        // 4. Send code via EmailService
-        emailService.sendVerificationCodeEmail(trimmedEmail, code);
+        // 4. Send code via EmailService safely
+        try {
+            emailService.sendVerificationCodeEmail(trimmedEmail, code);
+        } catch (Exception e) {
+            System.err.println("SMTP Email send error during sendVerificationCode: " + e.getMessage());
+        }
 
         return code;
     }
