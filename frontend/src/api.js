@@ -2,7 +2,7 @@ import axios from 'axios';
 import { getStoredAuth } from './auth';
 
 const defaultApiUrl = import.meta.env.PROD
-  ? '/api'
+  ? 'https://panchakarma-backend-w6o4.onrender.com/api'
   : 'http://localhost:8080/api';
 
 const api = axios.create({
