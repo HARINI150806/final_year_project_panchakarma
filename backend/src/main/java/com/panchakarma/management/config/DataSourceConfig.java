@@ -37,7 +37,7 @@ public class DataSourceConfig {
                 primaryDbUsername,
                 primaryDbPassword,
                 "org.postgresql.Driver",
-                3000
+                10000
         );
 
         if (testConnection(primaryDs, primaryDbUrl)) {
@@ -57,7 +57,7 @@ public class DataSourceConfig {
                     "postgres",
                     "1256Harini..",
                     "org.postgresql.Driver",
-                    3000
+                    1000
             );
 
             if (testConnection(localPgDs, localPgUrl)) {
@@ -82,7 +82,7 @@ public class DataSourceConfig {
                 "sa",
                 "",
                 "org.h2.Driver",
-                5000
+                3000
         );
         log.info("✅ Local embedded H2 fallback database is active.");
         return h2Ds;
