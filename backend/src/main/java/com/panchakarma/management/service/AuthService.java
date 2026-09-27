@@ -99,13 +99,20 @@ public class AuthService {
     }
 
     public AuthResponse login(LoginRequest request) {
-        String email = request.email().toLowerCase();
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(email, request.password())
-        );
+        if (request == null || request.email() == null || request.password() == null) {
+            throw new IllegalArgumentException("Email and password are required.");
+        }
+        String email = request.email().trim().toLowerCase();
+        try {
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(email, request.password())
+            );
+        } catch (org.springframework.security.core.AuthenticationException e) {
+            throw new IllegalArgumentException("Invalid email or password");
+        }
 
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new IllegalArgumentException("Invalid credentials"));
+                .orElseThrow(() -> new IllegalArgumentException("Invalid email or password"));
 
         boolean isProfileCompleted = false;
         boolean doshaAssessmentCompleted = user.isDoshaAssessmentCompleted();
@@ -113,13 +120,15 @@ public class AuthService {
         java.time.LocalDateTime doshaAssessmentDate = user.getDoshaAssessmentDate();
         if (user.getRole() == UserRole.PATIENT) {
             Patient patient = patientRepository.findByUser(user)
-                    .orElseThrow(() -> new IllegalArgumentException("Patient profile not found"));
-            isProfileCompleted = patient.isProfileCompleted();
-            doshaAssessmentCompleted = patient.isDoshaAssessmentCompleted();
-            dominantDosha = patient.getDominantDosha();
-            doshaAssessmentDate = patient.getDoshaAssessmentDate() != null
-                    ? patient.getDoshaAssessmentDate().atStartOfDay()
-                    : null;
+                    .orElseGet(() -> createPatientProfile(user));
+            if (patient != null) {
+                isProfileCompleted = patient.isProfileCompleted();
+                doshaAssessmentCompleted = patient.isDoshaAssessmentCompleted();
+                dominantDosha = patient.getDominantDosha();
+                doshaAssessmentDate = patient.getDoshaAssessmentDate() != null
+                        ? patient.getDoshaAssessmentDate().atStartOfDay()
+                        : user.getDoshaAssessmentDate();
+            }
         }
 
         String token = jwtService.generateToken(user.getEmail(), user.getRole().name());
@@ -136,7 +145,7 @@ public class AuthService {
         );
     }
 
-    private void createPatientProfile(User user) {
+    private Patient createPatientProfile(User user) {
         Patient patient = new Patient();
         String fullName = user.getFullName() == null ? "" : user.getFullName().trim();
         String[] nameParts = fullName.split("\\s+", 2);
@@ -146,9 +155,10 @@ public class AuthService {
         patient.setContactNumber(user.getPhone());
         patient.setGender(user.getGender());
         patient.setUser(user);
-        patientRepository.save(patient);
-        user.setPatient(patient); // Establish bidirectional link
+        Patient savedPatient = patientRepository.save(patient);
+        user.setPatient(savedPatient); // Establish bidirectional link
         userRepository.save(user); // Save user to update the patient reference
+        return savedPatient;
     }
 
     @org.springframework.transaction.annotation.Transactional
