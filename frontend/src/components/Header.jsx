@@ -1,11 +1,11 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Bell, CalendarPlus, ChevronDown, LogOut, Stethoscope, UserCircle2, UserPlus, Wand2, X } from 'lucide-react';
+import { Bell, CalendarPlus, ChevronDown, LogOut, Menu, Stethoscope, UserCircle2, UserPlus, Wand2, X } from 'lucide-react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { roleMenus, patientNavItems } from '../data';
 import api from '../api';
 import LanguageTranslator from './LanguageTranslator';
 
-export default function Header({ auth, onLogout, onAdminCreateClick, activeTab, onTabChange }) {
+export default function Header({ auth, onLogout, onAdminCreateClick, activeTab, onTabChange, onToggleMobileDrawer }) {
   const [bookOpen, setBookOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -224,13 +224,23 @@ export default function Header({ auth, onLogout, onAdminCreateClick, activeTab, 
     <header className="relative z-20 w-full bg-[#f8f9f6]/95 border-b border-gray-200/50 backdrop-blur-md">
       <div className="mx-auto flex w-full items-center justify-between gap-3 px-4 py-3 sm:px-6">
         {/* Left Side: Hamburger & Greeting */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
+          {onToggleMobileDrawer && (
+            <button
+              type="button"
+              onClick={onToggleMobileDrawer}
+              className="lg:hidden flex h-9 w-9 items-center justify-center rounded-xl bg-white border border-emerald-900/15 text-forest shadow-2xs hover:bg-emerald-50 active:scale-95 transition cursor-pointer"
+              title="Open Navigation Menu"
+              aria-label="Toggle navigation menu"
+            >
+              <Menu size={18} />
+            </button>
+          )}
+
           {/* Brand logo shown on mobile (< lg) */}
-          <div className="flex items-center gap-2.5 lg:hidden">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#2a4d33] text-white">
-              <Wand2 size={16} />
-            </div>
-            <span className="font-bold text-sm text-[#193322]">Panchakarma</span>
+          <div className="flex items-center gap-2 lg:hidden">
+            <img src="/logo.jpg" alt="PanchAI" className="h-7 w-7 rounded-lg object-contain border border-emerald-900/10" />
+            <span className="font-bold text-sm text-[#193322]">PanchAI</span>
           </div>
 
           <div className="hidden items-center gap-3 lg:flex">

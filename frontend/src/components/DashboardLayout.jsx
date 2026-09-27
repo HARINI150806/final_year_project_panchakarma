@@ -46,17 +46,17 @@ export default function DashboardLayout({
       </div>
 
       {/* Fixed Desktop Left Sidebar */}
-      {isPatient && (
-        <Sidebar
-          activeTab={activeTab}
-          onTabChange={handleTabSelect}
-          isCollapsed={isCollapsed}
-          onToggleCollapse={setIsCollapsed}
-        />
-      )}
+      <Sidebar
+        activeTab={activeTab}
+        onTabChange={handleTabSelect}
+        isCollapsed={isCollapsed}
+        onToggleCollapse={setIsCollapsed}
+        role={auth?.role}
+        onLogout={onLogout}
+      />
 
       {/* Main Layout Area */}
-      <main className={`flex-1 min-w-0 ml-0 transition-all duration-300 flex flex-col ${isPatient ? (isCollapsed ? 'lg:ml-20' : 'lg:ml-[260px]') : ''}`}>
+      <main className={`flex-1 min-w-0 ml-0 transition-all duration-300 flex flex-col ${isCollapsed ? 'lg:ml-20' : 'lg:ml-[260px]'}`}>
         {/* Sticky top header */}
         <Header
           auth={auth}
@@ -64,25 +64,8 @@ export default function DashboardLayout({
           onAdminCreateClick={onAdminCreateClick}
           activeTab={activeTab}
           onTabChange={handleTabSelect}
+          onToggleMobileDrawer={() => setIsMobileDrawerOpen((o) => !o)}
         />
-
-        {/* Mobile Drawer Trigger Bar (Visible on mobile & tablet < lg) */}
-        {isPatient && (
-          <div className="lg:hidden relative z-30 bg-[#f4faee]/90 border-b border-emerald-900/10 px-4 py-2.5 flex items-center justify-between backdrop-blur-md">
-            <button
-              type="button"
-              onClick={() => setIsMobileDrawerOpen(!isMobileDrawerOpen)}
-              className="flex items-center gap-2 rounded-2xl bg-white border border-emerald-200 px-3.5 py-1.5 text-xs font-bold text-emerald-950 shadow-xs active:scale-95 cursor-pointer"
-            >
-              {isMobileDrawerOpen ? <X size={16} /> : <Menu size={16} />}
-              <span>Menu & Navigation</span>
-            </button>
-
-            <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-900 bg-emerald-100/80 px-2.5 py-1 rounded-full">
-              {activeTab}
-            </span>
-          </div>
-        )}
 
         {/* Mobile Backdrop & Drawer */}
         {isMobileDrawerOpen && (
@@ -100,7 +83,7 @@ export default function DashboardLayout({
                 <button
                   type="button"
                   onClick={() => setIsMobileDrawerOpen(false)}
-                  className="p-1.5 rounded-xl bg-white border border-emerald-200 text-forest hover:bg-emerald-50"
+                  className="p-1.5 rounded-xl bg-white border border-emerald-200 text-forest hover:bg-emerald-50 cursor-pointer"
                 >
                   <X size={18} />
                 </button>
@@ -108,9 +91,14 @@ export default function DashboardLayout({
 
               <Sidebar
                 activeTab={activeTab}
-                onTabChange={handleTabSelect}
+                onTabChange={(tab) => {
+                  handleTabSelect(tab);
+                  setIsMobileDrawerOpen(false);
+                }}
                 isCollapsed={false}
                 isMobile={true}
+                role={auth?.role}
+                onLogout={onLogout}
               />
             </div>
           </div>
