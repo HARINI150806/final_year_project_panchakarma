@@ -257,6 +257,15 @@ export default function DashboardPage({ auth, onLogout, onAuthUpdate }) {
   const [dashboard, setDashboard] = useState(fallbackDashboard);
   const [patientTab, setPatientTab] = useState(currentTab || 'home');
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
+
+  useEffect(() => {
+    function handleToggleEvent() {
+      setIsMobileDrawerOpen((prev) => !prev);
+    }
+    window.addEventListener('toggle-mobile-drawer', handleToggleEvent);
+    return () => window.removeEventListener('toggle-mobile-drawer', handleToggleEvent);
+  }, []);
 
   const isPatient = auth?.role === 'PATIENT';
   const isAdmin = auth?.role === 'ADMIN';
@@ -687,19 +696,17 @@ export default function DashboardPage({ auth, onLogout, onAuthUpdate }) {
       </div>
 
       {/* Fixed Desktop Left Sidebar */}
-      {(isPatient || isTherapist) && (
-        <Sidebar
-          activeTab={patientTab}
-          onTabChange={handleTabChange}
-          isCollapsed={isCollapsed}
-          onToggleCollapse={setIsCollapsed}
-          role={auth?.role || 'PATIENT'}
-          onLogout={onLogout}
-        />
-      )}
+      <Sidebar
+        activeTab={patientTab}
+        onTabChange={handleTabChange}
+        isCollapsed={isCollapsed}
+        onToggleCollapse={setIsCollapsed}
+        role={auth?.role || 'PATIENT'}
+        onLogout={onLogout}
+      />
 
       {/* Main Layout Area */}
-      <main className={`flex-1 min-w-0 ml-0 transition-all duration-300 flex flex-col ${(isPatient || isTherapist) ? (isCollapsed ? 'lg:ml-20' : 'lg:ml-[260px]') : ''}`}>
+      <main className={`flex-1 min-w-0 ml-0 transition-all duration-300 flex flex-col ${isCollapsed ? 'lg:ml-20' : 'lg:ml-[260px]'}`}>
         {/* Sticky Header for Right Pane */}
         <Header
           auth={auth}
@@ -707,7 +714,45 @@ export default function DashboardPage({ auth, onLogout, onAuthUpdate }) {
           onAdminCreateClick={handleAdminCreateClick}
           activeTab={patientTab}
           onTabChange={handleTabChange}
+          onToggleMobileDrawer={() => setIsMobileDrawerOpen((o) => !o)}
         />
+
+        {/* Mobile Backdrop & Drawer */}
+        {isMobileDrawerOpen && (
+          <div className="fixed inset-0 z-50 flex lg:hidden">
+            {/* Backdrop */}
+            <div
+              className="fixed inset-0 bg-forest/40 backdrop-blur-xs transition-opacity"
+              onClick={() => setIsMobileDrawerOpen(false)}
+            />
+
+            {/* Drawer content */}
+            <div className="relative z-10 w-72 max-w-[85vw] bg-gradient-to-b from-white via-[#f7fcf4] to-[#edf7e7] p-5 shadow-2xl overflow-y-auto flex flex-col justify-between">
+              <div className="flex items-center justify-between border-b border-emerald-900/10 pb-3 mb-4">
+                <span className="font-display font-bold text-forest text-base">Navigation</span>
+                <button
+                  type="button"
+                  onClick={() => setIsMobileDrawerOpen(false)}
+                  className="p-1.5 rounded-xl bg-white border border-emerald-200 text-forest hover:bg-emerald-50 cursor-pointer"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <Sidebar
+                activeTab={patientTab}
+                onTabChange={(tab) => {
+                  handleTabChange(tab);
+                  setIsMobileDrawerOpen(false);
+                }}
+                isCollapsed={false}
+                isMobile={true}
+                role={auth?.role || 'PATIENT'}
+                onLogout={onLogout}
+              />
+            </div>
+          </div>
+        )}
 
         {isAdmin ? (
           <section className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 space-y-4 motion-fade-in-up">
