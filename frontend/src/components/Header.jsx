@@ -236,11 +236,6 @@ export default function Header({ auth, onLogout, onAdminCreateClick, activeTab, 
             <Menu size={18} />
           </button>
 
-          {/* Brand logo shown on mobile (< lg) */}
-          <div className="flex items-center gap-1.5 lg:hidden shrink-0">
-            <img src="/logo.jpg" alt="PanchAI" className="h-7 w-7 rounded-lg object-contain border border-emerald-900/10" />
-          </div>
-
           <div className="hidden items-center gap-3 lg:flex">
             <p className="text-sm font-medium text-forest/70">
               Welcome back, <span className="font-bold text-forest">{auth?.fullName}</span> ✨

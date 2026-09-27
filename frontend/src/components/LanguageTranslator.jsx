@@ -30,16 +30,23 @@ export default function LanguageTranslator({ floating = false }) {
   useEffect(() => {
     // Global callback for Google Translate initialization
     window.googleTranslateElementInit = () => {
-      if (window.google && window.google.translate) {
-        new window.google.translate.TranslateElement(
-          {
-            pageLanguage: 'en',
-            includedLanguages: 'en,ta,hi,te,ml,kn',
-            autoDisplay: false,
-            layout: window.google.translate.TranslateElement.InlineLayout.SIMPLE
-          },
-          'google_translate_element_hidden'
-        );
+      try {
+        if (window.google && window.google.translate && window.google.translate.TranslateElement) {
+          const inlineLayout = window.google.translate.TranslateElement.InlineLayout
+            ? window.google.translate.TranslateElement.InlineLayout.SIMPLE
+            : 0;
+          new window.google.translate.TranslateElement(
+            {
+              pageLanguage: 'en',
+              includedLanguages: 'en,ta,hi,te,ml,kn',
+              autoDisplay: false,
+              layout: inlineLayout
+            },
+            'google_translate_element_hidden'
+          );
+        }
+      } catch (err) {
+        console.warn('Google translate init deferred:', err);
       }
     };
 
