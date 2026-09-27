@@ -193,7 +193,11 @@ export default function FullPageRecoveryPredictor({ consultation, onBack, onSave
         overall_condition: Number(overallCondition),
       };
 
-      const res = await fetch('http://localhost:8000/api/predict-recovery', {
+      const ragBaseUrl = import.meta.env.VITE_RAG_API_URL || (import.meta.env.PROD
+        ? 'https://final-year-project-panchakarma-rag.onrender.com'
+        : 'http://localhost:8000');
+
+      const res = await fetch(`${ragBaseUrl}/api/predict-recovery`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
