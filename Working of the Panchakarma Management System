@@ -1,0 +1,29 @@
+Working of the Panchakarma Management System
+The Panchakarma Management System is a web-based platform that digitizes the complete Panchakarma treatment workflow, from patient registration to treatment completion, while integrating Artificial Intelligence for recovery prediction and healthcare assistance.
+
+User Authentication:
+The user (Admin, Patient, Therapist, or Pharmacist) logs into the system using secure Spring Security and JWT-based authentication. Based on the assigned role, the user is redirected to the appropriate dashboard.
+
+Patient Registration and Consultation:
+Patients register in the system and book a consultation with a therapist. During the consultation, the therapist examines the patient, reviews the medical condition, and recommends suitable Panchakarma therapies.
+
+Therapy Planning and Scheduling:
+If the patient agrees to proceed, the therapist creates a personalized therapy plan specifying the therapy type, number of sessions, and treatment schedule. The patient then books therapy sessions according to the plan.
+
+Therapy Sessions and Recovery Assessment:
+After each therapy session, the therapist records clinical parameters such as pain level, sleep quality, energy level, overall condition, completed sessions, and current recovery percentage. These records are stored securely in the PostgreSQL database.
+
+AI-Based Recovery Prediction:
+The assessment data is sent to the FastAPI AI service, where the trained HistGradient Boosting/XGBoost model predicts the patient's expected recovery percentage. The predicted result is displayed on the therapist dashboard and saved as part of the patient's treatment journey, helping therapists monitor treatment effectiveness.
+
+Pharmacy Management:
+Based on the therapist's prescription, pharmacists manage medicine inventory and dispense medicines while updating stock records within the system.
+
+AI-Powered Ayurveda Chatbot:
+Patients and therapists can interact with the RAG-based Ayurveda Chatbot to obtain reliable information about Panchakarma therapies, Ayurvedic concepts, diet plans, and lifestyle recommendations. The chatbot retrieves relevant information from the Ayurveda knowledge base and generates context-aware responses.
+
+Treatment Completion and Monitoring:
+Throughout the treatment, the system maintains the patient's complete treatment history, including consultations, therapy sessions, prescriptions, recovery assessments, AI predictions, and follow-up records. This enables continuous monitoring of patient progress and supports informed clinical decision-making.
+
+Workflow Summary
+Login → Patient Registration → Consultation → Therapy Recommendation → Therapy Plan → Therapy Session → Recovery Assessment → AI Recovery Prediction → Prescription & Pharmacy → AI Chatbot Assistance → Treatment Monitoring → Treatment Completion
