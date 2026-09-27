@@ -24,14 +24,18 @@ const THERAPY_TYPES = [
   { value: 'Vamana', label: 'Vamana' },
 ];
 
-function matchTherapyType(inputName) {
-  if (!inputName) return THERAPY_TYPES[0].value;
+function matchTherapyType(inputName, strict = false) {
+  if (!inputName) return strict ? null : THERAPY_TYPES[0].value;
   const lower = String(inputName).toLowerCase();
+  if (strict && (lower.includes('pending') || lower.includes('not prescribed') || lower.includes('not booked'))) {
+    return null;
+  }
   const matched = THERAPY_TYPES.find(t => {
     const mainKey = t.value.split(' ')[0].toLowerCase();
     return lower.includes(mainKey);
   });
-  return matched ? matched.value : THERAPY_TYPES[0].value;
+  if (matched) return matched.value;
+  return strict ? null : THERAPY_TYPES[0].value;
 }
 
 const CONSULTATION_REASONS = [
@@ -910,11 +914,12 @@ function TherapyForm({ onSuccess, onSwitchToConsultation, onStatusChange }) {
             for (const cycle of journeyRes.data.cycles) {
               const planNode = cycle.nodes?.find(n => n.type === 'THERAPY_PLAN');
               if (planNode && planNode.therapyName && !planNode.therapyName.toLowerCase().includes('pending')) {
+                const matchedTherapy = matchTherapyType(planNode.therapyName, true);
                 const isNodeDone = planNode.status === 'COMPLETED';
-                if (!isNodeDone) {
+                if (!isNodeDone && matchedTherapy) {
                   activePlanObj = {
                     id: planNode.treatmentPlanId || null,
-                    therapyName: matchTherapyType(planNode.therapyName),
+                    therapyName: matchedTherapy,
                     totalSessions: planNode.totalSessions != null ? Number(planNode.totalSessions) : 7,
                     assignedTherapistName: planNode.assignedTherapist || 'Assigned Doctor',
                     assignedTherapistId: null,
@@ -927,28 +932,30 @@ function TherapyForm({ onSuccess, onSwitchToConsultation, onStatusChange }) {
             }
           }
 
-          // Fallback 2: If still no plan, check consultation bookings for prescribed therapy recommendation
-          if (!activePlanObj && (completedConsList.length > 0 || allBookings.length > 0)) {
-            const latestCons = completedConsList[0] || allBookings[0];
-            const adviceText = (latestCons.patientAdvice || latestCons.sessionNotes || latestCons.purpose || latestCons.notes || latestCons.therapyName || '').toLowerCase();
-            const doctorName = latestCons.therapistName || latestCons.assignedTo?.fullName || 'Attending Specialist';
-            const matchedTherapy = matchTherapyType(adviceText || latestCons.therapyName);
+          // Fallback 2: If still no plan, check completed consultation notes for explicitly prescribed therapy recommendation
+          if (!activePlanObj && completedConsList.length > 0) {
+            const latestCons = completedConsList[0];
+            const adviceText = (latestCons.patientAdvice || latestCons.sessionNotes || latestCons.notes || '').toLowerCase();
+            const matchedTherapy = matchTherapyType(adviceText, true);
 
-            let totalSessions = 7;
-            if (adviceText.includes('1 session') || adviceText.includes('single session')) totalSessions = 1;
-            else if (adviceText.includes('3 session')) totalSessions = 3;
-            else if (adviceText.includes('5 session')) totalSessions = 5;
-            else if (adviceText.includes('14 session')) totalSessions = 14;
+            if (matchedTherapy) {
+              const doctorName = latestCons.therapistName || latestCons.assignedTo?.fullName || 'Attending Specialist';
+              let totalSessions = 7;
+              if (adviceText.includes('1 session') || adviceText.includes('single session')) totalSessions = 1;
+              else if (adviceText.includes('3 session')) totalSessions = 3;
+              else if (adviceText.includes('5 session')) totalSessions = 5;
+              else if (adviceText.includes('14 session')) totalSessions = 14;
 
-            activePlanObj = {
-              id: null,
-              therapyName: matchedTherapy,
-              totalSessions: totalSessions,
-              assignedTherapistName: doctorName,
-              assignedTherapistId: latestCons.assignedToId || latestCons.assignedTo?.id || null,
-              status: 'PLANNED',
-              consultationBookingId: latestCons.bookingId || latestCons.id || null,
-            };
+              activePlanObj = {
+                id: null,
+                therapyName: matchedTherapy,
+                totalSessions: totalSessions,
+                assignedTherapistName: doctorName,
+                assignedTherapistId: latestCons.assignedToId || latestCons.assignedTo?.id || null,
+                status: 'PLANNED',
+                consultationBookingId: latestCons.bookingId || latestCons.id || null,
+              };
+            }
           }
 
           setSelectedPlan(activePlanObj);
@@ -1059,6 +1066,24 @@ function TherapyForm({ onSuccess, onSwitchToConsultation, onStatusChange }) {
     setError('');
   }, [form.therapist, form.date, form.time]);
 
+  // Auto-resolve assigned therapist ID from selected plan therapist name
+  useEffect(() => {
+    if (selectedPlan && therapists.length > 0 && !form.therapist) {
+      let resolvedId = selectedPlan.assignedTherapistId;
+      if (!resolvedId && selectedPlan.assignedTherapistName) {
+        const planNameClean = (selectedPlan.assignedTherapistName || '').toLowerCase().replace('dr.', '').trim();
+        const matchedT = therapists.find(t => {
+          const tName = (t.fullName || t.name || '').toLowerCase();
+          return tName.includes(planNameClean) || planNameClean.includes(tName);
+        });
+        if (matchedT) resolvedId = matchedT.id;
+      }
+      if (resolvedId) {
+        setForm(prev => ({ ...prev, therapist: resolvedId }));
+      }
+    }
+  }, [selectedPlan, therapists]);
+
   // Fetch slots whenever therapist, date, or websocket refetchTrigger changes
   useEffect(() => {
     async function fetchSlots() {
@@ -1069,7 +1094,17 @@ function TherapyForm({ onSuccess, onSwitchToConsultation, onStatusChange }) {
       }
       setSlotsLoading(true);
       try {
-        const therapistId = form.therapist || 0;
+        let therapistId = form.therapist || selectedPlan?.assignedTherapistId;
+        if (!therapistId && selectedPlan?.assignedTherapistName && therapists.length > 0) {
+          const planNameClean = (selectedPlan.assignedTherapistName || '').toLowerCase().replace('dr.', '').trim();
+          const matchedT = therapists.find(t => {
+            const tName = (t.fullName || t.name || '').toLowerCase();
+            return tName.includes(planNameClean) || planNameClean.includes(tName);
+          });
+          if (matchedT) therapistId = matchedT.id;
+        }
+        if (!therapistId) therapistId = 0;
+
         const response = await api.get(`/therapists/${therapistId}/availability?date=${form.date}`);
         let rawSlots = response.data || [];
 
@@ -1107,7 +1142,7 @@ function TherapyForm({ onSuccess, onSwitchToConsultation, onStatusChange }) {
       }
     }
     fetchSlots();
-  }, [form.therapist, form.date, refetchTrigger]);
+  }, [form.therapist, form.date, selectedPlan, therapists, refetchTrigger]);
 
   // WebSocket listener to auto-refresh slots in real-time
   useEffect(() => {

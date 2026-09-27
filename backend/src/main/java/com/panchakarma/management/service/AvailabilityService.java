@@ -48,11 +48,13 @@ public class AvailabilityService {
             }
 
             // Get active (non-cancelled) bookings for this therapist on this date
-            List<Booking> activeBookings = bookingRepository
-                    .findByAssignedToAndDate(therapist, preferredDate)
-                    .stream()
-                    .filter(booking -> booking.getBookingStatus() != BookingStatus.CANCELLED)
-                    .filter(booking -> booking.getTime() != null)
+            List<Booking> activeBookings = bookingRepository.findAll().stream()
+                    .filter(b -> preferredDate.equals(b.getDate()))
+                    .filter(b -> b.getTime() != null)
+                    .filter(b -> b.getBookingStatus() != BookingStatus.CANCELLED)
+                    .filter(b -> (b.getAssignedTo() != null && b.getAssignedTo().getId().equals(therapist.getId())) ||
+                                 (b.getTherapistName() != null && therapist.getFullName() != null && 
+                                  b.getTherapistName().trim().equalsIgnoreCase(therapist.getFullName().trim())))
                     .collect(Collectors.toList());
 
             for (LocalTime[] slotRange : workingSlots) {
@@ -206,11 +208,13 @@ public class AvailabilityService {
             }
 
             // Get active (non-cancelled) bookings for this therapist on this date
-            List<Booking> activeBookings = bookingRepository
-                    .findByAssignedToAndDate(therapist, date)
-                    .stream()
-                    .filter(booking -> booking.getBookingStatus() != BookingStatus.CANCELLED)
-                    .filter(booking -> booking.getTime() != null)
+            List<Booking> activeBookings = bookingRepository.findAll().stream()
+                    .filter(b -> date.equals(b.getDate()))
+                    .filter(b -> b.getTime() != null)
+                    .filter(b -> b.getBookingStatus() != BookingStatus.CANCELLED)
+                    .filter(b -> (b.getAssignedTo() != null && b.getAssignedTo().getId().equals(therapist.getId())) ||
+                                 (b.getTherapistName() != null && therapist.getFullName() != null && 
+                                  b.getTherapistName().trim().equalsIgnoreCase(therapist.getFullName().trim())))
                     .collect(Collectors.toList());
 
             for (LocalTime[] slotRange : workingSlots) {
@@ -236,6 +240,65 @@ public class AvailabilityService {
                     slot.setIsAvailable(true);
                     result.add(slot);
                 }
+            }
+        }
+
+        return result;
+    }
+
+    /**
+     * Gets available slots for a specific therapist on a specific date directly from database
+     */
+    public List<TherapistAvailability> getTherapistAvailabilityOnDate(Long therapistId, LocalDate date) {
+        User therapist = userRepository.findById(therapistId)
+                .orElseThrow(() -> new RuntimeException("Therapist not found"));
+
+        List<TherapistAvailability> result = new ArrayList<>();
+        List<LocalTime[]> workingSlots = getTherapistWorkingSlotsForDate(therapist, date);
+        if (workingSlots.isEmpty()) {
+            return result;
+        }
+
+        // Query database directly for non-cancelled bookings for this therapist on this date
+        String therapistClean = therapist.getFullName() != null ? therapist.getFullName().toLowerCase().replace("dr.", "").trim() : "";
+        List<Booking> activeBookings = bookingRepository.findAll().stream()
+                .filter(b -> date.equals(b.getDate()))
+                .filter(b -> b.getTime() != null)
+                .filter(b -> b.getBookingStatus() != BookingStatus.CANCELLED)
+                .filter(b -> {
+                    if (b.getAssignedTo() != null && b.getAssignedTo().getId().equals(therapist.getId())) {
+                        return true;
+                    }
+                    if (b.getTherapistName() != null && !therapistClean.isEmpty()) {
+                        String bNameClean = b.getTherapistName().toLowerCase().replace("dr.", "").trim();
+                        return bNameClean.contains(therapistClean) || therapistClean.contains(bNameClean);
+                    }
+                    return false;
+                })
+                .collect(Collectors.toList());
+
+        for (LocalTime[] slotRange : workingSlots) {
+            LocalTime slotStart = slotRange[0];
+            LocalTime slotEnd = slotRange[1];
+
+            // Exclude candidate slot if it overlaps with any existing booking in DB
+            boolean isOverlapped = activeBookings.stream().anyMatch(b -> {
+                LocalTime bStart = b.getTime();
+                LocalTime bEnd = bStart.plusMinutes(45);
+                return slotStart.isBefore(bEnd) && slotEnd.isAfter(bStart);
+            });
+
+            if (!isOverlapped) {
+                if (date.equals(LocalDate.now()) && slotStart.isBefore(LocalTime.now(java.time.ZoneId.systemDefault()))) {
+                    continue; // Skip past slots today
+                }
+                TherapistAvailability slot = new TherapistAvailability();
+                slot.setTherapist(therapist);
+                slot.setAvailableDate(date);
+                slot.setStartTime(slotStart);
+                slot.setEndTime(slotEnd);
+                slot.setIsAvailable(true);
+                result.add(slot);
             }
         }
 

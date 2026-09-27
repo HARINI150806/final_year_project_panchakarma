@@ -27,7 +27,7 @@ def download_kaggle_dataset() -> str:
     os.makedirs(AYURVEDA_BOOKS_DIR, exist_ok=True)
     os.makedirs(AYURVEDA_TEXTS_DIR, exist_ok=True)
 
-    cache_dir = Path("C:/Users/DELL/.cache/kagglehub/datasets/rcratos/ayurveda-texts-english")
+    cache_dir = Path.home() / ".cache" / "kagglehub" / "datasets" / "rcratos" / "ayurveda-texts-english"
     archive_path = cache_dir / "1.archive"
 
     if not archive_path.exists():

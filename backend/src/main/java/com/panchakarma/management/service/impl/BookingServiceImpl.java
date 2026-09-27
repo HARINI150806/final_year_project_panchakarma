@@ -987,6 +987,8 @@ public class BookingServiceImpl implements BookingService {
         if (therapistId == null || date == null) return preferredTime != null ? preferredTime : java.time.LocalTime.of(9, 0);
 
         User therapist = userRepository.findById(therapistId).orElse(null);
+        String therapistNameStr = therapist != null ? therapist.getFullName() : null;
+
         List<java.time.LocalTime[]> workingSlots;
         if (therapist != null) {
             workingSlots = availabilityService.getTherapistWorkingSlotsForDate(therapist, date);
@@ -1008,8 +1010,13 @@ public class BookingServiceImpl implements BookingService {
             );
         }
 
-        List<Booking> activeBookings = bookingRepository.findByAssignedTo_Id(therapistId).stream()
-                .filter(b -> b.getDate() != null && b.getDate().equals(date) && b.getTime() != null && b.getBookingStatus() != BookingStatus.CANCELLED)
+        List<Booking> activeBookings = bookingRepository.findAll().stream()
+                .filter(b -> b.getDate() != null && b.getDate().equals(date))
+                .filter(b -> b.getTime() != null)
+                .filter(b -> b.getBookingStatus() != BookingStatus.CANCELLED)
+                .filter(b -> (b.getAssignedTo() != null && b.getAssignedTo().getId().equals(therapistId)) ||
+                             (b.getTherapistName() != null && therapistNameStr != null && 
+                              b.getTherapistName().trim().equalsIgnoreCase(therapistNameStr.trim())))
                 .collect(Collectors.toList());
 
         if (preferredTime != null) {

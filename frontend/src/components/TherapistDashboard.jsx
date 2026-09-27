@@ -1147,7 +1147,7 @@ function TherapistDashboard({ activeTab, onTabChange, auth, sidebarOffset = 0 })
 
                                                                 {(booking.bookingStatus !== 'COMPLETED' && booking.bookingStatus !== 'CANCELLED' && (booking.meetLink || booking.consultationType === 'ONLINE' || (booking.therapyName && booking.therapyName.toLowerCase().includes('consultation')))) && (
                                                                     <a
-                                                                        href={booking.meetLink || 'https://meet.google.com/new'}
+                                                                        href={(booking.meetLink && !booking.meetLink.includes('meet.google.com/abc-')) ? booking.meetLink : 'https://meet.google.com/new'}
                                                                         target="_blank"
                                                                         rel="noopener noreferrer"
                                                                         className="rounded-xl px-3.5 py-1.5 text-xs font-bold bg-[#2563EB] text-white hover:bg-blue-700 transition cursor-pointer shadow-2xs inline-flex items-center gap-1.5 shrink-0"
@@ -1313,7 +1313,7 @@ function TherapistDashboard({ activeTab, onTabChange, auth, sidebarOffset = 0 })
 
                                                     {(booking.bookingStatus !== 'COMPLETED' && booking.bookingStatus !== 'CANCELLED' && (booking.meetLink || booking.consultationType === 'ONLINE' || (booking.therapyName && booking.therapyName.toLowerCase().includes('consultation')))) && (
                                                         <a
-                                                            href={booking.meetLink || 'https://meet.google.com/new'}
+                                                            href={(booking.meetLink && !booking.meetLink.includes('meet.google.com/abc-')) ? booking.meetLink : 'https://meet.google.com/new'}
                                                             target="_blank"
                                                             rel="noopener noreferrer"
                                                             className="w-full justify-center rounded-full px-3.5 py-1.5 text-xs font-bold bg-blue-600 text-white hover:bg-blue-700 transition cursor-pointer shadow-2xs inline-flex items-center gap-1.5 mt-1"

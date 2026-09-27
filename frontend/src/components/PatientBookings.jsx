@@ -1007,11 +1007,11 @@ function BookingDetails({
             <FileText size={14} className="text-emerald-700" /> Prescription
           </button>
 
-          {booking.meetLink &&
+          {(booking.meetLink || booking.consultationType === 'ONLINE') &&
             effectiveStatus !== 'CANCELLED' &&
             effectiveStatus !== 'COMPLETED' && (
               <a
-                href={booking.meetLink}
+                href={booking.meetLink && !booking.meetLink.includes('meet.google.com/abc-') ? booking.meetLink : 'https://meet.google.com/new'}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 rounded-xl bg-[linear-gradient(135deg,#2b6ea3_0%,#4b88b6_100%)] px-3.5 py-2 text-xs font-bold text-white shadow-sm transition hover:brightness-105"
