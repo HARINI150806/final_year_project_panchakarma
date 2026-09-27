@@ -1,9 +1,11 @@
 import { Leaf } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import LanguageTranslator from './LanguageTranslator';
 
 export default function AuthLayout({ title, subtitle, children, footerText, footerLink, footerLabel, maxWidth = 'max-w-[460px]' }) {
   return (
     <div className="bg-brand-canvas fixed inset-0 overflow-hidden font-body text-forest">
+      <LanguageTranslator floating={true} />
       <div className="pointer-events-none absolute inset-0">
         <div className="ambient-orb left-[-5rem] top-[-4rem] h-72 w-72 bg-[#d7e7c8]" />
         <div className="ambient-orb bottom-[-6rem] right-[-2rem] h-[24rem] w-[24rem] bg-[#ecd4b6]" />

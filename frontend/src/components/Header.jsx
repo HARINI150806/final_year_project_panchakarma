@@ -3,6 +3,7 @@ import { Bell, CalendarPlus, ChevronDown, LogOut, Stethoscope, UserCircle2, User
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { roleMenus, patientNavItems } from '../data';
 import api from '../api';
+import LanguageTranslator from './LanguageTranslator';
 
 export default function Header({ auth, onLogout, onAdminCreateClick, activeTab, onTabChange }) {
   const [bookOpen, setBookOpen] = useState(false);
@@ -370,6 +371,9 @@ export default function Header({ auth, onLogout, onAdminCreateClick, activeTab, 
               </div>
             )}
           </div>
+
+          {/* Language Selector */}
+          <LanguageTranslator />
 
           {/* Profile avatar */}
           <div className="relative" ref={profileRef}>

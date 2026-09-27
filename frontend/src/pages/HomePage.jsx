@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import api from '../api';
+import LanguageTranslator from '../components/LanguageTranslator';
 import {
   Activity,
   ArrowRight,
@@ -404,6 +405,7 @@ export default function HomePage() {
           </nav>
 
           <div className="flex items-center gap-2.5">
+            <LanguageTranslator />
             <button
               type="button"
               onClick={() => setMobileOpen((c) => !c)}

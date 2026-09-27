@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Bell, LogOut, CheckCheck, AlertTriangle, Menu, X, ShieldCheck } from 'lucide-react';
 import api from '../api';
+import LanguageTranslator from './LanguageTranslator';
 
 export default function PharmacistHeader({
   auth,
@@ -92,6 +93,9 @@ export default function PharmacistHeader({
 
         {/* Right side actions */}
         <div className="flex items-center gap-2">
+          {/* Language Selector */}
+          <LanguageTranslator />
+
           {/* Notification Bell */}
           <div className="relative" ref={notifRef}>
             <button

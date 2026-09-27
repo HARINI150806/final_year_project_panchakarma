@@ -173,7 +173,6 @@ function App() {
         <Route path="/unauthorized" element={<div>Unauthorized Access</div>} />
       </Routes>
       {auth && auth.role?.toLowerCase() === 'patient' && <FloatingChatbot auth={auth} />}
-      <LanguageTranslator />
     </>
   );
 }
