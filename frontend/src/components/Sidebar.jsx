@@ -114,12 +114,10 @@ export default function Sidebar({
           {/* Brand Logo Header */}
           {!isCollapsed || isMobile ? (
             <div className="flex items-center gap-3 px-2 pt-1">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#1F4D3A] text-white shadow-xs">
-                <Leaf size={20} />
-              </div>
+              <img src="/logo.jpg" alt="PanchAI Logo" decoding="async" className="h-10 w-10 shrink-0 rounded-full object-contain border border-emerald-900/10 shadow-xs bg-white" />
               <div className="min-w-0">
                 <p className="text-[10px] font-extrabold uppercase tracking-widest text-emerald-900/50 leading-none">
-                  Panchakarma
+                  PanchAI
                 </p>
                 <p className="text-sm font-extrabold text-[#193322] leading-tight mt-0.5">
                   Care Center
@@ -127,9 +125,7 @@ export default function Sidebar({
               </div>
             </div>
           ) : (
-            <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-[#1F4D3A] text-white shadow-xs">
-              <Leaf size={22} />
-            </div>
+            <img src="/logo.jpg" alt="PanchAI Logo" decoding="async" className="mx-auto h-11 w-11 rounded-full object-contain border border-emerald-900/10 shadow-xs bg-white" />
           )}
 
           {/* Navigation Items */}

@@ -88,12 +88,12 @@ export default function LanguageTranslator() {
       />
 
       {/* Luxury Floating Custom Language Selector Pill */}
-      <div className="fixed bottom-5 left-5 z-[9999] font-sans">
+      <div className="fixed bottom-4 left-4 sm:bottom-5 sm:left-5 z-[9999] font-sans">
         <div className="relative">
           <button
             type="button"
             onClick={() => setIsOpen(!isOpen)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-emerald-900 text-amber-200 border border-amber-400/50 shadow-2xl backdrop-blur-md hover:bg-emerald-800 transition-all duration-200 text-xs sm:text-sm font-medium"
+            className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-full bg-emerald-900 text-amber-200 border border-amber-400/50 shadow-2xl backdrop-blur-md hover:bg-emerald-800 transition-all duration-200 text-xs sm:text-sm font-medium"
             title="Translate Website Language"
           >
             <Globe className="w-4 h-4 text-amber-400 shrink-0" />

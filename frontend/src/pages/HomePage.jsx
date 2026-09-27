@@ -371,12 +371,16 @@ export default function HomePage() {
       <header className="sticky top-0 z-50 border-b border-white/40 bg-[#f8f2e7]/90 backdrop-blur-xl transition-all duration-300">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3.5 lg:px-8">
           <Link to="/" className="group flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,#2e5332_0%,#548048_100%)] text-white shadow-[0_12px_24px_rgba(46,83,50,0.25)] transition duration-300 group-hover:scale-105">
-              <Sparkles size={20} className="animate-pulse" />
-            </div>
-            <div>
-              <p className="font-display text-lg font-bold leading-tight text-forest tracking-tight">Panchakarma Care</p>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8a6138]">Authentic Ayurveda Platform</p>
+            <img 
+              src="/logo.jpg" 
+              alt="PanchAI Logo" 
+              decoding="async"
+              loading="eager"
+              className="h-11 w-auto max-w-[130px] sm:max-w-[160px] object-contain rounded-xl shadow-sm border border-emerald-900/10 transition duration-300 group-hover:scale-105" 
+            />
+            <div className="hidden sm:block">
+              <p className="font-display text-lg font-bold leading-tight text-forest tracking-tight">PanchAI</p>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8a6138]">AI Powered Panchakarma</p>
             </div>
           </Link>
 

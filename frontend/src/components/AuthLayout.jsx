@@ -14,11 +14,9 @@ export default function AuthLayout({ title, subtitle, children, footerText, foot
         <section className="hidden lg:flex lg:items-center motion-fade-in-up">
           <div className="relative max-w-3xl px-2 text-forest xl:px-4">
             <div className="inline-flex items-center gap-3 rounded-full border border-[#cfe0c2] bg-white/65 px-4 py-2 backdrop-blur-sm">
-              <div className="rounded-full bg-[#e7f2e1] p-2 text-sage">
-                <Leaf size={18} />
-              </div>
+              <img src="/logo.jpg" alt="PanchAI Logo" decoding="async" className="h-8 w-8 rounded-full object-contain bg-white border border-emerald-900/10" />
               <span className="font-display text-sm font-semibold uppercase tracking-[0.18em] text-forest/70">
-                Panchakarma Management
+                PanchAI Management
               </span>
             </div>
 
@@ -50,9 +48,12 @@ export default function AuthLayout({ title, subtitle, children, footerText, foot
         </section>
 
         <section className={`auth-card panel-frost motion-fade-in-up w-full ${maxWidth} justify-self-end rounded-[2.2rem] p-4 md:p-4.5`}>
-          <div className="mb-3">
-            <h2 className="font-display text-2xl font-semibold leading-tight text-forest">{title}</h2>
-            <p className="mt-1.5 text-sm leading-6 text-forest/70">{subtitle}</p>
+          <div className="mb-3 flex items-center justify-between">
+            <div>
+              <h2 className="font-display text-2xl font-semibold leading-tight text-forest">{title}</h2>
+              <p className="mt-1.5 text-sm leading-6 text-forest/70">{subtitle}</p>
+            </div>
+            <img src="/logo.jpg" alt="PanchAI Logo" decoding="async" className="h-10 w-10 shrink-0 rounded-xl object-contain shadow-xs border border-emerald-900/10 bg-white" />
           </div>
           {children}
           <p className="mt-4 text-center text-sm text-forest/70">
