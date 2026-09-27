@@ -29,6 +29,9 @@ public class RecoveryTrackingServiceImpl implements RecoveryTrackingService {
     private final PatientRepository patientRepository;
     private final RestTemplate restTemplate = new RestTemplate();
 
+    @org.springframework.beans.factory.annotation.Value("${rag.service.base-url:https://panchakarma-rag-service.onrender.com}")
+    private String ragServiceBaseUrl;
+
     @Override
     @Transactional
     public RecoverySummaryDto saveAssessment(SaveRecoveryAssessmentRequest request, String therapistEmail) {
@@ -194,7 +197,8 @@ public class RecoveryTrackingServiceImpl implements RecoveryTrackingService {
                 reqBody.put("overall_condition", currentTracking.getOverallCondition());
                 reqBody.put("current_recovery_percentage", curRecovery);
 
-                ResponseEntity<Map> resp = restTemplate.postForEntity("http://localhost:8000/api/predict-recovery", reqBody, Map.class);
+                String targetPredictUrl = ragServiceBaseUrl != null ? ragServiceBaseUrl + "/api/predict-recovery" : "https://panchakarma-rag-service.onrender.com/api/predict-recovery";
+                ResponseEntity<Map> resp = restTemplate.postForEntity(targetPredictUrl, reqBody, Map.class);
                 if (resp.getStatusCode().is2xxSuccessful() && resp.getBody() != null) {
                     Map<String, Object> resMap = resp.getBody();
                     if (resMap.containsKey("predicted_final_recovery")) {

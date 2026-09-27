@@ -55,7 +55,12 @@ google:
 
 gemini:
   api-key: ${GEMINI_API_KEY:AQ.Ab8RN6LYPiA1XN7Nu4MUdK_xLYq1RqopY8rHSlYlZMFFyHyWBg}
-  api-url: https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent
+  api-url: ${GEMINI_API_URL:https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent}
+
+rag:
+  service:
+    url: ${RAG_SERVICE_URL:https://panchakarma-rag-service.onrender.com/api/chat}
+    base-url: ${RAG_SERVICE_BASE_URL:https://panchakarma-rag-service.onrender.com}
 
 razorpay:
   key-id: ${RAZORPAY_KEY_ID:rzp_test_TXz1enyiGNTTeK}

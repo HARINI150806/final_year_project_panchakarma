@@ -76,20 +76,26 @@ public class GeminiService {
             headers.setContentType(MediaType.APPLICATION_JSON);
 
             HttpEntity<String> request = new HttpEntity<>(requestBody, headers);
-            String urlWithKey = apiUrl + "?key=" + apiKey;
+            String targetUrl = apiUrl != null && !apiUrl.isBlank()
+                    ? apiUrl
+                    : "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
 
+            if (targetUrl.contains("gemini-2.5-flash")) {
+                targetUrl = targetUrl.replace("gemini-2.5-flash", "gemini-1.5-flash");
+            }
+
+            String urlWithKey = targetUrl + "?key=" + apiKey;
             ResponseEntity<String> response = restTemplate.postForEntity(urlWithKey, request, String.class);
 
             if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
                 JsonNode root = objectMapper.readTree(response.getBody());
-                return root
-                        .path("candidates").get(0)
-                        .path("content")
-                        .path("parts").get(0)
-                        .path("text").asText();
+                JsonNode candidateText = root.path("candidates").get(0).path("content").path("parts").get(0).path("text");
+                if (!candidateText.isMissingNode() && !candidateText.asText().isBlank()) {
+                    return candidateText.asText();
+                }
             }
         } catch (Exception e) {
-            log.error("Gemini Chatbot API call failed: {}", e.getMessage());
+            log.error("Gemini Chatbot API call failed for URL {}: {}", apiUrl, e.getMessage());
         }
 
         return "I apologize, but I encountered an error while processing your request. Please try again or consult your doctor.";
