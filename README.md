@@ -69,3 +69,6 @@ VITE_API_URL=http://localhost:8080/api
 - Recovery records and charts backed by database data
 - AI recovery prediction API integration with Python Flask or FastAPI
 - Reports, notifications, and feedback management
+
+## Workflow Summary
+Login → Patient Registration → Consultation → Therapy Recommendation → Therapy Plan → Therapy Session → Recovery Assessment → AI Recovery Prediction → Prescription & Pharmacy → AI Chatbot Assistance → Treatment Monitoring → Treatment Completion
