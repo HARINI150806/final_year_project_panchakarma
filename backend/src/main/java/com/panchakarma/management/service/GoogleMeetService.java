@@ -40,13 +40,7 @@ public class GoogleMeetService {
      * 3. A mock meet link as a fallback.
      */
     public GoogleMeetResponse scheduleMeeting(GoogleMeetRequest request) {
-        // 1. Check if a static default meet link is configured
-        if (defaultLink != null && !defaultLink.trim().isEmpty()) {
-            System.out.println("Using static default Google Meet link: " + defaultLink);
-            return new GoogleMeetResponse(defaultLink.trim(), UUID.randomUUID().toString());
-        }
-
-        // 2. Try to use Google Calendar API to create a real meeting
+        // 1. Try to use Google Calendar API to create a real meeting first
         if (refreshToken != null && !refreshToken.trim().isEmpty() &&
             clientId != null && !clientId.trim().isEmpty() &&
             clientSecret != null && !clientSecret.trim().isEmpty()) {
@@ -103,15 +97,16 @@ public class GoogleMeetService {
                 e.printStackTrace();
             }
         } else {
-            System.out.println("Google Calendar API credentials/refresh token not fully configured. Using mock link.");
+            System.out.println("Google Calendar API credentials/refresh token not fully configured. Using fallback.");
         }
 
-        // 3. Fallback to mock meet link
-        String meetId = generateMockMeetId();
-        String meetLink = "https://meet.google.com/" + meetId;
+        // 2. Fallback to default Google Meet link if Calendar API is not available or fails
+        String meetLink = (defaultLink != null && !defaultLink.trim().isEmpty())
+                ? defaultLink.trim()
+                : "https://meet.google.com/new";
         String eventId = UUID.randomUUID().toString();
         
-        System.out.println("Generated mock Google Meet link (will show invalid code on Google): " + meetLink);
+        System.out.println("Using working Google Meet link fallback: " + meetLink);
         return new GoogleMeetResponse(meetLink, eventId);
     }
 

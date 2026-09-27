@@ -126,13 +126,7 @@ public class TherapistController {
             return ResponseEntity.ok(availabilityService.getAllTherapistsAvailabilityOnDate(localDate));
         }
 
-        // Just fetch the next 30 days slots and filter for requested date
-        List<TherapistAvailability> allSlots = availabilityService.getTherapistAvailability(therapistId);
-        List<TherapistAvailability> filtered = allSlots.stream()
-                .filter(slot -> slot.getAvailableDate().equals(localDate))
-                .collect(Collectors.toList());
-
-        return ResponseEntity.ok(filtered);
+        return ResponseEntity.ok(availabilityService.getTherapistAvailabilityOnDate(therapistId, localDate));
     }
 
     @GetMapping("/availability")
