@@ -16,6 +16,14 @@ export default function DashboardLayout({
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
 
+  useEffect(() => {
+    function handleToggleEvent() {
+      setIsMobileDrawerOpen((prev) => !prev);
+    }
+    window.addEventListener('toggle-mobile-drawer', handleToggleEvent);
+    return () => window.removeEventListener('toggle-mobile-drawer', handleToggleEvent);
+  }, []);
+
   const handleTabSelect = (tabId) => {
     setIsMobileDrawerOpen(false);
     if (onTabChange) {

@@ -224,23 +224,22 @@ export default function Header({ auth, onLogout, onAdminCreateClick, activeTab, 
     <header className="relative z-20 w-full bg-[#f8f9f6]/95 border-b border-gray-200/50 backdrop-blur-md">
       <div className="mx-auto flex w-full items-center justify-between gap-3 px-4 py-3 sm:px-6">
         {/* Left Side: Hamburger & Greeting */}
-        <div className="flex items-center gap-2.5">
-          {onToggleMobileDrawer && (
-            <button
-              type="button"
-              onClick={onToggleMobileDrawer}
-              className="lg:hidden flex h-9 w-9 items-center justify-center rounded-xl bg-white border border-emerald-900/15 text-forest shadow-2xs hover:bg-emerald-50 active:scale-95 transition cursor-pointer"
-              title="Open Navigation Menu"
-              aria-label="Toggle navigation menu"
-            >
-              <Menu size={18} />
-            </button>
-          )}
+        <div className="flex items-center gap-2">
+          {/* Hamburger button for mobile */}
+          <button
+            type="button"
+            onClick={() => onToggleMobileDrawer ? onToggleMobileDrawer() : window.dispatchEvent(new CustomEvent('toggle-mobile-drawer'))}
+            className="lg:hidden flex h-9 w-9 items-center justify-center rounded-xl bg-white border border-emerald-900/15 text-forest shadow-2xs hover:bg-emerald-50 active:scale-95 transition cursor-pointer shrink-0"
+            title="Open Navigation Menu"
+            aria-label="Toggle navigation menu"
+          >
+            <Menu size={18} />
+          </button>
 
           {/* Brand logo shown on mobile (< lg) */}
-          <div className="flex items-center gap-2 lg:hidden">
+          <div className="flex items-center gap-1.5 lg:hidden shrink-0">
             <img src="/logo.jpg" alt="PanchAI" className="h-7 w-7 rounded-lg object-contain border border-emerald-900/10" />
-            <span className="font-bold text-sm text-[#193322]">PanchAI</span>
+            <span className="font-bold text-xs sm:text-sm text-[#193322]">PanchAI</span>
           </div>
 
           <div className="hidden items-center gap-3 lg:flex">
@@ -251,7 +250,7 @@ export default function Header({ auth, onLogout, onAdminCreateClick, activeTab, 
         </div>
 
         {/* Mobile Greeting */}
-        <div className="block lg:hidden text-xs font-medium text-forest/70">
+        <div className="hidden sm:block lg:hidden text-xs font-medium text-forest/70 truncate max-w-[130px]">
           Welcome, <span className="font-bold">{auth?.fullName}</span> ✨
         </div>
 
