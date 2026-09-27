@@ -194,7 +194,7 @@ export default function FullPageRecoveryPredictor({ consultation, onBack, onSave
       };
 
       const ragBaseUrl = import.meta.env.VITE_RAG_API_URL || (import.meta.env.PROD
-        ? ''
+        ? 'https://panchakarma-rag-service.onrender.com'
         : 'http://localhost:8000');
 
       const res = await fetch(`${ragBaseUrl}/api/predict-recovery`, {
