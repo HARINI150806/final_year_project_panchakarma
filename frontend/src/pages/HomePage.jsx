@@ -404,28 +404,28 @@ export default function HomePage() {
             ))}
           </nav>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <LanguageTranslator />
             <button
               type="button"
               onClick={() => setMobileOpen((c) => !c)}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-[#d8c2a2] bg-white/80 text-forest lg:hidden"
-              aria-label="Toggle navigation"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-[#d8c2a2] bg-white/80 text-forest lg:hidden cursor-pointer active:scale-95"
+              aria-label="Toggle navigation menu"
             >
               {mobileOpen ? <X size={20} /> : <Menu size={20} />}
             </button>
             <Link
               to="/login"
-              className="hidden rounded-2xl border border-[#d8c2a2] bg-white/90 px-4 py-2.5 text-sm font-semibold text-forest shadow-sm transition duration-200 hover:bg-white hover:shadow-md sm:inline-flex"
+              className="hidden rounded-2xl border border-[#d8c2a2] bg-white/90 px-3.5 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold text-forest shadow-sm transition duration-200 hover:bg-white hover:shadow-md md:inline-flex whitespace-nowrap shrink-0"
             >
               Sign In
             </Link>
             <Link
               to="/register"
-              className="inline-flex items-center gap-2 rounded-2xl bg-[linear-gradient(135deg,#2e5332_0%,#4e7a43_100%)] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(46,83,50,0.28)] transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_16px_36px_rgba(46,83,50,0.35)]"
+              className="inline-flex items-center gap-1.5 sm:gap-2 rounded-2xl bg-[linear-gradient(135deg,#2e5332_0%,#4e7a43_100%)] px-3.5 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold text-white shadow-[0_12px_28px_rgba(46,83,50,0.28)] transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_16px_36px_rgba(46,83,50,0.35)] whitespace-nowrap shrink-0"
             >
-              Book Consultation
-              <ArrowRight size={16} />
+              <span>Book Consultation</span>
+              <ArrowRight size={15} />
             </Link>
           </div>
         </div>

@@ -37,10 +37,9 @@ public class AuthController {
         if (email.isBlank()) {
             throw new IllegalArgumentException("Email is required");
         }
-        String code = authService.sendVerificationCode(email);
+        authService.sendVerificationCode(email);
         return ResponseEntity.ok(Map.of(
-                "message", "Verification code sent to " + email + ". (OTP: " + code + ")",
-                "otpCode", code));
+                "message", "Verification code sent successfully to " + email + ". Please check your email inbox."));
     }
 
     @PostMapping("/auth/register")
