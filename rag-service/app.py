@@ -19,15 +19,6 @@ chatbot_instance = None
 async def lifespan(app: FastAPI):
     global chatbot_instance
     logger.info("Initializing Ayurveda RAG FastAPI Service...")
-    
-    # Check if vector index exists; if not, build it automatically
-    if not FAISS_INDEX_PATH.exists():
-        logger.info("FAISS index not found. Building RAG Knowledge Base...")
-        try:
-            build_knowledge_base()
-        except Exception as e:
-            logger.error(f"Error building knowledge base on startup: {e}")
-            
     chatbot_instance = AyurvedaChatbot()
     logger.info("Ayurveda RAG Service Startup Complete.")
     yield

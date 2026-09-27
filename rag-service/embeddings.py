@@ -11,14 +11,6 @@ class EmbeddingManager:
         self.gemini_client = None
         self.st_model = None
 
-        self.use_gemini = False
-        try:
-            from sentence_transformers import SentenceTransformer
-            logger.info("Loading sentence-transformers/all-MiniLM-L6-v2...")
-            self.st_model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
-        except Exception as e:
-            logger.error(f"Failed to load SentenceTransformer: {e}")
-
     def embed_texts(self, texts: List[str]) -> np.ndarray:
         if not texts:
             return np.array([], dtype=np.float32)
