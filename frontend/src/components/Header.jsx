@@ -239,7 +239,6 @@ export default function Header({ auth, onLogout, onAdminCreateClick, activeTab, 
           {/* Brand logo shown on mobile (< lg) */}
           <div className="flex items-center gap-1.5 lg:hidden shrink-0">
             <img src="/logo.jpg" alt="PanchAI" className="h-7 w-7 rounded-lg object-contain border border-emerald-900/10" />
-            <span className="font-bold text-xs sm:text-sm text-[#193322]">PanchAI</span>
           </div>
 
           <div className="hidden items-center gap-3 lg:flex">
@@ -249,24 +248,17 @@ export default function Header({ auth, onLogout, onAdminCreateClick, activeTab, 
           </div>
         </div>
 
-        {/* Mobile Greeting */}
-        <div className="hidden sm:block lg:hidden text-xs font-medium text-forest/70 truncate max-w-[130px]">
-          Welcome, <span className="font-bold">{auth?.fullName}</span> ✨
-        </div>
-
         {/* Right side actions */}
-        <div className="flex items-center gap-2">
-
-
+        <div className="flex items-center gap-1.5 sm:gap-2">
 
           {auth?.role === 'ADMIN' ? (
             <button
               id="btn-create-therapist"
               onClick={onAdminCreateClick}
-              className="flex items-center gap-2 rounded-2xl bg-[linear-gradient(135deg,#355c39_0%,#5a8553_100%)] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_8px_24px_rgba(62,109,67,0.28)] transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_30px_rgba(62,109,67,0.35)] active:translate-y-0"
+              className="hidden md:flex items-center gap-2 rounded-2xl bg-[linear-gradient(135deg,#355c39_0%,#5a8553_100%)] px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition duration-200 hover:-translate-y-0.5 active:translate-y-0 shrink-0 cursor-pointer"
             >
-              <UserPlus size={16} />
-              <span className="hidden sm:inline">Create Therapist</span>
+              <UserPlus size={15} />
+              <span>Create Therapist</span>
             </button>
           ) : auth?.role === 'PATIENT' ? (
             <div className="relative" ref={dropRef}>

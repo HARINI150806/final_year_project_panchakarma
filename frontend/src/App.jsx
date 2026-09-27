@@ -27,8 +27,10 @@ function App() {
   useEffect(() => {
     if (auth) {
       api.get('/auth/verify')
-        .catch(() => {
-          logout();
+        .catch((err) => {
+          if (err.response?.status === 401 || err.response?.status === 403) {
+            logout();
+          }
         });
     }
   }, []);
