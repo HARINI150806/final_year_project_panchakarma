@@ -6,7 +6,6 @@ import io.jsonwebtoken.security.Keys;
 import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.Date;
-import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -15,7 +14,6 @@ public class JwtService {
 
     private final Key signingKey;
     private final long expirationMs;
-    private final String serverRunId = UUID.randomUUID().toString();
 
     public JwtService(
             @Value("${app.jwt.secret}") String secret,
@@ -30,7 +28,6 @@ public class JwtService {
         return Jwts.builder()
                 .subject(subject)
                 .claim("role", role)
-                .claim("serverRunId", serverRunId)
                 .issuedAt(now)
                 .expiration(new Date(now.getTime() + expirationMs))
                 .signWith(signingKey)
@@ -42,11 +39,13 @@ public class JwtService {
     }
 
     public boolean isTokenValid(String token, String username) {
-        Claims claims = parseClaims(token);
-        String tokenServerRunId = claims.get("serverRunId", String.class);
-        return username.equals(claims.getSubject()) 
-                && claims.getExpiration().after(new Date()) 
-                && serverRunId.equals(tokenServerRunId);
+        try {
+            Claims claims = parseClaims(token);
+            return username.equalsIgnoreCase(claims.getSubject()) 
+                    && claims.getExpiration().after(new Date());
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     private Claims parseClaims(String token) {

@@ -113,7 +113,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/recovery", "/api/recovery/**")
                         .hasAnyAuthority("ROLE_PATIENT", "ROLE_THERAPIST", "ROLE_ADMIN", "PATIENT", "THERAPIST",
                                 "ADMIN")
-                        .requestMatchers("/api/followups/**", "/api/medical-documents/**", "/api/ayurveda-ai/**")
+                        .requestMatchers("/api/followups/**", "/api/medical-documents/**", "/api/ayurveda-ai/**", "/api/notifications", "/api/notifications/**")
                         .authenticated()
                         .anyRequest().authenticated())
                 .authenticationProvider(authenticationProvider())
