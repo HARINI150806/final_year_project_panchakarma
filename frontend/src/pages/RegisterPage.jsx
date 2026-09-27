@@ -53,11 +53,8 @@ export default function RegisterPage({ onRegister }) {
       setOtpSent(true);
       setToast({
         type: 'success',
-        message: response.data.message || 'Verification code sent to your email!'
+        message: response.data.message || 'Verification code sent to your email! Please check your inbox.'
       });
-      if (response.data?.code) {
-        setFormData((prev) => ({ ...prev, otpCode: response.data.code }));
-      }
     } catch (requestError) {
       setToast({
         type: 'error',

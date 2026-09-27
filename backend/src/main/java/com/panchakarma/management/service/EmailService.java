@@ -363,16 +363,15 @@ public class EmailService {
                 mailSender.send(message);
                 log.info("Verification email successfully sent to {}", recipientEmail);
             } catch (Exception e) {
-                log.warn("Could not send email via SMTP ({}). Running in local fallback mode.", e.getMessage());
-                log.info("📧 [LOCAL DEV] Registration OTP code for [{}]: {}", recipientEmail, code);
+                log.error("Failed to send verification email via SMTP to {}. Error: {}", recipientEmail, e.getMessage(), e);
+                log.info("📧 [FALLBACK] Registration OTP code for [{}]: {}", recipientEmail, code);
             }
         });
     }
 
     private void setSender(SimpleMailMessage message) {
-        if (fromEmail != null && !fromEmail.isBlank()) {
-            message.setFrom(fromEmail.trim());
-        }
+        String sender = (fromEmail != null && !fromEmail.isBlank()) ? fromEmail.trim() : "1586harini@gmail.com";
+        message.setFrom(sender);
     }
 
     /** Notify senior therapist that a new AI suggestion is waiting for review */
