@@ -7,6 +7,8 @@ import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
+import java.util.concurrent.CompletableFuture;
+
 @Service
 public class EmailService {
 
@@ -334,35 +336,37 @@ public class EmailService {
     }
 
     public void sendVerificationCodeEmail(String recipientEmail, String code) {
-        String subject = "Email Verification Code - Panchakarma Account Registration";
-        String body = String.format("""
-            Dear User,
-            
-            Thank you for registering with the Panchakarma Management System.
-            
-            Your email verification code is:
-            %s
-            
-            This code will expire in 10 minutes. Please enter this code in the registration page to complete your signup.
-            
-            Warm regards,
-            Panchakarma Management Team
-            """, code);
+        CompletableFuture.runAsync(() -> {
+            String subject = "Email Verification Code - Panchakarma Account Registration";
+            String body = String.format("""
+                Dear User,
+                
+                Thank you for registering with the Panchakarma Management System.
+                
+                Your email verification code is:
+                %s
+                
+                This code will expire in 10 minutes. Please enter this code in the registration page to complete your signup.
+                
+                Warm regards,
+                Panchakarma Management Team
+                """, code);
 
-        log.info("Sending registration verification email to: {}", recipientEmail);
+            log.info("Sending registration verification email to: {}", recipientEmail);
 
-        try {
-            SimpleMailMessage message = new SimpleMailMessage();
-            setSender(message);
-            message.setTo(recipientEmail);
-            message.setSubject(subject);
-            message.setText(body);
-            mailSender.send(message);
-            log.info("Verification email successfully sent to {}", recipientEmail);
-        } catch (Exception e) {
-            log.warn("Could not send email via SMTP ({}). Running in local fallback mode.", e.getMessage());
-            log.info("📧 [LOCAL DEV] Registration OTP code for [{}]: {}", recipientEmail, code);
-        }
+            try {
+                SimpleMailMessage message = new SimpleMailMessage();
+                setSender(message);
+                message.setTo(recipientEmail);
+                message.setSubject(subject);
+                message.setText(body);
+                mailSender.send(message);
+                log.info("Verification email successfully sent to {}", recipientEmail);
+            } catch (Exception e) {
+                log.warn("Could not send email via SMTP ({}). Running in local fallback mode.", e.getMessage());
+                log.info("📧 [LOCAL DEV] Registration OTP code for [{}]: {}", recipientEmail, code);
+            }
+        });
     }
 
     private void setSender(SimpleMailMessage message) {
@@ -597,20 +601,22 @@ public class EmailService {
 
     /** Internal helper for plain-text emails */
     public void sendSimpleEmail(String to, String subject, String body) {
-        log.info("Sending email to: {} | Subject: {}", to, subject);
-        try {
-            SimpleMailMessage message = new SimpleMailMessage();
-            if (fromEmail != null && !fromEmail.isBlank()) {
-                message.setFrom(fromEmail);
+        CompletableFuture.runAsync(() -> {
+            log.info("Sending email to: {} | Subject: {}", to, subject);
+            try {
+                SimpleMailMessage message = new SimpleMailMessage();
+                if (fromEmail != null && !fromEmail.isBlank()) {
+                    message.setFrom(fromEmail);
+                }
+                message.setTo(to);
+                message.setSubject(subject);
+                message.setText(body);
+                mailSender.send(message);
+                log.info("Email sent successfully to {}", to);
+            } catch (Exception e) {
+                log.error("Failed to send email to {}. Error: {}", to, e.getMessage());
             }
-            message.setTo(to);
-            message.setSubject(subject);
-            message.setText(body);
-            mailSender.send(message);
-            log.info("Email sent successfully to {}", to);
-        } catch (Exception e) {
-            log.error("Failed to send email to {}. Error: {}", to, e.getMessage());
-        }
+        });
     }
 
     public void sendLowStockAlertEmail(String recipientEmail, String medicineName, int currentStock, int minimumThreshold, String supplierName) {

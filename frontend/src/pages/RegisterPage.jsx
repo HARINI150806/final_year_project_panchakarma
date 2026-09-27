@@ -55,6 +55,9 @@ export default function RegisterPage({ onRegister }) {
         type: 'success',
         message: response.data.message || 'Verification code sent to your email!'
       });
+      if (response.data?.code) {
+        setFormData((prev) => ({ ...prev, otpCode: response.data.code }));
+      }
     } catch (requestError) {
       setToast({
         type: 'error',
