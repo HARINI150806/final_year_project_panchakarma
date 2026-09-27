@@ -95,6 +95,7 @@ public class DataSourceConfig {
         config.setPassword(password);
         config.setDriverClassName(driverClassName);
         config.setConnectionTimeout(timeoutMs);
+        config.setInitializationFailTimeout(-1);
         config.setMaximumPoolSize(10);
         return new HikariDataSource(config);
     }
