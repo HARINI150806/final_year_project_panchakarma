@@ -86,9 +86,14 @@ VITE_API_URL=http://localhost:8080/api
 ```
 
 ## Suggested next modules
+Telemedicine and remote patient monitoring
 
-- Appointment booking with automatic therapist and room scheduling
-- Dosha assessment questionnaire and score engine
-- Recovery records and charts backed by database data
-- AI recovery prediction API integration with Python Flask or FastAPI
-- Reports, notifications, and feedback management
+Mobile application with push notifications
+
+Voice-enabled AI assistant for Ayurveda guidance
+
+Wearable health sensor integration
+
+Advanced predictive analytics for treatment planning
+
+Cloud deployment with multi-clinic support
