@@ -97,3 +97,6 @@ Wearable health sensor integration
 Advanced predictive analytics for treatment planning
 
 Cloud deployment with multi-clinic support
+
+Workflow Summary
+Login → Patient Registration → Consultation → Therapy Recommendation → Therapy Plan → Therapy Session → Recovery Assessment → AI Recovery Prediction → Prescription & Pharmacy → AI Chatbot Assistance → Treatment Monitoring → Treatment Completion
